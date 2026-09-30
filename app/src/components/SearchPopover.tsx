@@ -18,7 +18,7 @@ import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { Skeleton } from "@/components/ui/skeletons";
 import { formatIndex, formatPct } from "@/lib/format";
 import { CATEGORIES } from "@/lib/aura-data";
-import { handleSearchOptions, handlesQueryOptions, peopleSearchOptions, categoryFromCode } from "@/queries/handles";
+import { handleSearchOptions, handlesQueryOptions, peopleSearchOptions } from "@/queries/handles";
 
 /** Live index/change per handle — one cached query, no refetch per keystroke. */
 function useHandlesData() {
@@ -65,7 +65,6 @@ export function SearchPopover({
           symbol: h.symbol ?? "?",
           name: h.name ?? h.id,
           color: "hsl(var(--primary))",
-          category: categoryFromCode(h.category),
           index: Number(h.aura) / 100,
           change: Number(h.auraDelta) / 100,
         },

@@ -24,7 +24,7 @@ const HANDLE: AuraHandle = {
   sources: [],
   aura: 3040,
   graduated: true,
-  category: 100_001_001,
+  categories: [],
   windowMinutes: 15,
 };
 
@@ -75,6 +75,8 @@ function build(opts: {
     { publishWindowOpened: () => {}, publishWindowResolved: () => {} } as never,
     { points: async () => [{ value: 30 }, { value: 31 }] } as never,
     redis as never,
+    // No cadence configured in tests → the timing warning is inert.
+    { get: () => undefined } as never,
   );
   return { engine, calls, flags };
 }
@@ -130,17 +132,5 @@ describe("WindowEngineService", () => {
   it("surfaces a failed open so the slot job retries (no silent windowless slot)", async () => {
     const { engine } = build({ windows: [], openWindow: async () => false });
     await expect(engine.tick(HANDLE, NOW)).rejects.toThrow(/openWindow failed/);
-  });
-
-  it("waits for outcome labels instead of settling a grouped window against the wrong order", async () => {
-    const grouped: AuraHandle = { ...HANDLE, category: 100_001_002 };
-    const { engine, calls } = build({
-      oracles: { [PREV]: ORACLE },
-      open: { [ORACLE.toLowerCase()]: false },
-      windows: [], // no labels indexed
-      openWindow: async () => false,
-    });
-    await engine.tick(grouped, NOW).catch(() => undefined);
-    expect(calls).not.toContain("settle");
   });
 });

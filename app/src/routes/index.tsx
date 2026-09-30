@@ -26,11 +26,11 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Aura — Trade the aura index" },
+      { title: "Aura — Everything has an $AURA" },
       {
         name: "description",
         content:
-          "Spot it early. Trade the aura index on the names the internet can't stop talking about.",
+          "Spot it early. Trade it first. Aura markets on the names the internet can't stop talking about.",
       },
     ],
   }),
@@ -50,24 +50,27 @@ const ORDER_BY: Record<Sort, { field: string; dir: "asc" | "desc" }> = {
 
 /**
  * The index is the market grid. Sorting and paging happen in the subgraph query
- * (`orderBy` / `first` / `skip`); category chips filter the loaded pages in
- * place because a handle's category is a CODE whose family prefix GraphQL can't
- * match with a plain `where` equality.
+ * (`orderBy` / `first` / `skip`); category chips filter server-side on the
+ * subgraph's list field `categoryIds` (`_contains` for a [String!]! list), with
+ * a client-side fallback when that field isn't deployed yet.
  */
 function ExplorePage() {
   const [cat, setCat] = useState<CategoryId | "all">("all");
   const [sort, setSort] = useState<Sort>("Highest aura");
   const [stuck, setStuck] = useState(false);
   const order = ORDER_BY[sort];
-  // Category filtering happens AT THE API (`where.categoryId`, a family id the
-  // subgraph derives from the numeric code). Until that field is deployed the
-  // query errors — then we fall back to the unfiltered list + a local filter.
+  // Category filtering happens AT THE API (`where.categoryIds_contains`, a list
+  // filter). Until that field is deployed the query errors — then we fall back
+  // to the unfiltered list + a local filter.
   const catQuery = useInfiniteQuery(
     subgraphInfiniteOptions<SubgraphHandle>({
       queryKey: ["explore", sort, cat],
       entity: "handles",
       fields: HANDLE_CARD_FIELDS,
-      where: cat === "all" ? "where: { active: true }" : `where: { active: true, categoryId: "${cat}" }`,
+      where:
+        cat === "all"
+          ? "where: { active: true }"
+          : `where: { active: true, categoryIds_contains: ["${cat}"] }`,
       orderBy: order.field,
       orderDirection: order.dir,
       limit: 24,
@@ -100,10 +103,10 @@ function ExplorePage() {
   }, []);
 
   const assets = useMemo(() => flatSubgraphPages(query.data?.pages).map(toLiveAsset), [query.data]);
-  // The API already filtered when `categoryId` is deployed; the local filter is
+  // The API already filtered when `categoryIds` is deployed; the local filter is
   // a no-op then and the fallback path when it isn't.
   const list = useMemo(
-    () => (cat === "all" ? assets : assets.filter((a) => a.category === cat)),
+    () => (cat === "all" ? assets : assets.filter((a) => a.categories.includes(cat))),
     [assets, cat],
   );
 
@@ -111,7 +114,9 @@ function ExplorePage() {
     <FeedLayout fluid sidebar={<ExploreSidebar />}>
       {/* Hero — one line, one action, one search */}
       <div className="px-4 pt-10 pb-6 text-center sm:px-6">
-        <h1 className="text-[28px] font-bold tracking-tight sm:text-4xl">Trade the aura index</h1>
+        <h1 className="text-[28px] font-bold tracking-tight sm:text-4xl">
+          Everything has an $AURA
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">Spot it early. Trade it first.</p>
         <div className="mx-auto mt-5 flex w-full max-w-md items-center justify-center gap-2">
           <FeedSearch />

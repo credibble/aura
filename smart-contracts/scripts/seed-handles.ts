@@ -3,130 +3,234 @@ import { readFileSync, writeFileSync } from "node:fs";
 import type { Contract } from "ethers";
 
 /**
- * Seed the demo market — the handles the explore grid, leaderboard, feeds and
- * trade pages are built around.
+ * Seed the demo market — 10 handles, each with SOURCES THAT ARE ABOUT IT.
  *
  *   PRIVATE_KEY=$PK ORACLE_PRIVATE_KEY=$PK npx hardhat run scripts/seed-handles.ts --network monadTestnet
  *
- * Idempotent: a handle whose `HandleFactory.handleOf` is already deployed is
- * skipped (its aura/graduation are re-asserted), so re-running after a partial
- * failure costs only the missing pieces. Each seeded handle gets:
- *   1. `MarketRegistry.registerHandle` (window length + grouped flag)
- *   2. `HandleFactory.createHandle` with metadata JSON carrying `photo`
- *   3. `setAuraUpdater` → the relayer, then `updateAura` + `setGraduated`
- *   4. its first window, opened and funded, so it is tradeable immediately.
+ * SOURCING RULE (the point of this list): a handle's sources must be *scoped to
+ * that handle*, never a general outlet desk. "@ronaldo" reads an exact-phrase
+ * feed for "Cristiano Ronaldo", not a football section that mostly talks about
+ * other players. Every feed below was verified to return 90+ items about its
+ * handle, and each carries `topic` (drives the AI's <<MENTION>> flag) and
+ * `context` (tells the model what the outlet is and how to read it).
  *
- * `photo` URLs are real, openly-licensed Wikimedia images (verified 200 +
- * image/* on 2026-09-30); `imageFit` keeps transparent logos uncropped.
+ * Idempotent: an existing handle is skipped and its metadata/aura/sources are
+ * refreshed; `addSource` appends only sources it doesn't already have.
  */
 
 const ONE = 10n ** 18n;
 
-/** Category codes: `{cat}_{sub}_{format}`, format 1 = binary, 2 = multi-outcome. */
+/** Category codes: `{cat}_{sub}_{format}`, format 1 = binary (all markets now). */
 const CAT = {
   crypto: 1_000_000,
   ai: 2_000_000,
   people: 3_000_000,
-  brands: 4_000_000,
   memes: 5_000_000,
   music: 6_000_000,
   tech: 7_000_000,
   football: 100_001_000,
 };
 
+/** A source config, exactly the shape the oracle's adapters read. */
+type SourceSeed = {
+  /** Adapter key: "rss" (any feed), "x" (prestige-filtered search), "reddit". */
+  platform?: "rss" | "x" | "reddit";
+  /** Unique per (handle, source) — becomes the source id. */
+  outlet: string;
+  /** rss: the feed URL. */
+  feed?: string;
+  /** x / reddit: the subject to search for. */
+  query?: string;
+  /** reddit: restrict the search to a community. */
+  subreddit?: string;
+  /** x: minimum author followers (default 100k); reddit: minimum post score. */
+  minFollowers?: number;
+  minScore?: number;
+  label: string;
+  /** The string the AI flags as a mention of this handle. */
+  topic: string;
+  /** How the model should read this feed for this handle. */
+  context: string;
+};
+
+/**
+ * What high-reach accounts are saying — the anti-noise source. Requires
+ * `X_BEARER_TOKEN`; without it the source yields nothing (never invented data).
+ */
+function xTalk(label: string, query: string, minFollowers = 100_000): SourceSeed {
+  return {
+    platform: "x",
+    outlet: `x-${label}`,
+    query,
+    minFollowers,
+    label: `X · ${query}`,
+    topic: query.split(" ").pop()!.toLowerCase(),
+    context: `Posts about ${query} from accounts with ${minFollowers.toLocaleString()}+ followers (or verified). Reach is pre-filtered: score what these credible accounts report or argue, not the volume of replies.`,
+  };
+}
+
+/** Community chatter about the subject, engagement-floor applied. */
+function redditTalk(label: string, query: string, minScore = 50): SourceSeed {
+  return {
+    platform: "reddit",
+    outlet: `reddit-${label}`,
+    query,
+    minScore,
+    label: `Reddit · ${query}`,
+    topic: query.split(" ").pop()!.toLowerCase(),
+    context: `Reddit threads about ${query} with real traction (score ≥ ${minScore}). Community sentiment and eyewitness detail; weigh opinion down, concrete reports up.`,
+  };
+}
+
+/** Google News exact-phrase feed — one query, about one subject. */
+function gnews(query: string): string {
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(`"${query}" when:1d`)}&hl=en-US&gl=US&ceid=US:en`;
+}
+
 type Seed = {
   label: string;
   name: string;
   symbol: string;
-  category: number;
+  /** One or more `{cat}_{sub}_{format}` codes (a footballer is also a person). */
+  categories: number[];
   /** On-chain aura, 1e2 scale (3040 = 30.40). Capped at 10_000 by Handle. */
   aura: number;
   windowMinutes: number;
-  /** Multi-outcome window (grouped market) instead of a binary YES/NO. */
-  grouped?: boolean;
   photo: string;
   imageFit?: "cover" | "contain";
   summary: string;
+  sources: SourceSeed[];
 };
+
+/** The handle-scoped source set for a person/brand: one exact-phrase news feed. */
+function newsSource(label: string, query: string, what: string): SourceSeed {
+  return {
+    outlet: `gnews-${label}`,
+    feed: gnews(query),
+    label: `Google News · ${what}`,
+    topic: query.split(" ").pop()!.toLowerCase(),
+    context: `News articles matching the exact phrase "${query}" — score only what this says about ${what} (results, records, deals, injuries, controversies). Ignore pieces that merely mention ${what} in passing.`,
+  };
+}
 
 const SEEDS: Seed[] = [
   {
-    label: "ronaldo", name: "Cristiano Ronaldo", symbol: "RON", category: CAT.football + 1,
-    aura: 3040, windowMinutes: 15, summary: "Portugal captain · five Champions League titles",
+    // A footballer is also a person — exercises the multi-category path from the
+    // seed on.
+    label: "ronaldo", name: "Cristiano Ronaldo", symbol: "RON", categories: [CAT.football + 1, CAT.people + 1],
+    aura: 3040, windowMinutes: 30, summary: "Portugal captain · five Champions League titles",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg/330px-Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg",
+    sources: [
+      newsSource("ronaldo", "Cristiano Ronaldo", "Cristiano Ronaldo"),
+      xTalk("ronaldo", "Cristiano Ronaldo"),
+      redditTalk("ronaldo", "Cristiano Ronaldo"),
+    ],
   },
   {
-    label: "messi", name: "Lionel Messi", symbol: "MESSI", category: CAT.football + 1,
-    aura: 2875, windowMinutes: 15, summary: "Inter Miami · World Cup winner",
+    label: "messi", name: "Lionel Messi", symbol: "MESSI", categories: [CAT.football + 1, CAT.people + 1],
+    aura: 2875, windowMinutes: 30, summary: "Inter Miami · World Cup winner",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg/330px-Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg",
+    sources: [
+      newsSource("messi", "Lionel Messi", "Lionel Messi"),
+      xTalk("messi", "Lionel Messi"),
+      redditTalk("messi", "Lionel Messi"),
+    ],
   },
   {
-    label: "mbappe", name: "Kylian Mbappé", symbol: "MBAPPE", category: CAT.football + 1,
-    aura: 2410, windowMinutes: 15, summary: "Real Madrid forward · France",
-    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/95/Kylian_Mbappe_France_v_Senegal_16_June_2026-391_%28cropped%29.jpg/330px-Kylian_Mbappe_France_v_Senegal_16_June_2026-391_%28cropped%29.jpg",
-  },
-  {
-    // Grouped (multi-outcome): the winner is the football handle that gains the
-    // most aura over the window.
-    label: "football", name: "Football", symbol: "FOOT", category: CAT.football + 2,
-    aura: 3600, windowMinutes: 15, grouped: true, imageFit: "contain",
-    summary: "Grouped market · the football handle gaining the most aura",
-    photo: "https://thumb.wikimedia.org/wikipedia/en/thumb/f/f2/Premier_League_Logo.svg/330px-Premier_League_Logo.svg.png",
-  },
-  {
-    label: "btc", name: "Bitcoin", symbol: "BTC", category: CAT.crypto + 1,
+    label: "btc", name: "Bitcoin", symbol: "BTC", categories: [CAT.crypto + 1],
     aura: 4150, windowMinutes: 30, imageFit: "contain", summary: "The original crypto index",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/330px-Bitcoin.svg.png",
+    sources: [
+      newsSource("btc", "Bitcoin", "Bitcoin"),
+      xTalk("btc", "Bitcoin"),
+      redditTalk("btc", "Bitcoin"),
+    ],
   },
   {
-    label: "eth", name: "Ethereum", symbol: "ETH", category: CAT.crypto + 1,
+    label: "eth", name: "Ethereum", symbol: "ETH", categories: [CAT.crypto + 1],
     aura: 3220, windowMinutes: 30, imageFit: "contain", summary: "Smart-contract settlement layer",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/Eth-diamond-%28color%29.svg/330px-Eth-diamond-%28color%29.svg.png",
+    sources: [
+      newsSource("eth", "Ethereum", "Ethereum"),
+      xTalk("eth", "Ethereum"),
+      redditTalk("eth", "Ethereum"),
+    ],
   },
   {
-    label: "sol", name: "Solana", symbol: "SOL", category: CAT.crypto + 1,
+    label: "sol", name: "Solana", symbol: "SOL", categories: [CAT.crypto + 1],
     aura: 2180, windowMinutes: 30, imageFit: "contain", summary: "High-throughput L1",
     photo: "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png",
+    sources: [
+      newsSource("sol", "Solana", "Solana"),
+      xTalk("sol", "Solana"),
+      redditTalk("sol", "Solana"),
+    ],
   },
   {
-    label: "openai", name: "OpenAI", symbol: "OPENAI", category: CAT.ai + 1,
+    label: "openai", name: "OpenAI", symbol: "OPENAI", categories: [CAT.ai + 1, CAT.tech + 1],
     aura: 3980, windowMinutes: 60, summary: "Frontier model lab",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a7/1515_Third_Street.jpg/330px-1515_Third_Street.jpg",
+    sources: [
+      newsSource("openai", "OpenAI", "OpenAI"),
+      xTalk("openai", "OpenAI"),
+      redditTalk("openai", "OpenAI", 30),
+      {
+        // The company's own newsroom: first-party, zero editorial noise.
+        outlet: "openai-news",
+        feed: "https://openai.com/blog/rss.xml",
+        label: "OpenAI Newsroom",
+        topic: "openai",
+        context: "OpenAI's own announcements - products, models, policy. First-party, so treat as the primary record of what the company shipped; newsworthiness still depends on how big the change is.",
+      },
+    ],
   },
   {
-    label: "nvidia", name: "NVIDIA", symbol: "NVDA", category: CAT.tech + 1,
-    aura: 2740, windowMinutes: 60, summary: "Accelerated compute for AI",
-    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/75/2788-2888_San_Tomas_Expwy.jpg/330px-2788-2888_San_Tomas_Expwy.jpg",
-  },
-  {
-    label: "apple", name: "Apple", symbol: "AAPL", category: CAT.tech + 1,
-    aura: 2510, windowMinutes: 60, imageFit: "contain", summary: "Consumer hardware + services",
-    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/330px-Apple_logo_black.svg.png",
-  },
-  {
-    label: "tesla", name: "Tesla", symbol: "TSLA", category: CAT.tech + 1,
+    label: "tesla", name: "Tesla", symbol: "TSLA", categories: [CAT.tech + 1, CAT.people + 1],
     aura: 2360, windowMinutes: 60, imageFit: "contain", summary: "EVs, energy, autonomy",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bd/Tesla_Motors.svg/330px-Tesla_Motors.svg.png",
+    sources: [
+      newsSource("tesla", "Tesla", "Tesla"),
+      xTalk("tesla", "Tesla"),
+      redditTalk("tesla", "Tesla"),
+      {
+        // A Tesla-ONLY outlet (unlike a general auto desk).
+        outlet: "teslarati",
+        feed: "https://www.teslarati.com/feed/",
+        label: "Teslarati",
+        topic: "tesla",
+        context: "A Tesla-dedicated site: deliveries, launches, FSD, the share price. Single-company focus, so it runs enthusiastic — weigh product/business facts over opinion pieces.",
+      },
+    ],
   },
   {
-    label: "elon", name: "Elon Musk", symbol: "ELON", category: CAT.people + 1,
+    label: "elon", name: "Elon Musk", symbol: "ELON", categories: [CAT.people + 1, CAT.tech + 1],
     aura: 4290, windowMinutes: 60, summary: "Founder · most-followed voice on the feed",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/330px-Elon_Musk_-_54820081119_%28cropped%29.jpg",
+    sources: [
+      newsSource("elon", "Elon Musk", "Elon Musk"),
+      xTalk("elon", "Elon Musk"),
+      redditTalk("elon", "Elon Musk"),
+    ],
   },
   {
-    label: "trump", name: "Donald Trump", symbol: "TRUMP", category: CAT.people + 1,
+    label: "trump", name: "Donald Trump", symbol: "TRUMP", categories: [CAT.people + 1],
     aura: 3110, windowMinutes: 60, summary: "US President · headline mover",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/330px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg",
+    sources: [
+      newsSource("trump", "Donald Trump", "Donald Trump"),
+      xTalk("trump", "Donald Trump"),
+      redditTalk("trump", "Donald Trump"),
+    ],
   },
   {
-    label: "taylor", name: "Taylor Swift", symbol: "TAYLOR", category: CAT.music + 1,
+    label: "taylor", name: "Taylor Swift", symbol: "TAYLOR", categories: [CAT.music + 1, CAT.people + 1],
     aura: 3550, windowMinutes: 60, summary: "Touring + release-cycle aura",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png/330px-Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png",
-  },
-  {
-    label: "doge", name: "Dogecoin", symbol: "DOGE", category: CAT.memes + 1,
-    aura: 1990, windowMinutes: 15, imageFit: "contain", summary: "The meme-coin aura index",
-    photo: "https://upload.wikimedia.org/wikipedia/en/d/d0/Dogecoin_Logo.png",
+    sources: [
+      newsSource("taylor", "Taylor Swift", "Taylor Swift"),
+      xTalk("taylor", "Taylor Swift"),
+      redditTalk("taylor", "Taylor Swift"),
+    ],
   },
 ];
 
@@ -159,7 +263,6 @@ async function main(): Promise<void> {
     await (await usdc.connect(relayer).approve(deployments.marketMaker, 100_000n * ONE)).wait();
     console.log("relayer approved the market for 100,000 mUSDC");
   }
-  // Window payouts draw on the Pool's idle cash: keep it comfortably funded.
   const idle: bigint = await pool.idle();
   const need = BigInt(SEEDS.length + 4) * 1_000n * ONE;
   if (idle < need) {
@@ -170,7 +273,6 @@ async function main(): Promise<void> {
     console.log(`deposited ${Number(target / ONE).toLocaleString()} mUSDC into the pool`);
   }
 
-  const footballMembers = SEEDS.filter((s) => s.category === CAT.football + 1).map((s) => s.label);
   const handles: Record<string, unknown> = { ...(deployments.handles ?? {}) };
   let created = 0;
   let opened = 0;
@@ -181,14 +283,14 @@ async function main(): Promise<void> {
 
     if (handleAddress === ZERO) {
       if (!(await registry.isRegistered(id))) {
-        await (await registry.registerHandle(id, s.windowMinutes, Boolean(s.grouped))).wait();
+        await (await registry.registerHandle(id, s.windowMinutes)).wait();
       }
       const metadata = JSON.stringify({
         name: s.name,
         symbol: s.symbol,
         photo: s.photo,
         imageFit: s.imageFit ?? "cover",
-        category: `${s.category}`,
+        categories: s.categories.map(String),
       });
       await (
         await handleFactory.createHandle(
@@ -198,7 +300,7 @@ async function main(): Promise<void> {
           s.symbol,
           metadata,
           BigInt(s.windowMinutes),
-          BigInt(s.category),
+          s.categories.map((c) => BigInt(c)),
         )
       ).wait();
       handleAddress = await handleFactory.handleOf(id);
@@ -206,14 +308,11 @@ async function main(): Promise<void> {
     }
 
     const handle: Contract = await ethers.getContractAt("Handle", handleAddress);
-    // The relayer is the protocol's aura updater (and the curator fallback), so
-    // it can push aura, edit metadata and graduate the handle.
+    // The relayer is the aura updater (and the curator fallback): it can write
+    // metadata, add sources, push aura and graduate.
     if ((await handle.auraUpdater()).toLowerCase() !== relayer.address.toLowerCase()) {
       await (await handleFactory.setAuraUpdater(id, relayer.address)).wait();
     }
-    // Refresh the metadata JSON every run: the photo/fit/name live here, and the
-    // app reads them off the subgraph — an older handle created without a photo
-    // (the original deploy seed) gets one now.
     await (
       await handle.connect(relayer).setMetadata(
         JSON.stringify({
@@ -221,91 +320,75 @@ async function main(): Promise<void> {
           symbol: s.symbol,
           photo: s.photo,
           imageFit: s.imageFit ?? "cover",
-          category: `${s.category}`,
+          categories: s.categories.map(String),
         }),
       )
     ).wait();
+
+    // --- sources: handle-scoped feeds, each with topic + context -----------------
+    // `addSource` skips an identical config on-chain, so this is idempotent.
+    let added = 0;
+    for (const src of s.sources) {
+      await (await handle.connect(relayer).addSource(JSON.stringify({ platform: "rss", ...src }))).wait();
+      added += 1;
+    }
+
     await (await handle.connect(relayer).updateAura(BigInt(s.aura), s.summary)).wait();
     await (await handle.connect(relayer).setGraduated(true)).wait();
 
-    // First window: binary handles get a 50/50 YES/NO, the grouped handle gets
-    // one outcome per football member. A revert means one is already open (the
-    // market allows a single live window per handle) — nothing to do.
-    //
-    // The window ORACLE is now also opened by the oracle engine at every slot
-    // boundary, so bootstrap ONLY when the current slot has no window — opening a
-    // second one would give the handle two live windows at once.
+    // First window: bootstrap ONLY when the engine hasn't opened this slot —
+    // otherwise the handle would have two live windows at once.
     const span = BigInt(s.windowMinutes * 60);
     const nowSec = BigInt(Math.floor(Date.now() / 1000));
     const slotStart = (nowSec / span) * span;
-    if ((await oracleFactory.oracleOf(id, slotStart)) !== ethers.ZeroAddress) {
-      console.log(`  · @${s.label.padEnd(9)} the engine already opened slot ${slotStart} — skipped`);
-      handles[s.label] = {
-        id,
-        contract: handleAddress,
-        stake: await handleFactory.stakeOf(id),
-        category: s.category,
-        grouped: Boolean(s.grouped),
-        aura: s.aura,
-        graduated: true,
-        photo: s.photo,
-        windowMinutes: s.windowMinutes,
-      };
-      continue;
-    }
-    const block = await ethers.provider.getBlock("latest");
-    const start = BigInt(block ? block.timestamp : Math.floor(Date.now() / 1000));
-    const end = start + BigInt(s.windowMinutes * 60);
-    const outcomes = s.grouped ? footballMembers : ["YES", "NO"];
-    const probabilities: bigint[] = s.grouped
-      ? outcomes.map(() => ONE / BigInt(outcomes.length))
-      : [ONE / 2n, ONE / 2n];
-    // The LMSR seed probabilities must sum to exactly 1e18.
-    if (s.grouped) {
-      probabilities[0] += ONE - probabilities.reduce((a, b) => a + b, 0n);
-    }
-    try {
-      await (
-        await market.connect(relayer).openWindow(
-          id,
-          start,
-          end,
-          outcomes,
-          outcomes.map((name, outcome) => JSON.stringify({ handle: s.label, outcome, name })),
-          probabilities,
-          JSON.stringify({
-            question: s.grouped
-              ? "Who will gain the highest aura from window start to end?"
-              : `Will @${s.label} aura rise above ${(s.aura / 100).toFixed(2)}?`,
-            style: s.grouped ? "multi" : "binary",
-            category: s.category,
-            handle: s.label,
-          }),
-          1_000n * ONE,
-        )
-      ).wait();
-      opened += 1;
-      console.log(`  ✓ @${s.label.padEnd(9)} window ${start} → ${end} (${outcomes.join(" / ")})`);
-    } catch (error) {
-      const message = (error as Error).message;
-      // ONLY "a window is already open for this handle" is benign here; anything
-      // else (out of gas, RPC rejection) must surface, or the seed silently
-      // reports success for handles it never actually brought up.
-      const alreadyOpen = /window.*(already|open)|AlreadyOpen|AlreadyResolved/i.test(message);
-      if (!alreadyOpen) throw error;
-      console.log(`  · @${s.label.padEnd(9)} window already open — skipped`);
+    const alreadyOpen = (await oracleFactory.oracleOf(id, slotStart)) !== ethers.ZeroAddress;
+    if (alreadyOpen) {
+      console.log(`  · @${s.label.padEnd(9)} sources +${added}, engine already opened slot ${slotStart}`);
+    } else {
+      const block = await ethers.provider.getBlock("latest");
+      const start = BigInt(block ? block.timestamp : Math.floor(Date.now() / 1000));
+      const end = start + BigInt(s.windowMinutes * 60);
+      try {
+        await (
+          await market.connect(relayer).openWindow(
+            id,
+            start,
+            end,
+            ["YES", "NO"],
+            [
+              JSON.stringify({ handle: s.label, outcome: 0, name: "YES" }),
+              JSON.stringify({ handle: s.label, outcome: 1, name: "NO" }),
+            ],
+            [5n * 10n ** 17n, 5n * 10n ** 17n],
+            JSON.stringify({
+              question: `Will @${s.label} aura rise above ${(s.aura / 100).toFixed(2)}?`,
+              style: "binary",
+              category: s.categories[0],
+              handle: s.label,
+            }),
+            1_000n * ONE,
+          )
+        ).wait();
+        opened += 1;
+        console.log(`  ✓ @${s.label.padEnd(9)} sources +${added}, window ${start} → ${end}`);
+      } catch (error) {
+        const message = (error as Error).message;
+        const alreadyOpenRevert = /window.*(already|open)|AlreadyOpen/i.test(message);
+        if (!alreadyOpenRevert) throw error;
+        console.log(`  · @${s.label.padEnd(9)} sources +${added}, window already open`);
+      }
     }
 
     handles[s.label] = {
       id,
       contract: handleAddress,
       stake: await handleFactory.stakeOf(id),
-      category: s.category,
-      grouped: Boolean(s.grouped),
+      categories: s.categories,
       aura: s.aura,
       graduated: true,
       photo: s.photo,
       windowMinutes: s.windowMinutes,
+      sources: s.sources.map((x) => x.outlet),
     };
   }
 
@@ -313,7 +396,7 @@ async function main(): Promise<void> {
   writeFileSync("deployments/deployments.json", `${JSON.stringify(deployments, null, 2)}\n`);
   console.log(
     `\nSeeded ${created} new handle(s), opened ${opened} window(s) — total seeded: ${SEEDS.length}.\n` +
-      `Wrote deployments/deployments.json\n`,
+      `Each handle carries only its own scoped sources. Wrote deployments/deployments.json\n`,
   );
 }
 

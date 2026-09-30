@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ImagePlus, Loader2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Avatar } from "@/components/Avatar";
+import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { portfolio, type HandleLink } from "@/lib/portfolio";
 import { qk } from "@/queries/keys";
@@ -102,11 +102,15 @@ export function EditProfileDialog({ handle }: { handle: HandleLink }) {
             aria-label="Choose photo"
             className="relative shrink-0 rounded-[24%] transition-opacity hover:opacity-90"
           >
-            <Avatar
-              seed={handle.id}
-              image={preview ?? undefined}
+            <AssetAvatar
+              asset={{
+                id: handle.id,
+                symbol: handle.symbol,
+                color: "hsl(var(--primary))",
+                name: handle.name,
+                image: preview ?? undefined,
+              }}
               size={56}
-              alt={name}
               className="border border-border/70"
             />
             <span className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full border border-border bg-card text-muted-foreground">

@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import type Redis from "ioredis";
 import { keccak256, toBytes } from "viem";
 import { REDIS } from "../../queue/queue.constants";
@@ -14,12 +15,14 @@ import {
   gainBetween,
   CATEGORY_BASE,
 } from "./market-style";
-import { sampleMembers, priorProbabilities, MAX_OUTCOMES } from "./category-market";
 import type { AuraHandle } from "../jobs.types";
+import { strikeFor, windowPriors, stepSeconds } from "./window-pricing";
 
 const FREEZE_SECONDS = 5;
 /** Minimum window funding: 1,000 USDC (1e18 wei). */
 const MIN_FUNDING = 1_000n * 10n ** 18n;
+/** The pricing model's lookback for drift/volatility: the last 24h of ticks. */
+const PRIOR_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 /**
  * The market-maker window job engine — one tick per (handle, slot):
@@ -54,7 +57,14 @@ export class WindowEngineService {
     private readonly ws: WsBroadcastService,
     @Inject(TIME_SERIES_STORE) private readonly series: ITimeSeriesStore,
     @Inject(REDIS) private readonly redis: Redis,
+    private readonly config: ConfigService,
   ) {}
+
+  /** How often the aura engine is allowed to tick one handle (ms). A window must
+   *  be at least this long, or it can open and close between two observations. */
+  private get auraCadenceMs(): number {
+    return this.config.get<number>("AURA_AI_MIN_INTERVAL_MS") ?? 0;
+  }
 
   private openKey(handleId: string, startSec: number): string {
     return `win:open:${handleId}:${startSec}`;
@@ -173,36 +183,57 @@ export class WindowEngineService {
     if (endSec <= Math.floor(now / 1000)) return;
     if (await this.flag(this.openKey(handle.id, startSec))) return;
 
-    // The category code dictates the window's market style + question.
-    let style = parseMarketStyle(handle.category);
-    if (!style) {
-      style = {
-        category: handle.category,
-        cat: CATEGORY_BASE,
-        sub: CATEGORY_BASE,
-        format: 1,
-        style: "binary",
-        base: "sport",
-        subLabel: "uncategorized",
-      };
+    // TIMING SANITY: a window shorter than the aura cadence can open and close
+    // between two observations, which is exactly the "no information" case the
+    // settle path now voids. Worth a loud line so the config gets fixed.
+    const windowMs = (endSec - startSec) * 1000;
+    if (this.auraCadenceMs > 0 && windowMs < this.auraCadenceMs) {
+      this.logger.warn(
+        `@${handle.id}: ${endSec - startSec}s window is shorter than the ${Math.round(
+          this.auraCadenceMs / 60_000,
+        )}m aura cadence — short enable will produce no-observation (void) windows`,
+      );
     }
-    let outcomes: string[] = ["YES", "NO"];
-    let probabilities: string[] = ["500000000000000000", "500000000000000000"]; // 50/50 binary
-    if (style.style === "multi") {
-      // Gain market: pick the underlying handles of the category AT
-      // RANDOM (capped at MAX_OUTCOMES) and price the open with aura priors.
-      const pool = await this.subgraph.handlesByCategory(style.sub);
-      const members = sampleMembers(pool, handle.label, MAX_OUTCOMES);
-      if (members.length < 2) {
-        this.logger.log(
-          `@${handle.id}: multi-outcome category ${style.category} has ${members.length} members — skipping open`,
-        );
-        return;
-      }
-      outcomes = members.map((m) => m.label);
-      probabilities = priorProbabilities(members);
-    }
-    const metadata = windowMetadata(handle.label, style, handle.aura);
+
+    // The handle's PRIMARY category code decides the question wording. Markets
+    // are always binary now — the multi-outcome "gain" market is gone.
+    const primary = handle.categories[0] ?? 0;
+    const style = parseMarketStyle(primary) ?? {
+      category: primary,
+      cat: CATEGORY_BASE,
+      sub: CATEGORY_BASE,
+      format: 1 as const,
+      style: "binary" as const,
+      base: "sport",
+      subLabel: "uncategorized",
+    };
+    const outcomes: string[] = ["YES", "NO"];
+
+    // STRIKE + INITIAL PROBABILITIES from the handle's own aura series (see
+    // window-pricing.ts): the strike is the level at open, and the odds are
+    // Φ(risk-adjusted drift · √horizon). A quiet handle falls back to 50/50.
+    const history = await this.series.points(
+      `aura:${handle.label}`,
+      "aura",
+      now - PRIOR_LOOKBACK_MS,
+      now,
+    );
+    const series = history.map((p) => p.value);
+    const strike = strikeFor(series, handle.aura);
+    const priors = windowPriors({
+      points: series,
+      windowSec: Math.max(1, endSec - startSec),
+      stepSec: stepSeconds(history.map((p) => Math.floor(p.timestamp / 1000))) || 0,
+    });
+    const probabilities: string[] = [...priors.probabilities];
+    this.logger.log(
+      `@${handle.id}: strike ${(strike / 100).toFixed(2)} · P(YES)=${(priors.model.pYes * 100).toFixed(1)}%` +
+        (priors.model.fallback
+          ? " (no history — 50/50)"
+          : ` (drift ${(priors.model.drift * 100).toFixed(2)}%, vol ${(priors.model.vol * 100).toFixed(2)}%, ${priors.model.steps} step(s))`),
+    );
+    // The question text carries the same strike the odds were priced off.
+    const metadata = windowMetadata(handle.label, style, strike);
 
     // Funding = the handle's PREVIOUS window trading volume (USDC 1e18),
     // floored at 1k USDC so a fresh/quiet handle still opens liquid.
@@ -239,17 +270,28 @@ export class WindowEngineService {
   ): Promise<void> {
     if (slot.end + FREEZE_SECONDS >= nowSec) return; // froze moments ago — let it freeze
     const rec = known.find((w) => w.oracle.toLowerCase() === oracle.toLowerCase());
-    if (!rec && parseMarketStyle(handle.category)?.style === "multi") {
-      // A grouped window's winner is an INDEX into its outcome list; guessing the
-      // order would settle the wrong handle. Wait for the labels instead.
-      this.logger.warn(
-        `@${handle.id}: grouped window ${oracle} is closed but its outcome labels aren't indexed yet — will retry`,
-      );
-      return;
-    }
+    // Every market is binary: the outcome labels are always YES/NO, so a window
+    // whose indexer record hasn't landed can still be settled correctly.
     const outcomes = rec?.outcomes ?? ["YES", "NO"];
     const windowStart = rec?.windowStart ?? slot.start;
     const windowEnd = rec?.windowEnd ?? slot.end;
+
+    // NO OBSERVATIONS → NO RESOLUTION. A window that opened and closed between two
+    // aura ticks has no measurement to settle on; settling it would resolve YES on
+    // an unchanged series (a systematic bias in quiet periods). Leave it: the
+    // market's grace window VOIDs it and `redeemVoid` refunds every trader.
+    const observed = await this.series.points(
+      `aura:${handle.label}`,
+      "aura",
+      (windowStart + 1) * 1000,
+      windowEnd * 1000,
+    );
+    if (observed.length < 1) {
+      this.logger.warn(
+        `@${handle.id}: window ${windowStart} has no aura observations — leaving it to VOID`,
+      );
+      return;
+    }
 
     const winner = await this.winnerFromReference(handle, outcomes, windowStart, windowEnd);
     // The market settles ONLY from an Oracle resolution now, so the receipt is

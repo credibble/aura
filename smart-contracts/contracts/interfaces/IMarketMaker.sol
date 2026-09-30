@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import {IAuraOracle} from "../spec/IAuraOracle.sol";
 
 /// @title IMarketMaker
-/// @notice The nth-outcome LMSR prediction market (binary YES/NO or
-///         winner-takes-all categorical windows on the aura index).
+/// @notice The binary LMSR prediction market (YES/NO windows on the aura index).
 interface IMarketMaker {
     function openWindow(
         bytes32 handleId,

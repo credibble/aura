@@ -67,7 +67,7 @@ const HANDLE = [
   "function sourcesCount() view returns (uint256)",
 ];
 const HANDLE_FACTORY = [
-  "function createHandle(bytes32 handleId, address creator, string name, string symbol, string metadata, uint256 windowMinutes, uint256 category) returns (address)",
+  "function createHandle(bytes32 handleId, address creator, string name, string symbol, string metadata, uint256 windowMinutes, uint256[] categories) returns (address)",
 ];
 
 const ADDR = "0x1111111111111111111111111111111111111111";
@@ -98,7 +98,7 @@ const WRITES = [
     "handleFactory.createHandle",
     HANDLE_FACTORY,
     "createHandle",
-    [`0x${"00".repeat(32)}`, ADDR, "Aura", "AURA", "{}", 30n, 100_001_001n],
+    [`0x${"00".repeat(32)}`, ADDR, "Aura", "AURA", "{}", 30n, [100_001_001n, 3_000_001n]],
   ],
 ];
 

@@ -108,3 +108,22 @@ export function handleAllowedSources(category: CategoryId, handleId: string): re
   const extra = HANDLE_EXTRA[handleId] ?? [];
   return [...base, ...extra];
 }
+
+/**
+ * Numeric handle category code → the family id used by the rules above.
+ * Mirrors the subgraph's `categoryIdOf` (`cat = floor(code / 1e6) % 1000`) so the
+ * oracle and the app agree on which family a handle belongs to.
+ */
+export function categoryFamily(code: number): CategoryId {
+  if (!Number.isFinite(code)) return "culture";
+  const cat = Math.floor(code / 1_000_000) % 1_000;
+  if (cat === 100) return "sports";
+  if (cat === 1) return "crypto";
+  if (cat === 2) return "ai";
+  if (cat === 3) return "people";
+  if (cat === 4) return "brands";
+  if (cat === 5) return "memes";
+  if (cat === 6) return "music";
+  if (cat === 7) return "tech";
+  return "culture";
+}

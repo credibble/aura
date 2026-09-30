@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Copy, LogOut, Check, LogIn } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { formatUsd } from "@/lib/format";
+import { formatCompact, formatUsd } from "@/lib/format";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
 import {
   AlertDialog,
@@ -26,11 +26,11 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
  * `labelClassName` controls the visibility of the text spans (address/balance
  * when connected, the CTA when not) — the left rail passes its own collapsed /
  * expanded rules so the button shrinks to icon-only like every other rail row.
- * `disconnectedLabel` customises the signed-out CTA (e.g. "Connect Wallet"). */
+ * `disconnectedLabel` customises the signed-out CTA (defaults to "Sign in"). */
 export function ConnectButton({
   className,
   labelClassName,
-  disconnectedLabel = "Sign up",
+  disconnectedLabel = "Sign in",
 }: {
   className?: string;
   labelClassName?: string;
@@ -40,6 +40,7 @@ export function ConnectButton({
   const { address, api } = useAuraContracts();
   const [copied, setCopied] = useState(false);
   const [usdc, setUsdc] = useState<bigint | null>(null);
+  const [aura, setAura] = useState<bigint | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -52,6 +53,25 @@ export function ConnectButton({
       })
       .catch(() => {
         if (alive) setUsdc(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [address, api]);
+
+  // The staking token rides alongside the collateral in the same popover — the
+  // rail chip only has room for USDC.
+  useEffect(() => {
+    let alive = true;
+    setAura(null);
+    if (!address || !CONTRACTS.auraToken) return;
+    void api
+      .readAuraBalance()
+      .then((b) => {
+        if (alive) setAura(b as bigint);
+      })
+      .catch(() => {
+        if (alive) setAura(null);
       });
     return () => {
       alive = false;
@@ -104,7 +124,8 @@ export function ConnectButton({
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} className="w-64 p-2">
-        <div className="rounded-lg border border-border bg-secondary/30 p-3">
+        {/* No inner border: the popover already has one. */}
+        <div className="rounded-lg bg-secondary/30 p-3">
           <div className="text-xs font-medium text-muted-foreground">Wallet</div>
           <div className="num mt-1 text-sm font-semibold text-foreground">{short(address)}</div>
           <div className="mt-2 text-xs text-muted-foreground">USDC balance</div>
@@ -113,6 +134,17 @@ export function ConnectButton({
               "—"
             ) : (
               <UsdcAmount value={formatUsd(Number(usdc) / 1e18)} size={16} />
+            )}
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">$AURA balance</div>
+          <div className="num flex items-baseline gap-1.5 text-lg font-bold text-foreground">
+            {aura === null ? (
+              "—"
+            ) : (
+              <>
+                {formatCompact(Number(aura) / 1e18)}
+                <span className="text-[11px] font-medium text-muted-foreground">AURA</span>
+              </>
             )}
           </div>
         </div>

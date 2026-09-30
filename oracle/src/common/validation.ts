@@ -67,7 +67,7 @@ export const Schemas = {
       .trim()
       .regex(/^[a-z0-9]{3,20}$/, "name must be 3-20 chars of a-z and 0-9"),
     symbol: z.string().trim().regex(/^[A-Za-z0-9]{1,8}$/, "symbol must be 1-8 chars"),
-    category: z.coerce.number().int().min(0).max(999_999_999),
+    categories: z.array(z.coerce.number().int().min(0).max(999_999_999)).min(1).max(4),
     windowMinutes: z.coerce.number().int(),
     metadata: z.string().max(500).optional(),
   }),

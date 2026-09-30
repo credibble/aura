@@ -1,9 +1,9 @@
-import type { AdapterSample, SourceConfig } from "../core/domain/source";
-import type { RawDatum } from "../core/domain/source-item";
-import { BaseSource } from "./base-source";
-import { bucketStart } from "./http";
-import { fetchText } from "../ingestion/http";
-import { parseFeed } from "../ingestion/rss-parser";
+import type { AdapterSample, SourceConfig } from "../../core/domain/source";
+import type { RawDatum } from "../../core/domain/source-item";
+import { BaseSource } from ".././base-source";
+import { bucketStart } from ".././http";
+import { fetchText } from "../../ingestion/http";
+import { parseFeed } from "../../ingestion/rss-parser";
 
 /**
  * Generic RSS adapter — ANY cross-domain RSS/Atom feed (Tesla, Apple, crypto,
@@ -13,9 +13,9 @@ import { parseFeed } from "../ingestion/rss-parser";
  * Extracts article volume + topic coverage and emits scored feed items
  * (kind = media), like the BBC/FOX RSS adapters but outlet-agnostic.
  */
-export class RssAdapter extends BaseSource {
+export class RssFeedAdapter extends BaseSource {
   readonly platform = "rss";
-  readonly weight = 840; // 1-1000 credibility (established outlet, config-driven)
+  readonly weight = 840; // default 1-1000; override per source with `weight`
   readonly kind = "media" as const;
   readonly fetchIntervalMs = 5 * 60_000;
 
@@ -23,6 +23,19 @@ export class RssAdapter extends BaseSource {
     { key: "articles", label: "Articles", unit: "articles", higherIsBetter: true, source: "RSS feed" },
     { key: "coverage", label: "Topic Coverage", unit: "articles", higherIsBetter: true, source: "RSS feed" },
   ];
+
+  /**
+   * Credibility comes from the CONFIG, not from a subclass per outlet: a BBC feed
+   * (900) and a niche blog (600) are the same code path, different `weight`. This
+   * is why there is no BbcAdapter/FoxSportsAdapter any more — those were this
+   * adapter with a hardcoded weight.
+   */
+  toSource(config: SourceConfig) {
+    const src = super.toSource(config);
+    const override = this.num(config, "weight");
+    if (override !== undefined) src.weight = Math.max(1, Math.min(1000, Math.round(override)));
+    return src;
+  }
 
   id(config: SourceConfig): string {
     const outlet = this.str(config, "outlet");

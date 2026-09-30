@@ -29,8 +29,11 @@ export type PositionTrade = {
   id: string;
   outcome: number;
   kind: string;
+  /** USDC, 1e18 wei. */
   premium: string;
+  /** USDC, 1e18 wei. */
   proceeds: string;
+  /** Outcome-token shares, 1e18 wei — divide by 1e18 for human shares. */
   shares: string;
   price: string;
   ts: string;
@@ -46,7 +49,7 @@ export function userHandlesOptions(address: string | undefined) {
         await gql<{ handles: SubgraphHandle[] }>(
           `query($owner: String!) {
             handles(where: { owner: $owner, active: true }, orderBy: aura, orderDirection: desc, first: 50) {
-              id contract stake name symbol metadata sources aura auraDelta graduated verified category windowMinutes active windowCount
+              id contract stake name symbol metadata sources aura auraDelta graduated verified categories categoryIds windowMinutes active windowCount
               auraHistory(first: 64, orderBy: timestamp, orderDirection: desc) { aura summary timestamp }
               windows(first: 1, orderBy: windowStart, orderDirection: desc) {
                 id windowStart windowEnd outcomes settled prices volume

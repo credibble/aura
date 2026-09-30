@@ -16,8 +16,11 @@ async function main(): Promise<void> {
       continue;
     }
     const h = await ethers.getContractAt("Handle", addr);
+    const count = Number(await h.categoriesCount());
+    const cats: string[] = [];
+    for (let i = 0; i < count; i++) cats.push((await h.categories(i)).toString());
     console.log(
-      `@${id} ${addr} graduated=${await h.graduated()} sources=${(await h.sourcesCount()).toString()} category=${(await h.category()).toString()}`,
+      `@${id} ${addr} graduated=${await h.graduated()} sources=${(await h.sourcesCount()).toString()} categories=[${cats.join(", ")}]`,
     );
   }
 }

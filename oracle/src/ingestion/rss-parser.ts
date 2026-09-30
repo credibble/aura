@@ -60,27 +60,46 @@ export function parseFeed(xml: string, fallbackSourceName: string): RawDatum[] {
     .filter((r): r is RawDatum => r !== null);
 }
 
-/** Pull images/videos from <enclosure> and <media:content>. */
+/**
+ * Pull images/videos out of an item. News feeds are inconsistent: some use
+ * `<enclosure>`, most use `<media:content>` / `<media:thumbnail>`, and plenty only
+ * embed an `<img src>` inside `<content:encoded>`/`<description>` HTML. Without
+ * the last two the feed cards had no artwork at all.
+ */
 function extractMedia(item: XmlNode): SourceMedia[] | undefined {
   const out: SourceMedia[] = [];
-  const enclosure = item.enclosure;
-  const mediaContent = item["media:content"];
+  const push = (kind: "image" | "video", url: string, title?: string) => {
+    const clean = url.trim();
+    if (!clean.startsWith("http") || out.some((m) => m.url === clean) || out.length >= 4) return;
+    out.push({ kind, url: clean, title: title || undefined });
+  };
+
+  const collect = (value: unknown, bag: unknown[]) => {
+    if (Array.isArray(value)) bag.push(...value);
+    else if (value && typeof value === "object") bag.push(value);
+  };
   const candidates: unknown[] = [];
-  if (Array.isArray(enclosure)) candidates.push(...enclosure);
-  else if (enclosure && typeof enclosure === "object") candidates.push(enclosure);
-  if (Array.isArray(mediaContent)) candidates.push(...mediaContent);
-  else if (mediaContent && typeof mediaContent === "object") candidates.push(mediaContent);
+  collect(item.enclosure, candidates);
+  collect(item["media:content"], candidates);
+  collect(item["media:thumbnail"], candidates);
 
   for (const raw of candidates) {
     const node = asRecord(raw);
     // fast-xml-parser namespaces attributes as "@_attr".
     const url = asString(node["@_url"] ?? node.url).trim();
-    if (!url.startsWith("http")) continue;
     const type = asString(node["@_type"] ?? node.type).toLowerCase();
-    const kind = type.startsWith("video") ? "video" : type.startsWith("audio") ? undefined : "image";
-    if (!kind) continue;
-    if (out.length >= 4) break;
-    out.push({ kind, url, title: asString(node["@_title"] ?? node.title) || undefined });
+    if (type.startsWith("audio")) continue;
+    push(type.startsWith("video") ? "video" : "image", url, asString(node["@_title"] ?? node.title));
+  }
+
+  // Last resort: the first <img> in the item's HTML body.
+  if (out.length === 0) {
+    const html = asString(item["content:encoded"] ?? item.description ?? item.summary);
+    const src = /<img[^>]+src=["']([^"']+)["']/i.exec(html)?.[1];
+    if (src) {
+      const title = asString(item.title ?? item["media:title"]) || undefined;
+      push("image", src, title);
+    }
   }
   return out.length ? out : undefined;
 }

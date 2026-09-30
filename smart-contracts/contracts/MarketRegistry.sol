@@ -15,11 +15,7 @@ contract MarketRegistry is IMarketRegistry {
     bytes32[] public handleIds;
     mapping(bytes32 => Market) public markets;
 
-    event HandleRegistered(
-        bytes32 indexed handleId,
-        uint256 windowMinutes,
-        bool grouped
-    );
+    event HandleRegistered(bytes32 indexed handleId, uint256 windowMinutes);
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert Errors.NotOwner();
@@ -33,21 +29,16 @@ contract MarketRegistry is IMarketRegistry {
 
     function registerHandle(
         bytes32 handleId,
-        uint256 windowMinutes,
-        bool grouped
+        uint256 windowMinutes
     ) external onlyOwner {
         if (markets[handleId].active) revert Errors.AlreadyRegistered();
-        markets[handleId] = Market(handleId, windowMinutes, true, grouped);
+        markets[handleId] = Market(handleId, windowMinutes, true);
         handleIds.push(handleId);
-        emit HandleRegistered(handleId, windowMinutes, grouped);
+        emit HandleRegistered(handleId, windowMinutes);
     }
 
     function isRegistered(bytes32 handleId) external view returns (bool) {
         return markets[handleId].active;
-    }
-
-    function isGrouped(bytes32 handleId) external view returns (bool) {
-        return markets[handleId].grouped;
     }
 
     function handleCount() external view returns (uint256) {

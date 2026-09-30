@@ -1,6 +1,6 @@
-import type { AdapterCredentials, AdapterSample, SourceConfig } from "../core/domain/source";
-import { BaseSource } from "./base-source";
-import { apiGetJson, bucketStart } from "./http";
+import type { AdapterCredentials, AdapterSample, SourceConfig } from "../../core/domain/source";
+import { BaseSource } from ".././base-source";
+import { apiGetJson, bucketStart } from ".././http";
 
 /**
  * Facebook adapter — a page's own metrics via the Facebook Graph API:
@@ -8,7 +8,7 @@ import { apiGetJson, bucketStart } from "./http";
  *   newLikes — likes gained today
  * Returns an empty sample without credentials.
  */
-export class FacebookAdapter extends BaseSource {
+export class FacebookConnectAdapter extends BaseSource {
   readonly platform = "facebook";
   readonly weight = 500; // 1-1000 credibility
   readonly kind = "social" as const;

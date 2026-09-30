@@ -145,13 +145,6 @@ export class SubgraphReader {
     return all.filter((h) => h.graduated);
   }
 
-  /** Handles whose category falls in a sub-category band [sub, sub+1000) —
-   *  the candidate pool a group (multi) handle samples its outcomes from. */
-  async handlesByCategory(sub: number): Promise<AuraHandle[]> {
-    const all = await this.handles();
-    return all.filter((h) => h.category >= sub && h.category < sub + 1_000);
-  }
-
   /** Open (not settled) windows — cached. */
   async openWindows(): Promise<SubgraphWindow[]> {
     const cached = await this.read<SubgraphWindow[]>(WINDOWS_KEY);
@@ -277,7 +270,8 @@ function normalizeHandles(rows: unknown[]): AuraHandle[] {
         sources: Array.isArray(r.sources) ? r.sources.map(String) : [],
         aura: Number(r.aura ?? "0"),
         graduated: Boolean(r.graduated ?? false),
-        category: Number(r.category ?? "0"),
+        // Several families per handle (sport + people, tech + people, …).
+        categories: (Array.isArray(r.categories) ? r.categories : []).map((c) => Number(c)),
         windowMinutes: Number(r.windowMinutes ?? "15"),
         metadata: r.metadata === undefined ? undefined : String(r.metadata),
       };

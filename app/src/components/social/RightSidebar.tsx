@@ -10,9 +10,9 @@ import { usePollGate } from "@/lib/poll-registry";
 import { CATEGORY_MAP } from "@/lib/aura-data";
 import { formatUsd, formatCompact } from "@/lib/format";
 import { UsdcIcon } from "@/components/aura/UsdcIcon";
-import { handleSlug, labelOf } from "@/lib/handle-id";
+import { handleSlug, labelOf, findHandle } from "@/lib/handle-id";
 import { cn } from "@/lib/utils";
-import { handlesQueryOptions, type SubgraphHandle } from "@/queries/handles";
+import { handlesQueryOptions, useHandleArtwork, type SubgraphHandle } from "@/queries/handles";
 import { postsOptions } from "@/queries/posts";
 import { flatPages } from "@/queries/page";
 import { statsQueryOptions } from "@/queries/markets";
@@ -183,6 +183,7 @@ export function HappeningCard() {
 /** The handle's follow-row view — top of the subgraph's aura-ranked list. */
 function SuggestedRow({ h }: { h: SubgraphHandle }) {
   const { isFollowing, toggleFollow } = useSocial();
+  const artwork = useHandleArtwork();
   const slug = handleSlug(h);
   const handle = `@${slug}`;
   const name = h.name ?? h.symbol ?? h.id;
@@ -197,6 +198,9 @@ function SuggestedRow({ h }: { h: SubgraphHandle }) {
             symbol: (h.symbol ?? h.id).toUpperCase().slice(0, 4),
             color: "hsl(var(--primary))",
             name,
+            // The real seeded/edited photo — a handle avatar must never fall back
+            // to an identicon when the metadata has one.
+            ...artwork(h.id),
           }}
           size={40}
         />
@@ -256,9 +260,11 @@ export function WhoToFollowCard() {
 /** Detail-page rail: the handle's market + a short relevant-people row. */
 export function RelevantPeopleCard({ marketId }: { marketId: string }) {
   const { isFollowing, toggleFollow } = useSocial();
-  // Resolve the post's market to a real handle — fall back to the top handle.
+  const artwork = useHandleArtwork();
+  // Resolve the post's market to a real handle — tolerant of id / slug / name,
+  // and falling back to the top handle when nothing matches.
   const { data: handles } = useQuery(handlesQueryOptions);
-  const h = handles?.find((x) => x.id === marketId) ?? handles?.[0];
+  const h = findHandle(handles, marketId) ?? handles?.[0];
   const slug = h ? handleSlug(h) : labelOf(marketId);
   const handle = `@${slug}`;
   const name = h ? (h.name ?? h.symbol ?? h.id) : labelOf(marketId);
@@ -276,6 +282,7 @@ export function RelevantPeopleCard({ marketId }: { marketId: string }) {
               symbol: (h?.symbol ?? slug).toUpperCase().slice(0, 4),
               color: "hsl(var(--primary))",
               name,
+              ...artwork(h?.id ?? marketId),
             }}
             size={40}
           />
@@ -294,7 +301,7 @@ export function RelevantPeopleCard({ marketId }: { marketId: string }) {
           </span>
           <span className="block truncate text-[15px] text-muted-foreground">{handle}</span>
           <span className="block truncate text-[13px] text-muted-foreground/80">
-            Aura market · {h ? `${Number(h.aura) / 100} aura` : "grouped market"}
+            Aura market · {h ? `${Number(h.aura) / 100} aura` : "aura market"}
           </span>
         </div>
         <button

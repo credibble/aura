@@ -10,7 +10,7 @@ const BASE = process.argv[2] ?? "http://localhost:8080";
 
 /** [path, a string that must appear in the HTML] */
 const ROUTES = [
-  ["/", "Trade the aura index"],
+  ["/", "Everything has an $AURA"],
   ["/feeds", "For you"],
   ["/leaderboard", "Leaderboard"],
   ["/pool", "Liquidity pool"],

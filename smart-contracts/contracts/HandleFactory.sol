@@ -69,7 +69,7 @@ contract HandleFactory {
         string calldata symbol,
         string calldata metadata,
         uint256 windowMinutes,
-        uint256 category
+        uint256[] calldata categories
     ) external onlyOwner returns (Handle) {
         if (address(handles[handleId]) != address(0)) revert Errors.HandleExists();
         if (creator == address(0)) revert Errors.ZeroAddress();
@@ -80,7 +80,7 @@ contract HandleFactory {
             symbol,
             metadata,
             windowMinutes,
-            category,
+            categories,
             address(this),
             IERC20(address(usdc))
         );

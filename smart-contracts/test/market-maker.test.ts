@@ -15,7 +15,7 @@ const ORACLE_PK =
 const ONE = 10n ** 18n;
 const INDEX = 100n; // 1e2 scale: 85.00 → 8500
 
-describe("MarketMaker (nth-outcome LMSR: binary + categorical, Pool-backed)", () => {
+describe("MarketMaker (binary LMSR, Pool-backed)", () => {
   let usdc: Contract;
   let registry: Contract;
   let factory: Contract;
@@ -79,7 +79,7 @@ describe("MarketMaker (nth-outcome LMSR: binary + categorical, Pool-backed)", ()
       await registry.getAddress(),
       oracle.address,
     );
-    await registry.registerHandle(h("elon"), 15, false);
+    await registry.registerHandle(h("elon"), 15);
     const aura = await (await ethers.getContractFactory("AuraToken")).deploy();
     const configurator = await (
       await ethers.getContractFactory("Configurator")
@@ -116,7 +116,6 @@ describe("MarketMaker (nth-outcome LMSR: binary + categorical, Pool-backed)", ()
       await handleFactory.getAddress(),
       await configurator.getAddress(),
       0n,
-      20n,
     );
     await revenue.setMarket(await market.getAddress(), true);
     await factory.setMarket(await market.getAddress());
@@ -181,55 +180,18 @@ describe("MarketMaker (nth-outcome LMSR: binary + categorical, Pool-backed)", ()
     expect(await market.priceOf(woO, 0n)).to.be.closeTo(3n * 10n ** 17n, ONE / 100n);
     expect(await market.priceOf(woO, 1n)).to.be.closeTo(7n * 10n ** 17n, ONE / 100n);
 
-    // Multi-outcome: 20/30/50 across three outcomes, prices seeded to match.
-    const start2 = (await startOf()) + 700n;
-    await open(
-      h("elon"),
-      start2,
-      ["MAN_UTD", "ARSENAL", "REAL"],
-      0n,
-      500_000n * ONE,
-      [2n * 10n ** 17n, 3n * 10n ** 17n, 5n * 10n ** 17n],
-    );
-    const woM = await wo(h("elon"), start2);
-    expect(await market.priceOf(woM, 0n)).to.be.closeTo(2n * 10n ** 17n, ONE / 50n);
-    expect(await market.priceOf(woM, 1n)).to.be.closeTo(3n * 10n ** 17n, ONE / 50n);
-    expect(await market.priceOf(woM, 2n)).to.be.closeTo(5n * 10n ** 17n, ONE / 50n);
-
-    // Probabilities must sum to exactly 1e18 — 30/30/30 is rejected.
+    // Probabilities must sum to exactly 1e18 — 30/30 is rejected.
     await expectError(
       open(
         h("elon"),
-        (await startOf()) + 1400n,
-        ["A", "B", "C"],
-        0n,
+        (await startOf()) + 700n,
+        ["YES", "NO"],
+        50n * INDEX,
         500_000n * ONE,
-        [3n * 10n ** 17n, 3n * 10n ** 17n, 3n * 10n ** 17n],
+        [3n * 10n ** 17n, 3n * 10n ** 17n],
       ),
       "BadOutcome",
     );
-  });
-
-  it("multi-outcome winner-takes-all: football aura, highest close wins", async () => {
-    const start = await startOf();
-    await open(h("elon"), start, ["MAN_UTD", "ARSENAL", "REAL", "BARCA"], 0n);
-    const woO = await wo(h("elon"), start);
-    const p0 = await market.priceOf(woO, 0n);
-    expect(p0).to.be.closeTo(ONE / 4n, ONE / 100n); // 4 outcomes → 25% each
-
-    // Buy Arsenal (outcome 1); its price rises, others fall.
-    await market.connect(alice).buy(woO, 1n, 100n * ONE, 0n);
-    expect(await market.priceOf(woO, 1n)).to.be.greaterThan(p0);
-
-    // Arsenal closes highest → wins; claim pays 1:1.
-    await ethers.provider.send("evm_increaseTime", [600]);
-    await ethers.provider.send("evm_mine", []);
-    await resolveWindow({ wo: woO, signer: oracle, handleId: h("elon"), windowStart: start, windowEnd: start + 600n });
-    await market.connect(oracle).settle(woO, 1n); // Arsenal (index 1) closes highest → wins
-    const q = await market.shares(alice.address, await woO.getAddress(), 1n);
-    const before = await usdc.balanceOf(alice.address);
-    await market.connect(alice).claim(woO, 1n);
-    expect((await usdc.balanceOf(alice.address)) - before).to.equal(q);
   });
 
   it("windows are backed by the singleton Pool (reserve → payout → finalize)", async () => {
@@ -264,13 +226,11 @@ describe("MarketMaker (nth-outcome LMSR: binary + categorical, Pool-backed)", ()
     );
   });
 
-  it("rejects too many outcomes and trading outside the window", async () => {
+  it("rejects non-binary outcome sets and trading outside the window", async () => {
     const start = await startOf();
-    const many = Array.from({ length: 21 }, (_, i) => `o${i}`);
-    await expectError(
-      open(h("elon"), start, many, 50n * INDEX),
-      "TooManyOutcomes",
-    );
+    // The multi-outcome concept is gone: any set other than exactly 2 reverts.
+    await expectError(open(h("elon"), start, ["A", "B", "C"], 50n * INDEX), "BadOutcome");
+    await expectError(open(h("elon"), start, ["ONLY"], 50n * INDEX), "BadOutcome");
 
     await open(h("elon"), start, ["YES", "NO"], 85n * INDEX);
     const woO = await wo(h("elon"), start);
@@ -284,16 +244,15 @@ describe("MarketMaker (nth-outcome LMSR: binary + categorical, Pool-backed)", ()
 
   it("outcome prices always sum to 1 as money flows in", async () => {
     const start = await startOf();
-    await open(h("elon"), start, ["A", "B", "C"], 50n * INDEX);
+    await open(h("elon"), start, ["YES", "NO"], 50n * INDEX);
     const woO = await wo(h("elon"), start);
 
     const checkSum = async (): Promise<void> => {
-      const [a, b, c] = await Promise.all([
+      const [a, b] = await Promise.all([
         market.priceOf(woO, 0n),
         market.priceOf(woO, 1n),
-        market.priceOf(woO, 2n),
       ]);
-      expect(a + b + c).to.be.closeTo(ONE, ONE / 1000n);
+      expect(a + b).to.be.closeTo(ONE, ONE / 1000n);
     };
     await checkSum();
 
@@ -325,22 +284,22 @@ describe("MarketMaker (nth-outcome LMSR: binary + categorical, Pool-backed)", ()
     ).to.equal(0n);
   });
 
-  it("settling categorical ties picks the first outcome; losers can't claim", async () => {
+  it("a losing holder cannot claim; only the winning outcome pays", async () => {
     const start = await startOf();
-    await open(h("elon"), start, ["X", "Y", "Z"], 0n);
+    await open(h("elon"), start, ["YES", "NO"], 0n);
     const woO = await wo(h("elon"), start);
-    await market.connect(alice).buy(woO, 2n, 100n * ONE, 0n);
-    const q = await market.shares(alice.address, await woO.getAddress(), 2n);
+    await market.connect(alice).buy(woO, 1n, 100n * ONE, 0n); // holds NO
+    const q = await market.shares(alice.address, await woO.getAddress(), 1n);
 
     await ethers.provider.send("evm_increaseTime", [600]);
     await ethers.provider.send("evm_mine", []);
-    // Tie 50/50/50 → outcome 0 wins.
+    // Direction true → YES (index 0) wins; alice's NO is worthless.
     await resolveWindow({ wo: woO, signer: oracle, handleId: h("elon"), windowStart: start, windowEnd: start + 600n });
-    await market.connect(oracle).settle(woO, 0n); // tie → outcome 0 wins
+    await market.connect(oracle).settle(woO, 0n);
     expect(
       (await market.windows(await woO.getAddress())).winningOutcome,
     ).to.equal(0n);
-    await expectError(market.connect(alice).claim(woO, 2n), "NothingToRedeem");
+    await expectError(market.connect(alice).claim(woO, 1n), "NothingToRedeem");
     expect(q).to.be.greaterThan(0n);
   });
 

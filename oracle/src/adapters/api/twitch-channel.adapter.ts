@@ -1,6 +1,6 @@
-import type { AdapterCredentials, AdapterSample, SourceConfig } from "../core/domain/source";
-import { BaseSource } from "./base-source";
-import { apiGetJson, bucketStart } from "./http";
+import type { AdapterCredentials, AdapterSample, SourceConfig } from "../../core/domain/source";
+import { BaseSource } from ".././base-source";
+import { apiGetJson, bucketStart } from ".././http";
 
 /**
  * Twitch adapter — a streamer's own metrics via the Twitch Helix API (free,
@@ -8,7 +8,7 @@ import { apiGetJson, bucketStart } from "./http";
  *   followers — follower count
  *   viewers   — average live viewers (aggregate of current stream view count)
  */
-export class TwitchAdapter extends BaseSource {
+export class TwitchChannelAdapter extends BaseSource {
   readonly platform = "twitch";
   readonly weight = 520; // 1-1000 credibility
   readonly kind = "social" as const;

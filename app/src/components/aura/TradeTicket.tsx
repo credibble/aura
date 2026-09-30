@@ -17,7 +17,6 @@ import { toast } from "sonner";
 import type { Market } from "@/lib/aura-markets";
 import { useTradeExecutor, explainRevert } from "@/lib/trade";
 import { useAuraContracts } from "@/lib/contracts";
-import { useHandleArtwork } from "@/queries/handles";
 import { CONTRACTS } from "@/lib/chain";
 import { positionsOptions } from "@/queries/user";
 import { cn } from "@/lib/utils";
@@ -44,7 +43,6 @@ export function TradeTicket({ market }: { market: Market }) {
   const win = market.window;
   const { address, api } = useAuraContracts();
   const exec = useTradeExecutor();
-  const artwork = useHandleArtwork();
 
   const [side, setSide] = useState<Side>("buy");
   const [mode, setMode] = useState<Mode>("market");
@@ -174,12 +172,14 @@ export function TradeTicket({ market }: { market: Market }) {
 
   return (
     <div className="rounded-2xl border border-border/70 bg-card p-4">
-      {/* Handle + live outcome */}
+      {/* Handle + live outcome. The market IS the handle, and a bare "YES"/"NO"
+          label has no photo of its own — so the ticket shows the handle's. */}
       <div className="flex items-start gap-3">
         <Avatar
-          seed={outcome.label}
-          image={artwork(outcome.label).image}
-          imageFit={artwork(outcome.label).imageFit}
+          seed={market.handleId}
+          image={market.image}
+          metadata={market.metadata}
+          imageFit={market.imageFit}
           size={36}
           alt={outcome.label}
           className="shrink-0"

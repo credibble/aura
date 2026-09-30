@@ -6,7 +6,7 @@ import { REDIS } from "../queue/queue.constants";
 import { SOURCE_REGISTRY } from "../core/ports/tokens";
 import type { SourceRegistry } from "../core/ports/source-registry";
 import type { Source } from "../core/domain/source";
-import { SOURCES } from "./source-seed";
+import { SOURCES, handleAllowedSources, categoryFamily } from "./source-seed";
 import { SubgraphHandleSync } from "./subgraph-handle-sync.service";
 import { AdapterRegistry } from "../adapters/adapter-registry.service";
 import { bytes32ToId } from "../core/domain/handle";
@@ -107,6 +107,44 @@ export class SourceRegistryService implements SourceRegistry, OnModuleInit {
 
   async handlesForSource(sourceId: string): Promise<string[]> {
     return this.handleSourceMap.get(sourceId) ?? [];
+  }
+
+  /**
+   * A handle's readable sources = on-chain adapter configs ∪ the static feed
+   * universe its category (+ per-handle extras) allows.
+   *
+   * The engines used to read ONLY `handle.sources` — so a handle seeded without
+   * platform adapter configs had NO sources at all: aura never moved and the feed
+   * engine never published a post ("No feeds published yet"). The news feeds the
+   * registry has always carried were unreachable.
+   */
+  async sourcesForHandle(handle: {
+    id: string;
+    label: string;
+    categories: number[];
+    sources: string[];
+  }): Promise<Source[]> {
+    const out = new Map<string, Source>();
+    // On-chain configs first — they win if an id is also a static feed.
+    for (const source of this.adapters.buildFromJsonStrings(handle.sources)) {
+      out.set(source.id, source);
+    }
+    if (out.size > 0) {
+      // The handle declares its OWN sources: use exactly those. Falling back to a
+      // category default here would bury a scoped feed under general-outlet noise
+      // ("@ronaldo" reading a football section that is mostly about other players).
+      return [...out.values()];
+    }
+    // No on-chain sources: the category + per-handle defaults are the best we can
+    // do, unioned across every family the handle belongs to.
+    const allowed = new Set<string>();
+    for (const code of handle.categories) {
+      for (const id of handleAllowedSources(categoryFamily(code), handle.label)) allowed.add(id);
+    }
+    for (const source of SOURCES) {
+      if (allowed.has(source.id)) out.set(source.id, source);
+    }
+    return [...out.values()];
   }
 }
 

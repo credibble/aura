@@ -64,6 +64,7 @@ export function ActivityChart({
   showDot = true,
   strokeWidth = 2.25,
   padX,
+  strike,
 }: {
   data: number[];
   color: string;
@@ -73,6 +74,13 @@ export function ActivityChart({
   strokeWidth?: number;
   /** Horizontal inset of the line — pass 0 to run the line end to end. */
   padX?: number;
+  /**
+   * A threshold in the SAME unit as `data` (e.g. an aura level from the market's
+   * question). Drawn dashed, tinted by which side the latest value sits on, and
+   * pinned to the edge with an arrow when the series is entirely on one side.
+   * Only pass it for value charts — a cents/price axis has no aura level on it.
+   */
+  strike?: number | null;
 }) {
   const gradientId = useId();
   const [ref, width] = useMeasure<HTMLDivElement>();
@@ -86,8 +94,28 @@ export function ActivityChart({
     : "";
   const last = pts[pts.length - 1];
 
+  // Strike geometry — same domain the line was projected with.
+  const domain = tightDomain(data);
+  const hasStrike = typeof strike === "number" && Number.isFinite(strike);
+  const clamped = hasStrike
+    ? Math.min(domain.max, Math.max(domain.min, strike as number))
+    : domain.min;
+  const lastValue = data[data.length - 1];
+  const above = hasStrike && typeof lastValue === "number" ? lastValue >= (strike as number) : false;
+  const offBand = hasStrike
+    ? (strike as number) > domain.max
+      ? "above"
+      : (strike as number) < domain.min
+        ? "below"
+        : null
+    : null;
+  const strikeY = hasStrike
+    ? h - pad - ((clamped - domain.min) / (domain.max - domain.min || 1)) * (h - pad * 2)
+    : 0;
+  const strikeColor = above ? "hsl(var(--up))" : "hsl(var(--down))";
+
   return (
-    <div ref={ref} className={cn("w-full", className)} style={{ height }}>
+    <div ref={ref} className={cn("relative w-full", className)} style={{ height }}>
       {pts.length > 1 && (
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block overflow-visible">
           <defs>
@@ -96,6 +124,18 @@ export function ActivityChart({
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
+          {hasStrike && (
+            <line
+              x1="0"
+              x2={w}
+              y1={strikeY}
+              y2={strikeY}
+              stroke={strikeColor}
+              strokeWidth="1.25"
+              strokeDasharray="5 4"
+              opacity="0.8"
+            />
+          )}
           <motion.path
             d={area}
             fill={`url(#${gradientId})`}
@@ -135,6 +175,21 @@ export function ActivityChart({
             </>
           )}
         </svg>
+      )}
+
+      {hasStrike && (
+        <span
+          className="num pointer-events-none absolute right-0.5 -translate-y-1/2 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
+          style={{
+            top: `${(strikeY / h) * 100}%`,
+            color: strikeColor,
+            borderColor: strikeColor,
+            backgroundColor: "hsl(var(--card))",
+          }}
+        >
+          {(strike as number).toFixed(2)}
+          {offBand ? (offBand === "above" ? " ↑" : " ↓") : ""}
+        </span>
       )}
     </div>
   );

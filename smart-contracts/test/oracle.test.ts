@@ -28,7 +28,7 @@ describe("Oracle (per-window resolution authority)", () => {
     registry = await (
       await ethers.getContractFactory("MarketRegistry")
     ).deploy(await usdc.getAddress());
-    await registry.registerHandle(h("btc"), 15, false);
+    await registry.registerHandle(h("btc"), 15);
     factory = await deployOracleFactory(
       await registry.getAddress(),
       oracle.address,

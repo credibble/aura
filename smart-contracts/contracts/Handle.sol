@@ -40,6 +40,8 @@ contract Handle is Ownable2Step, ReentrancyGuard {
     uint256 public constant MAX_AURA = 10_000;
     /// Hard cap on source configs (keeps `sources` enumerable and cheap to index).
     uint256 public constant MAX_SOURCES = 32;
+    /// Hard cap on category codes — a handle carries a few at most.
+    uint256 public constant MAX_CATEGORIES = 4;
     // --- identity -----------------------------------------------------------
     bytes32 public immutable handleId;
     string public name;
@@ -79,11 +81,12 @@ contract Handle is Ownable2Step, ReentrancyGuard {
     address public curator;
     /// Trading-prediction graduation: only graduated handles can open windows.
     bool public graduated;
-    /// Content category — the market-style code, encoded `{cat}_{sub}_{format}`
-    /// (e.g. 100_001_001 = sport/football/binary YES-NO, 100_001_002 =
-    /// sport/football/multi-outcome). Determines the style + question of the
-    /// handle's prediction windows. Set by the protocol (backend).
-    uint256 public category;
+    /// Content categories — each a market-style code encoded
+    /// `{cat}_{sub}_{format}` (e.g. 100_001_001 = sport/football/binary YES-NO).
+    /// A handle may carry more than one (e.g. a person who is also a football
+    /// handle). Set by the protocol (backend). `categoriesCount()` exists
+    /// because the public getter only exposes one index at a time.
+    uint256[] public categories;
     /// Verification status (e.g. an account's identity was KYC/link verified) —
     /// set by the protocol (backend).
     bool public verified;
@@ -104,7 +107,7 @@ contract Handle is Ownable2Step, ReentrancyGuard {
     event AuraUpdaterSet(address indexed updater);
     event CuratorSet(address indexed curator);
     event GraduatedSet(bool graduated);
-    event CategorySet(uint256 category);
+    event CategoriesSet(uint256[] categories);
     event VerifiedSet(bool verified);
 
     /// Only the HandleFactory may wire protocol addresses and LP receipts.
@@ -136,21 +139,23 @@ contract Handle is Ownable2Step, ReentrancyGuard {
         string memory _symbol,
         string memory _metadata,
         uint256 _windowMinutes,
-        uint256 _category,
+        uint256[] memory _categories,
         address _factory,
         IERC20 _usdc
     ) Ownable(_owner) {
         if (_owner == address(0)) revert Errors.ZeroAddress();
+        if (_categories.length == 0) revert Errors.ZeroAmount();
+        if (_categories.length > MAX_CATEGORIES) revert Errors.TooManyCategories();
         handleId = _handleId;
         name = _name;
         symbol = _symbol;
         metadata = _metadata;
         windowMinutes = _windowMinutes;
-        category = _category;
+        categories = _categories;
         factory = _factory;
         usdc = _usdc;
         createdAt = block.timestamp;
-        if (_category != 0) emit CategorySet(_category);
+        emit CategoriesSet(_categories);
     }
 
     // --- protocol actions ---------------------------------------------------
@@ -237,10 +242,27 @@ contract Handle is Ownable2Step, ReentrancyGuard {
         emit CuratorSet(_curator);
     }
 
-    /// Backend sets the handle's content category (market-style code).
-    function setCategory(uint256 _category) external onlyCurator {
-        category = _category;
-        emit CategorySet(_category);
+    /// Backend sets the handle's content categories (market-style codes).
+    /// Replaces the whole set; empty is rejected so a handle always carries one.
+    function setCategories(uint256[] calldata _categories) external onlyCurator {
+        if (_categories.length == 0) revert Errors.ZeroAmount();
+        if (_categories.length > MAX_CATEGORIES) revert Errors.TooManyCategories();
+        categories = _categories;
+        emit CategoriesSet(_categories);
+    }
+
+    /// Number of category codes — lets off-chain readers (subgraph, oracle)
+    /// enumerate `categories` (Solidity has no dynamic-array length getter).
+    function categoriesCount() external view returns (uint256) {
+        return categories.length;
+    }
+
+    /// Membership test for a category code (subgraph/tests convenience).
+    function hasCategory(uint256 code) external view returns (bool) {
+        for (uint256 i = 0; i < categories.length; i++) {
+            if (categories[i] == code) return true;
+        }
+        return false;
     }
 
     /// Backend marks the handle verified (e.g. identity link confirmed).

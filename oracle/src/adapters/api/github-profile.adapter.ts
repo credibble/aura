@@ -1,6 +1,6 @@
-import type { AdapterCredentials, AdapterSample, SourceConfig } from "../core/domain/source";
-import { BaseSource } from "./base-source";
-import { apiGetJson, bucketStart } from "./http";
+import type { AdapterCredentials, AdapterSample, SourceConfig } from "../../core/domain/source";
+import { BaseSource } from ".././base-source";
+import { apiGetJson, bucketStart } from ".././http";
 
 /**
  * GitHub adapter — a user/org's own metrics via the GitHub REST API (free,
@@ -9,7 +9,7 @@ import { apiGetJson, bucketStart } from "./http";
  *   stars     — Σ stargazers across their repos
  *   repos     — public repo count
  */
-export class GitHubAdapter extends BaseSource {
+export class GitHubProfileAdapter extends BaseSource {
   readonly platform = "github";
   readonly weight = 800; // 1-1000 credibility
   readonly kind = "community" as const;

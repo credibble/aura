@@ -1,6 +1,6 @@
 import { CATEGORY_MAP, type CategoryId, type MetricId } from "./aura-data";
 import { artworkOf } from "./handle-metadata";
-import { categoryFromCode, windowLabels } from "@/queries/handles";
+import { categoriesOf, windowLabels } from "@/queries/handles";
 import type { SubgraphWindow } from "@/queries/markets";
 
 // ----------------------------------------------------------------------------
@@ -8,9 +8,8 @@ import type { SubgraphWindow } from "@/queries/markets";
 //
 // A market is one window on a handle: the question comes from the oracle's
 // metadata, the outcome list and prices from the window itself, and the
-// countdown from windowEnd. Two-outcome windows render with the compact
-// Yes/No UI; three or more render with the multi-outcome list UI. Same data,
-// same pages — only the presentation differs.
+// countdown from windowEnd. Every window is binary — YES/NO — so one compact
+// layout serves every market.
 // ----------------------------------------------------------------------------
 
 export type MarketOutcome = {
@@ -30,7 +29,13 @@ export type Market = {
   /** Display handle chip, e.g. `@btc` (from the handle's on-chain symbol). */
   handle: string;
   handleId: string;
+  /**
+   * Primary category — the first of `categories` (single-label rows: cards,
+   * detail header). Kept so those surfaces don't have to pick one themselves.
+   */
   category: CategoryId;
+  /** Every category the handle belongs to (never empty). */
+  categories: CategoryId[];
   metric: MetricId;
   /** Window length in minutes — drives labels + ending-soon ordering. */
   windowMinutes: number;
@@ -44,6 +49,13 @@ export type Market = {
   windowStart: number;
   windowEnd: number;
   /**
+   * The binary question's threshold, in aura points — the oracle writes it into
+   * the question text ("Will @btc aura rise above 41.50?"), so the chart can draw
+   * the line the market is actually asking about. Undefined when the question
+   * carries no threshold.
+   */
+  strike?: number;
+  /**
    * The handle's real artwork, parsed from its on-chain metadata JSON. Carried on
    * the market itself so EVERY card (explore, group, search, feed) can show the
    * photo instead of an identicon — the window query selects `handle.metadata`.
@@ -52,21 +64,26 @@ export type Market = {
   imageFit?: "cover" | "contain";
   /** Raw handle metadata JSON, kept for call sites that pass it straight on. */
   metadata?: string | null;
-  /** Always at least two; exactly two means the compact UI. */
+  /** Always exactly two: YES and NO. */
   outcomes: MarketOutcome[];
   /** Raw window — carries the oracle address + LMSR state for trading. */
   window: SubgraphWindow;
 };
 
-/** Stable outcome palette — index-based, same color per slot everywhere. */
-const OUTCOME_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--up))",
-  "hsl(var(--down))",
-  "#f59e0b",
-  "#3b82f6",
-  "#14b8a6",
-];
+/**
+ * The binary question's threshold in aura points — the oracle bakes it into the
+ * text ("Will @btc aura rise above 41.50?"), so the chart can draw the exact line
+ * the market settles against. Questions without a threshold have none.
+ */
+function strikeOf(question: string): number | undefined {
+  const m = /rise above\s+([\d.,]+)/i.exec(question ?? "");
+  if (!m) return undefined;
+  const n = Number(m[1].replace(/,/g, ""));
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Stable outcome palette — YES keeps slot 0, NO slot 1, everywhere. */
+const OUTCOME_COLORS = ["hsl(var(--primary))", "hsl(var(--up))"];
 
 function outcomeColor(i: number): string {
   return OUTCOME_COLORS[i % OUTCOME_COLORS.length]!;
@@ -91,12 +108,15 @@ export function toMarket(w: SubgraphWindow): Market {
   const minutes = end > start ? Math.round((end - start) / 60_000) : Number(w.handle.windowMinutes);
   const pct = pcts(w.prices);
   const initial = pcts(w.initialProbabilities);
+  const categories = categoriesOf(w.handle);
   return {
     id: w.handle.id,
     question: w.question,
+    strike: strikeOf(w.question),
     handle: `@${(w.handle.symbol ?? w.handle.name ?? w.handle.id).toLowerCase()}`,
     handleId: w.handle.id,
-    category: categoryFromCode(w.handle.category),
+    category: categories[0]!,
+    categories,
     metric: "aura",
     // Real artwork for every avatar that renders this market.
     metadata: w.handle.metadata ?? null,
@@ -134,11 +154,6 @@ export function toMarkets(windows: SubgraphWindow[], dedupe = false): Market[] {
     out.push(toMarket(w));
   }
   return out;
-}
-
-/** True when the compact Yes/No (2-outcome) presentation applies. */
-export function isTwoWay(market: Market): boolean {
-  return market.outcomes.length <= 2;
 }
 
 /** Where a market's detail page lives — every market is served under /market. */

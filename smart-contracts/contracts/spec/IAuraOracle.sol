@@ -29,7 +29,7 @@ interface IAuraOracle {
         uint256 indexClose;
         bool direction; // true = up
         uint32 itemCount;
-        bytes32 outcomesHash; // keccak commitment to ordered outcome dominances (grouped markets)
+        bytes32 outcomesHash; // keccak commitment to the ordered outcome metadata (binary markets)
         uint256 resolvedAt;
     }
 

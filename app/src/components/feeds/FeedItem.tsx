@@ -34,7 +34,12 @@ export function FeedItem({
   const liked = isLiked(post.id);
   const reposted = isReposted(post.id);
   const saved = isBookmarked(post.id);
-  const slug = handleSlug({ id: post.marketId || post.assetId || post.handle, name: post.name });
+  // Resolve the handle from its authoritative bytes32 id; the `handle` label
+  // (not the display name) is the fallback so a rename can't move the link.
+  const slug = handleSlug({
+    id: post.handleId ?? post.handle,
+    name: post.handle ?? post.name,
+  });
   const cat = CATEGORY_MAP[post.category];
   const compact = variant === "compact";
 
@@ -62,7 +67,7 @@ export function FeedItem({
       <div className="flex items-center gap-3">
         <AssetAvatar
           asset={{
-            id: post.marketId || post.assetId || post.handle,
+            id: post.handleId ?? post.handle,
             symbol: (post.name || post.handle).toUpperCase().slice(0, 4),
             color: "hsl(var(--primary))",
             name: post.name,

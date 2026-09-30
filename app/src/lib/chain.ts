@@ -90,7 +90,7 @@ export const POOL_ABI = parseAbi([
 ]);
 
 export const HANDLE_FACTORY_ABI = parseAbi([
-  "function createHandle(bytes32 handleId, address creator, string name, string symbol, string metadata, uint256 windowMinutes, uint256 category) returns (address)",
+  "function createHandle(bytes32 handleId, address creator, string name, string symbol, string metadata, uint256 windowMinutes, uint256[] categories) returns (address)",
 ]);
 
 export const HANDLE_ABI = parseAbi([

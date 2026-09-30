@@ -41,6 +41,8 @@ export type CommentView = {
 export type PostEvent = {
   id: string;
   assetId: string;
+  /** The handle's bytes32 id. The oracle currently sends it as `assetId`. */
+  handleId?: string;
   kind: string;
   title: string;
   body: string;
@@ -101,6 +103,7 @@ export function toFeedPost(p: PostEvent): FeedPost {
     marketId: p.marketId,
     handle: p.handle,
     name: p.name,
+    handleId: p.handleId,
     assetId: p.assetId,
     category: categoryFromCode(p.category),
     ts: timeAgo(p.createdAt),

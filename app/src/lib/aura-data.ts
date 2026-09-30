@@ -31,7 +31,10 @@ export type AssetSeed = {
   id: string;
   symbol: string;
   name: string;
+  /** Primary category — the first of `categories`. */
   category: CategoryId;
+  /** Every category the handle belongs to (on-chain `categories`/`categoryIds`). */
+  categories: CategoryId[];
   color: string;
   /** Real artwork (logo / photo) hot-linked from the open web. */
   image?: string;
@@ -150,23 +153,6 @@ export const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
 // ----------------------------------------------------------------------------
 // Handles — every market is a handle: @btc, @messi, @67, @ai, @football
 // ----------------------------------------------------------------------------
-
-const CATEGORY_HANDLE: Record<CategoryId, string> = {
-  crypto: "crypto",
-  ai: "ai",
-  sports: "football",
-  people: "people",
-  brands: "brands",
-  memes: "memes",
-  music: "music",
-  tech: "tech",
-  culture: "culture",
-};
-
-/** Handle for a 3+-outcome category market — `@ai`, `@football`. */
-export function categoryHandle(category: CategoryId): string {
-  return `@${CATEGORY_HANDLE[category]}`;
-}
 
 export function indexLabel(metric: MetricId): string {
   return `${METRIC_LABEL[metric]} Index`;

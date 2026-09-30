@@ -19,7 +19,10 @@ import type { Contract } from "ethers";
 
 const ONE = 10n ** 18n;
 const CATEGORY_FOOTBALL_BINARY = 100_001_001n;
-const RONALD = ethers.encodeBytes32String("ronaldo");
+/// Categorisation is a set: @ronaldo is BOTH a sport/football handle and a
+/// people handle, which exercises the multi-category path from the seed on.
+const CATEGORY_PEOPLE_BINARY = 3_000_001n;
+const RONALDO = ethers.encodeBytes32String("ronaldo");
 
 const h = (s: string): string => ethers.encodeBytes32String(s);
 
@@ -69,7 +72,6 @@ async function main(): Promise<void> {
     await handleFactory.getAddress(),
     await configurator.getAddress(),
     0n, // feeBips
-    20n, // maxOutcomes
   );
   const book = await (
     await ethers.getContractFactory("OrderBook")
@@ -103,21 +105,24 @@ async function main(): Promise<void> {
 
   // --- seed @ronaldo (sport/football binary, easy 50/50 YES/NO) ----------
 
-  await (await registry.registerHandle(h("ronaldo"), 15, false)).wait();
+  await (await registry.registerHandle(h("ronaldo"), 15)).wait();
   await (
     await handleFactory.createHandle(
-      RONALD,
+      RONALDO,
       deployer.address,
       "Ronaldo",
       "RON",
-      JSON.stringify({ name: "Cristiano Ronaldo", category: "sport/football/binary" }),
+      JSON.stringify({
+        name: "Cristiano Ronaldo",
+        categories: ["sport/football/binary", "people/binary"],
+      }),
       15n,
-      CATEGORY_FOOTBALL_BINARY,
+      [CATEGORY_FOOTBALL_BINARY, CATEGORY_PEOPLE_BINARY],
     )
   ).wait();
 
-  const handle = await ethers.getContractAt("Handle", await handleFactory.handleOf(RONALD));
-  await (await handleFactory.setAuraUpdater(RONALD, relayer.address)).wait();
+  const handle = await ethers.getContractAt("Handle", await handleFactory.handleOf(RONALDO));
+  await (await handleFactory.setAuraUpdater(RONALDO, relayer.address)).wait();
   await (await handle.connect(relayer).updateAura(3040n, "Deployment seed — Cristiano Ronaldo aura 30.40")).wait(); // 30.40 aura
   await (await handle.connect(relayer).setGraduated(true)).wait();
   console.log(`Seeded @ronaldo (${await handle.getAddress()}) — graduated, aura 30.40`);
@@ -143,7 +148,7 @@ async function main(): Promise<void> {
 
   await (
     await market.connect(relayer).openWindow(
-      RONALD,
+      RONALDO,
       BigInt(start),
       BigInt(end),
       ["YES", "NO"],
@@ -155,7 +160,7 @@ async function main(): Promise<void> {
       JSON.stringify({
         question: "Will @ronaldo aura rise above 30.40?",
         style: "binary",
-        category: Number(CATEGORY_FOOTBALL_BINARY),
+        categories: [Number(CATEGORY_FOOTBALL_BINARY), Number(CATEGORY_PEOPLE_BINARY)],
         sub: "football",
       }),
       1_000n * ONE, // min 1k USDC funding
@@ -207,10 +212,10 @@ async function main(): Promise<void> {
     orderBook: await book.getAddress(),
     handles: {
       ronaldo: {
-        id: RONALD,
+        id: RONALDO,
         contract: await handle.getAddress(),
-        stake: await handleFactory.stakeOf(RONALD),
-        category: Number(CATEGORY_FOOTBALL_BINARY),
+        stake: await handleFactory.stakeOf(RONALDO),
+        categories: [Number(CATEGORY_FOOTBALL_BINARY), Number(CATEGORY_PEOPLE_BINARY)],
         aura: 3040,
         graduated: true,
       },

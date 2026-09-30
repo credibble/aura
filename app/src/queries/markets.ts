@@ -15,8 +15,10 @@ export type SubgraphWindow = {
     symbol: string | null;
     name: string | null;
     aura: string;
-    /** On-chain category code (100_001_001 → family codes). */
-    category: string;
+    /** On-chain category codes (100_001_001 → family codes). */
+    categories: string[];
+    /** Family ids derived from the codes — `["sports"]`. */
+    categoryIds: string[];
     windowMinutes: string;
     /** Adapter source JSON configs (the real outlets behind the index). */
     sources: string[];
@@ -44,7 +46,7 @@ export type SubgraphWindow = {
 };
 
 /** Full window selection shared by every window query. */
-const WINDOW_FIELDS = `id handle { id symbol name aura category windowMinutes sources metadata } oracle question style windowStart windowEnd
+const WINDOW_FIELDS = `id handle { id symbol name aura categories categoryIds windowMinutes sources metadata } oracle question style windowStart windowEnd
     outcomes initialProbabilities prices q liquidity reference settled winningOutcome volume`;
 
 /** Protocol counters (one Stats entity — no client-side scanning). */

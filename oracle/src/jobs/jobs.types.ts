@@ -10,8 +10,12 @@ export interface AuraHandle {
   /** Current on-chain aura (1e2-scaled). */
   aura: number;
   graduated: boolean;
-  /** Market-style category code (e.g. 100_001_001 = sport/football/binary). */
-  category: number;
+  /**
+   * Market-style category codes (`{cat}_{sub}_{format}`). A handle can belong to
+   * more than one family — e.g. @ronaldo is sport/football AND people. The FIRST
+   * entry is the primary one that decides the window's market style.
+   */
+  categories: number[];
   windowMinutes: number;
   /** On-chain Handle metadata JSON string (name/label/photo/…). */
   metadata?: string;

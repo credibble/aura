@@ -301,9 +301,18 @@ function SlideWindow() {
 }
 
 const TRADES = [
-  { seed: "elon", name: "@elon", outcome: "YES", cents: 74, stake: 25, up: true },
-  { seed: "taylor", name: "@taylor", outcome: "NO", cents: 41, stake: 10, up: false },
-  { seed: "btc", name: "@btc", outcome: "YES", cents: 56, stake: 100, up: true },
+  {
+    seed: "elon", name: "@elon", outcome: "YES", cents: 74, stake: 25, up: true,
+    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/330px-Elon_Musk_-_54820081119_%28cropped%29.jpg",
+  },
+  {
+    seed: "taylor", name: "@taylor", outcome: "NO", cents: 41, stake: 10, up: false,
+    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png/330px-Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png",
+  },
+  {
+    seed: "btc", name: "@btc", outcome: "YES", cents: 56, stake: 100, up: true,
+    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/330px-Bitcoin.svg.png",
+  },
 ];
 
 /** Slide 5 — the ticket: USDC in, shares out (no `$`, no fake dollar values). */
@@ -316,7 +325,13 @@ function SlideTrade() {
           className="hiw-card-in flex items-center gap-3 rounded-2xl bg-secondary/70 px-3 py-2.5"
           style={{ animationDelay: `${i * 0.12}s` }}
         >
-          <Avatar seed={t.seed} size={40} alt={t.name} />
+          <Avatar
+            seed={t.seed}
+            image={t.photo}
+            imageFit={t.seed === "btc" ? "contain" : "cover"}
+            size={40}
+            alt={t.name}
+          />
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-sm font-bold">{t.name}</div>
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -340,18 +355,20 @@ function SlideTrade() {
 function SlideStake() {
   return (
     <div className="flex h-full flex-col justify-center gap-3 px-6">
-      <div className="hiw-card-in flex items-center gap-3 rounded-2xl border border-primary/40 bg-primary/10 px-3 py-2.5">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
-          <Coins className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="text-sm font-bold text-foreground">$AURA vault</div>
-          <div className="text-[11px] text-muted-foreground">@ronaldo · fees from every window</div>
+      <div className="hiw-card-in gradient-ring rounded-2xl p-[1.5px]">
+        <div className="flex items-center gap-3 rounded-2xl bg-card px-3 py-2.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+            <Coins className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="text-sm font-bold text-foreground">$AURA vault</div>
+            <div className="text-[11px] text-muted-foreground">@ronaldo · fees from every window</div>
+          </div>
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
+            <Sparkles className="h-3 w-3" aria-hidden="true" />
+            Early bird
+          </span>
         </div>
-        <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
-          <Sparkles className="h-3 w-3" aria-hidden="true" />
-          Early bird
-        </span>
       </div>
 
       <div className="hiw-card-in space-y-1.5 rounded-2xl bg-secondary/70 px-3 py-2.5" style={{ animationDelay: "0.12s" }}>

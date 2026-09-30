@@ -3,7 +3,7 @@ import { HandleCreated } from "../generated/HandleFactory/HandleFactory";
 import { Handle as HandleContract } from "../generated/HandleFactory/Handle";
 import { Handle as HandleTemplate, Stake as StakeTemplate } from "../generated/templates";
 import { HandleAddress, Stake } from "../generated/schema";
-import { loadOrCreateUser, loadOrCreateHandle, categoryIdOf, loadStats, ZERO_ADDRESS } from "./helpers";
+import { loadOrCreateUser, loadOrCreateHandle, categoryIdsOf, loadStats, ZERO_ADDRESS } from "./helpers";
 
 /**
  * HandleFactory.HandleCreated — materialize the top-level Handle entity from
@@ -30,8 +30,14 @@ export function handleHandleCreated(event: HandleCreated): void {
   handle.revenue = hc.revenue();
   handle.stake = hc.stake();
   handle.graduated = hc.graduated();
-  handle.category = hc.category();
-  handle.categoryId = categoryIdOf(hc.category());
+  // Enumerate the on-chain categories[] via the count getter + index getter.
+  let catCount = hc.categoriesCount().toI32();
+  let cats = new Array<BigInt>();
+  for (let i: i32 = 0; i < catCount; i++) {
+    cats.push(hc.categories(BigInt.fromI32(i)));
+  }
+  handle.categories = cats;
+  handle.categoryIds = categoryIdsOf(cats);
   handle.verified = hc.verified();
   // Two-step ownership (OZ Ownable2Step): the factory's owner is current.
   handle.pendingOwner = ZERO_ADDRESS;

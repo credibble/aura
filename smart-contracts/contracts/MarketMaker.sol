@@ -21,14 +21,13 @@ import {
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title MarketMaker
-/// @notice The nth-outcome prediction market — the Aura core. A window is a
-///         fixed-threshold binary ("Will Aura close above the strike?") OR a
-///         winner-takes-all categorical market ("Who gains the most Aura?"),
-///         priced by an LMSR AMM: every outcome's price is its probability and
-///         all prices sum to 1. A winning share pays 1 USDC. The singleton Pool
+/// @notice The binary prediction market — the Aura core. Every window is a
+///         fixed-threshold binary ("Will Aura close above the strike?"), priced
+///         by an LMSR AMM: each outcome's price is its probability and the two
+///         prices sum to 1. A winning share pays 1 USDC. The singleton Pool
 ///         vault backs each window (house-seeded at openWindow); LPs earn the
 ///         fee cut. The relayer seeds the strike from the EMA baseline of past
-///         windows and settles the final per-outcome indices (winner = argmax).
+///         windows and settles the final index (close ≥ strike → YES).
 contract MarketMaker is IMarketMaker, ReentrancyGuard {
     using SafeERC20 for IERC20;
     uint256 internal constant ONE = Constants.ONE;
@@ -41,7 +40,6 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
     IHandleFactory public immutable handleFactory;
     IConfigurator public immutable configurator; // protocol-level rules (window bounds)
     uint256 public immutable feeBips; // trading fee to RevenueSharing (bps)
-    uint256 public immutable maxOutcomes; // hard cap (e.g. 20)
 
     struct Window {
         bytes32 handleId;
@@ -135,8 +133,7 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         IRevenueSharing _revenue,
         IHandleFactory _handleFactory,
         IConfigurator _configurator,
-        uint256 _feeBips,
-        uint256 _maxOutcomes
+        uint256 _feeBips
     ) {
         oracleFactory = _oracleFactory;
         collateral = _collateral;
@@ -144,17 +141,16 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         handleFactory = _handleFactory;
         configurator = _configurator;
         feeBips = _feeBips;
-        maxOutcomes = _maxOutcomes;
     }
 
     // --- oracle (relayer) functions -----------------------------------------
 
-    /// Open a window: deploy the window oracle, name the outcomes, seed the
+    /// Open a window: deploy the window oracle, name the two outcomes, seed the
     /// LMSR with INITIAL PROBABILITIES (1e18 each, Σ = 1e18), and reserve
     /// `funding` from the singleton Pool (house-seeded; LPs are the
     /// counterparty). LMSR depth b = funding/ln(n) so the reserve bounds the
     /// market maker's max loss (b·ln(n) = funding). The relayer prices the
-    /// open (e.g. 50/50 binary, or aura-weighted priors for a multi market).
+    /// open (usually 50/50, but any live prior is allowed).
     function openWindow(
         bytes32 handleId,
         uint256 windowStart,
@@ -170,7 +166,8 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         if (windowEnd <= windowStart) revert Errors.BadWindow();
         if (windowEnd - windowStart < configurator.minWindowSeconds()) revert Errors.BadWindow();
         uint256 n = outcomes.length;
-        if (n < 2 || n > maxOutcomes) revert Errors.TooManyOutcomes();
+        // Binary only: exactly YES(0)/NO(1). The multi-outcome concept is gone.
+        if (n != 2) revert Errors.BadOutcome();
         if (metadata.length != n) revert Errors.BadOutcome();
         if (probabilities.length != n) revert Errors.BadOutcome();
         if (funding == 0) revert Errors.ZeroAmount();
@@ -250,10 +247,8 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
             revert Errors.OracleNotResolved();
         (bool direction, , , ) = oracle.resolutionOf();
         // Binary: direction is the whole truth — index 0 = up/YES, 1 = down/NO.
-        if (w.outcomes.length == 2) {
-            uint256 derived = direction ? 0 : 1;
-            if (winningOutcome != derived) revert Errors.BadOutcome();
-        }
+        uint256 derived = direction ? 0 : 1;
+        if (winningOutcome != derived) revert Errors.BadOutcome();
         w.settled = true;
         w.winningOutcome = winningOutcome;
         emit Settled(w.handleId, address(oracle), winningOutcome);

@@ -7,6 +7,9 @@ export type SourceMedia = {
   title?: string;
 };
 
+/** Re-exported for adapters that carry platform metrics with their items. */
+export type SourceCounts = Record<string, number>;
+
 /** The raw shape every transport returns before normalization. */
 export interface RawDatum {
   id?: string;
@@ -15,7 +18,14 @@ export interface RawDatum {
   url?: string;
   author?: string;
   publishedAt: number;
+  /** Aggregate engagement (kept for scoring: likes + reposts, impressions, …). */
   engagement?: number;
+  /**
+   * The engagement breakdown the endpoint actually returned, so the feed card can
+   * show "12.4K likes · 3.1K reposts" and the AI can see reach vs reception.
+   * Keys are free-form per platform (likes/replies/reposts/views/followers/score).
+   */
+  stats?: SourceCounts;
   media?: SourceMedia[];
 }
 

@@ -94,6 +94,15 @@ export interface Source {
   transport?: SourceTransport;
   /** Human label for the feed synthesizer ("BBC Sport"). */
   label: string;
+  /**
+   * How the AI should read this source: what the outlet actually covers and how
+   * much to trust its framing. Rendered into the prompt as `context="…"`. Set for
+   * the static feeds too (the news desks), not just adapter configs — otherwise
+   * every outlet reached the model with no framing at all.
+   */
+  context?: string;
+  /** Subject the source is about; items containing it are flagged <<MENTION>>. */
+  topic?: string;
   /** Adapter source: the platform config (JSON) this source was built from. */
   adapter?: SourceConfig;
   /** Adapter source: the metrics it extracts into its time series. */

@@ -11,7 +11,6 @@ import {
   Trophy,
   Wallet,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,7 +44,9 @@ type RailPref = "auto" | "on" | "off";
 
 function railClass(active: boolean, wideRow: string) {
   return cn(
-    "flex h-11 w-11 shrink-0 items-center justify-center gap-4 rounded-full transition-colors hover:bg-secondary/70",
+    // No `gap`: the label carries its own leading margin so collapsing it to zero
+    // width removes the spacing too (no icon shift mid-animation).
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary/70",
     "text-foreground",
     wideRow,
     active && "bg-secondary/60",
@@ -142,12 +143,17 @@ function LeftRail() {
       : pref === "off"
         ? ""
         : "2xl:w-full 2xl:justify-start 2xl:px-3";
+  /**
+   * Rail labels never unmount — they collapse to zero width and fade, so the
+   * expand/collapse animates instead of snapping (display:none can't transition).
+   */
+  const labelBase = "overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-200 ease-out";
   const label =
     pref === "on"
-      ? "inline text-[19px] leading-none"
+      ? `${labelBase} ml-4 max-w-[200px] opacity-100 text-[19px] leading-none`
       : pref === "off"
-        ? "hidden"
-        : "hidden text-[19px] leading-none 2xl:inline";
+        ? `${labelBase} ml-0 max-w-0 opacity-0 text-[19px] leading-none`
+        : `${labelBase} ml-0 max-w-0 opacity-0 text-[19px] leading-none 2xl:ml-4 2xl:max-w-[200px] 2xl:opacity-100`;
   // Same visibility rules as `label`, but without the rail's text sizing —
   // used for the Connect Wallet button's text spans.
   const btnLabel = pref === "on" ? "inline" : pref === "off" ? "hidden" : "hidden 2xl:inline";
@@ -157,6 +163,8 @@ function LeftRail() {
       : pref === "off"
         ? ""
         : "2xl:w-[264px] 2xl:items-stretch 2xl:px-4";
+  // The width/padding changes animate; the labels already transition.
+  const navMotion = "transition-[width,padding] duration-200 ease-out";
   // Toggle icons flip at the same breakpoint the rail expands on.
   const expandCls = pref === "on" ? "xl:hidden" : pref === "off" ? "" : "2xl:hidden";
   const collapseCls =
@@ -167,6 +175,7 @@ function LeftRail() {
       aria-label="Feed"
       className={cn(
         "sticky top-0 hidden h-screen shrink-0 flex-col items-center gap-1 px-3 py-3 lg:flex",
+        navMotion,
         wideNav,
       )}
     >
@@ -248,11 +257,11 @@ function LeftRail() {
         <span className={label}>Pool</span>
       </Link>
 
-      {/* Connect wallet — the desktop login affordance (Navbar's ConnectButton
+      {/* Connect wallet - the desktop login affordance (Navbar's ConnectButton
           is lg:hidden; without this the rail had no way to sign in) */}
       <div className={cn("mt-1 w-11 shrink-0", wideRow)}>
         <ConnectButton
-          disconnectedLabel="Connect Wallet"
+          disconnectedLabel="Sign in"
           labelClassName={btnLabel}
           className="h-11 w-full justify-center rounded-lg gap-3 xl:justify-start"
         />
@@ -293,31 +302,11 @@ function LeftRail() {
           <HowItWorks>
             <DropdownMenuItem onSelect={(e) => e.preventDefault()}>How it works</DropdownMenuItem>
           </HowItWorks>
-          <HowItWorks>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              What is the aura index?
-            </DropdownMenuItem>
-          </HowItWorks>
-          <DropdownMenuItem asChild>
-            <Link to="/pool">Liquidity pool</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/leaderboard">Leaderboard</Link>
-          </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/terms">Terms of Service</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/privacy">Privacy Policy</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() =>
-              toast.info("Earn", {
-                description: "Supply USDC to a market pool and earn steady yield from its flow.",
-              })
-            }
-          >
-            Earn
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

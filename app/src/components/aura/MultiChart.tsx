@@ -28,15 +28,23 @@ function pathFor(data: number[], w: number, h: number, min: number, max: number)
 
 export type MultiChartMode = "line" | "coin" | "candles";
 
-/** Multi-series chart matching the Polymarket featured / event charts. */
+/**
+ * Multi-series chart. For binary markets the question names a LEVEL ("Will @btc
+ * aura rise above 41.50?") — pass it as `strike` and the chart draws that line,
+ * tinted by which side of it the latest value sits on. Without it the question
+ * was only answerable by eye against an unlabelled axis.
+ */
 export function MultiChart({
   series,
   height = 220,
   mode = "line",
+  strike,
 }: {
   series: Series[];
   height?: number;
   mode?: MultiChartMode;
+  /** Threshold from the market question (aura points), e.g. 41.5. */
+  strike?: number | null;
 }) {
   const id = useId();
   const w = 640;
@@ -50,19 +58,54 @@ export function MultiChart({
   const n = series[0]?.data.length ?? 0;
   const xFor = (i: number) => (i / Math.max(1, n - 1)) * w;
 
+  // The strike can sit outside the visible band (the domain follows the data):
+  // pin it to the edge and say which side, rather than drawing nothing.
+  const hasStrike = typeof strike === "number" && Number.isFinite(strike);
+  const clamped = hasStrike ? Math.min(max, Math.max(min, strike as number)) : 0;
+  const last = series[0]?.data[series[0].data.length - 1];
+  const above = hasStrike && typeof last === "number" ? last >= (strike as number) : false;
+  const offChart = hasStrike ? (strike as number) > max ? "above" : (strike as number) < min ? "below" : null : null;
+  const strikeY = hasStrike ? yFor(clamped) : 0;
+  const strikeColor = above ? "hsl(var(--up))" : "hsl(var(--down))";
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full" preserveAspectRatio="none">
-      {[0.25, 0.5, 0.75].map((g) => (
-        <line
-          key={g}
-          x1="0"
-          x2={w}
-          y1={h * g}
-          y2={h * g}
-          stroke="hsl(var(--border))"
-          strokeDasharray="3 4"
-        />
-      ))}
+    <div className="relative h-full w-full">
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="h-full w-full"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={
+          hasStrike
+            ? `Aura chart with the strike at ${strike}. Latest value is ${above ? "at or above" : "below"} it.`
+            : "Aura chart"
+        }
+      >
+        {[0.25, 0.5, 0.75].map((g) => (
+          <line
+            key={g}
+            x1="0"
+            x2={w}
+            y1={h * g}
+            y2={h * g}
+            stroke="hsl(var(--border))"
+            strokeDasharray="3 4"
+          />
+        ))}
+        {/* The question's level — dashed, behind the data. */}
+        {hasStrike && (
+          <line
+            x1="0"
+            x2={w}
+            y1={strikeY}
+            y2={strikeY}
+            stroke={strikeColor}
+            strokeWidth="1.4"
+            strokeDasharray="6 5"
+            opacity="0.75"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
       {mode === "candles"
         ? series.map((s) => {
             const step = Math.max(1, Math.ceil(s.data.length / 22));
@@ -142,5 +185,24 @@ export function MultiChart({
           );
         })}
     </svg>
+
+      {/* The strike, labelled in HTML so the text isn't stretched by the
+          chart's non-uniform scaling. Non-interactive: the memo hover targets
+          span the full height. */}
+      {hasStrike && (
+        <span
+          className="num pointer-events-none absolute right-1 -translate-y-1/2 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
+          style={{
+            top: `${(strikeY / h) * 100}%`,
+            color: strikeColor,
+            borderColor: strikeColor,
+            backgroundColor: "hsl(var(--card))",
+          }}
+        >
+          {(strike as number).toFixed(2)}
+          {offChart ? (offChart === "above" ? " ↑" : " ↓") : ""}
+        </span>
+      )}
+    </div>
   );
 }

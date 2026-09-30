@@ -56,19 +56,22 @@ interface KimiResponse {
 /** Shared scoring rules — one copy instead of two near-identical prompts
  *  (input tokens are the dominant AI cost; this halves the rules text). */
 const SCORING_RULES =
-  "You are the Aura index oracle. For ONE handle you are given its recent source activity, grouped by source, and you must decide how its aura moves this tick.\n" +
+  "You are the Aura index oracle. For ONE handle you are given its recent source activity, grouped by source, and you must decide how much its aura moves this tick.\n" +
   "INPUT: each group has label, reliability (1-1000 credibility), engagement metrics (value + delta vs previous tick), item texts, optional context. Items referencing the handle are flagged <<MENTION>> — any textual reference (name, alias, trademark, clear indirect reference), even when the subject is not the actor.\n" +
-  "DELTA (2 decimals, e.g. +0.03, 0, -0.08): 0 = no signal or balanced/noise; 0.01-0.05 TINY (credible mention in a positive/spotlight context); 0.06-0.10 SMALL; 0.11-0.50 MODERATE (solid positive development); 0.51-1.00 LARGE; above 1.00 VERY LARGE (decisive, high-reliability events only). Symmetric negatives for bearish news. Always 2 decimals.\n" +
+  "OUTPUT SCALE: a PERCENT change of the handle's current aura, signed, one decimal (e.g. +2.5, -0.4, 0). It is applied to the live level: an aura of 100 with -5% becomes 95.\n" +
+  "BANDS (percent): 0.2-0.5 TINY (a credible mention in a positive/spotlight context); 0.6-1.5 SMALL; 1.6-3 MODERATE (a solid positive development); 3.1-4 LARGE; 4.1-5 VERY LARGE (decisive, high-reliability events only). Symmetric negatives for bearish news. NEVER exceed ±5, never go below ±0.2 in magnitude — if the honest read is 'no real change', still answer the minimum ±0.2 in the direction of the residual signal.\n" +
   "JUDGMENT: score SENTIMENT from item texts, not metric counts; account for every <<MENTION>> item (never dismiss it); weight 900+ sources strongly; treat fan accounts/rumors/low-credibility content weakly; ignore spam, bots, clickbait; honor per-source context; net conflicting signals; never exaggerate one item; never invent events.\n";
 
 const SYSTEM_PROMPT =
   SCORING_RULES +
-  "OUTPUT: reply with ONLY a signed number to 2 decimals (e.g. +0.03, 0, -0.08). No JSON, no text, no explanation.";
+  "OUTPUT: reply with ONLY a signed percent to one decimal (e.g. +2.5, -0.4). No JSON, no text, no explanation.";
 
 const SUMMARY_SYSTEM_PROMPT =
   SCORING_RULES +
-  'OUTPUT: reply with ONLY a JSON object: {"aura": <signed 2-decimal delta>, ' +
-  '"summary": <one concise sentence naming the decisive signal(s)>}. No other text.';
+  'OUTPUT: reply with ONLY a JSON object: {"percent": <signed percent, one decimal>, ' +
+  '"summary": <AT MOST 12 words, one clause, the decisive signal — this string is written ' +
+  "ON-CHAIN as the tick's memo, so it must be short, factual and standalone (no emoji, no " +
+  "hashtag, no trailing period)>}. No other text.";
 
 const WEB_SEARCH_TOOL = {
   type: "function",
@@ -124,6 +127,16 @@ export class KimiAiModel {
   private readonly logger = new Logger(KimiAiModel.name);
   private readonly apiKey?: string;
   private readonly model: string;
+  /** `kimi-k2.*` only accepts 1; older moonshot-v1 models take 0..1. */
+  private readonly temperature: number;
+  /**
+   * Token budgets — sized for a REASONING model, where the thinking tokens are
+   * spent before any answer. Each needs generous headroom or the reply comes back
+   * empty (`finish_reason: "length"`).
+   */
+  private readonly maxTokensDelta: number;
+  private readonly maxTokensTools: number;
+  private readonly maxTokensJson: number;
   private readonly fetchFn: AiFetch;
   private readonly baseUrl: string;
   private readonly webSearch?: KimiWebSearchService;
@@ -135,6 +148,13 @@ export class KimiAiModel {
   ) {
     this.apiKey = config.get<string>("KIMI_API_KEY") ?? undefined;
     this.model = config.get<string>("KIMI_MODEL") ?? "kimi-k2.6";
+    this.temperature = Number(config.get<string>("KIMI_TEMPERATURE") ?? 1);
+    // Reasoning-model budgets: the old 24/96/224 were consumed by thinking alone
+    // (a 24-token call spent 23 reasoning tokens and returned no answer; a
+    // 3000-token call spent 1165 and finally answered "+0.75").
+    this.maxTokensDelta = Number(config.get<string>("KIMI_MAX_TOKENS_DELTA") ?? 2048);
+    this.maxTokensTools = Number(config.get<string>("KIMI_MAX_TOKENS_TOOLS") ?? 2048);
+    this.maxTokensJson = Number(config.get<string>("KIMI_MAX_TOKENS_JSON") ?? 2048);
     this.fetchFn = fetchFn;
     this.baseUrl = (
       config.get<string>("KIMI_BASE_URL") ?? "https://api.moonshot.ai/v1"
@@ -145,7 +165,8 @@ export class KimiAiModel {
   /** Score the aura delta for ONE handle given its source groups. */
   async interpret(handleId: string, sources: SourceGroup[], previous?: PreviousTick): Promise<number> {
     const content = await this.run(handleId, sources, SYSTEM_PROMPT, false, previous);
-    return parseDelta(content ?? "");
+    // Same contract as the scoring path: a signed percent, clamped to ±5.
+    return clampPercent(parseDelta(content ?? ""));
   }
 
   /** Returns the delta + a one-line reason (also carries prior-tick context). */
@@ -153,7 +174,7 @@ export class KimiAiModel {
     handleId: string,
     sources: SourceGroup[],
     previous?: PreviousTick,
-  ): Promise<{ aura: number; summary: string }> {
+  ): Promise<{ percent: number; summary: string }> {
     const content = await this.run(
       handleId,
       sources,
@@ -285,10 +306,16 @@ export class KimiAiModel {
       },
       body: JSON.stringify({
         model: this.model,
-        temperature: 0,
-        // Economic output caps: tool queries are one-liners, the delta is a
-        // number, the summary JSON is two short fields.
-        max_tokens: jsonMode ? 224 : tools ? 96 : 24,
+        // `kimi-k2.*` accepts ONLY temperature 1 ("invalid temperature: only 1 is
+        // allowed for this model") — sending 0 failed every scoring/draft call
+        // with a 400, which is why every feed post was the fallback text and the
+        // aura engine never scored. Configurable for older moonshot-v1 models.
+        temperature: this.temperature,
+        // k2.* is a REASONING model: thinking tokens come out of max_tokens, so a
+        // tight budget returns `content: ""` with finish_reason "length" (a
+        // 24-token delta call spent 23 on reasoning and answered nothing).
+        // Budgets must leave room for the actual answer.
+        max_tokens: jsonMode ? this.maxTokensJson : tools ? this.maxTokensTools : this.maxTokensDelta,
         messages,
         // Full tools declaration on every tool request; tool_choice "auto" is
         // the documented default — set explicitly per Kimi's tool-choice guide.
@@ -340,13 +367,12 @@ function currentTime(tz?: string): {
   }
 }
 
-/** Extract the ONLY signed 2-decimal number ("+0.03", "-0.08", "1.24"). */
+/** Extract the only signed number ("+2.5", "-0.4", "3") from a bare reply. */
 function parseDelta(content: string): number {
   const match = /[+-]?\d+(?:\.\d+)?/.exec(content);
   if (!match) return 0;
   const n = parseFloat(match[0]);
-  if (!Number.isFinite(n)) return 0;
-  return clamp2dp(n);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function clamp2dp(n: number): number {
@@ -356,25 +382,44 @@ function clamp2dp(n: number): number {
   );
 }
 
-/** Parse the quick-test output {"aura": <int>, "summary": "<reason>"}. */
-function parseSummary(content: string): { aura: number; summary: string } {
+/** How the AI's tick answer is parsed: a signed PERCENT, clamped to ±5. */
+const PERCENT_LIMIT = 5;
+/**
+ * The summary is written ON-CHAIN as `Handle.updateAura`'s memo, so it is capped
+ * hard — a long string is pure gas, and it has to read well in a chart tooltip.
+ */
+const MEMO_MAX = 120;
+
+function clampPercent(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  const clamped = Math.max(-PERCENT_LIMIT, Math.min(PERCENT_LIMIT, n));
+  return Math.round(clamped * 10) / 10;
+}
+
+/** One clean line, ≤ MEMO_MAX chars, no trailing period. */
+function cleanMemo(raw: string): string {
+  const flat = raw.replace(/\s+/g, " ").replace(/[`"'<>]/g, "").trim();
+  const trimmed = flat.length > MEMO_MAX ? `${flat.slice(0, MEMO_MAX - 1).trimEnd()}…` : flat;
+  return trimmed.replace(/[.\s]+$/, "");
+}
+
+/** Parse the scoring output {"percent": <n>, "summary": "<memo>"} (exported for tests). */
+export function parseSummary(content: string): { percent: number; summary: string } {
   try {
-    const parsed = JSON.parse(content) as { aura?: unknown; summary?: unknown };
-    if (typeof parsed !== "object" || parsed === null)
-      return { aura: 0, summary: "" };
-    const n =
-      typeof parsed.aura === "number"
-        ? parsed.aura
-        : typeof parsed.aura === "string"
-          ? parseFloat(parsed.aura)
-          : NaN;
+    const parsed = JSON.parse(content) as unknown;
+    // A bare number is valid JSON ("-0.4") — that IS the percent.
+    if (typeof parsed === "number") return { percent: clampPercent(parsed), summary: "" };
+    if (typeof parsed !== "object" || parsed === null) return { percent: 0, summary: "" };
+    const obj = parsed as { percent?: unknown; aura?: unknown; summary?: unknown };
+    // `aura` is tolerated: a stale prompt/model can still answer in the old key.
+    const raw = obj.percent ?? obj.aura;
+    const n = typeof raw === "number" ? raw : typeof raw === "string" ? parseFloat(raw) : NaN;
     return {
-      aura: Number.isFinite(n) ? clamp2dp(n) : 0,
-      summary:
-        typeof parsed.summary === "string" ? parsed.summary.slice(0, 300) : "",
+      percent: clampPercent(n),
+      summary: typeof obj.summary === "string" ? cleanMemo(obj.summary) : "",
     };
   } catch {
-    // Bare-integer fallback.
-    return { aura: parseDelta(content), summary: "" };
+    // Bare-number fallback.
+    return { percent: clampPercent(parseDelta(content)), summary: "" };
   }
 }

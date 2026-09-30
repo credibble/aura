@@ -49,10 +49,16 @@ export type FeedComment = {
 
 export type FeedPost = {
   id: string;
-  /** Market this post trades — asset id for binary, grouped id for 3+ questions. */
+  /** Market this post trades — the handle's asset id. */
   marketId: string;
   /** Handle the post belongs to — "@messi", "@67", "@ai". */
   handle: string;
+  /**
+   * The handle's bytes32 id — the authoritative identity. Handle links resolve
+   * from this (its decoded label is the canonical slug), never from the display
+   * name, so "Elon Musk" still links to `/elon`.
+   */
+  handleId?: string;
   /** Display name shown bold in the timeline. */
   name: string;
   /** Binary markets get their real asset artwork as the avatar. */

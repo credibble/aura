@@ -90,7 +90,7 @@ export async function graduateHandle(
     "TST",
     "",
     15n,
-    100_001_001n,
+    [100_001_001n],
   );
   const handleC = await ethers.getContractAt(
     "Handle",
@@ -228,18 +228,18 @@ export async function signReceipt(
 }
 
 describe("MarketRegistry", () => {
-  it("registers binary and grouped handles", async () => {
+  it("registers binary handles", async () => {
     const usdc = await (await ethers.getContractFactory("MockUSDC")).deploy();
     const registry = await (
       await ethers.getContractFactory("MarketRegistry")
     ).deploy(await usdc.getAddress());
-    await registry.registerHandle(h("btc"), 15, false);
-    await registry.registerHandle(h("ai"), 240, true);
+    await registry.registerHandle(h("btc"), 15);
+    await registry.registerHandle(h("ai"), 240);
     expect(await registry.isRegistered(h("btc"))).to.equal(true);
-    expect(await registry.isGrouped(h("ai"))).to.equal(true);
+    expect(await registry.isRegistered(h("ai"))).to.equal(true);
     expect(await registry.handleCount()).to.equal(2n);
     await expectError(
-      registry.registerHandle(h("btc"), 15, false),
+      registry.registerHandle(h("btc"), 15),
       "AlreadyRegistered",
     );
   });

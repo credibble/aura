@@ -39,9 +39,9 @@ describe("On-chain sources → adapter source ids", () => {
   it("maps a handle's on-chain sources[] JSON configs to source ids", () => {
     const sources = registry.buildFromJsonStrings([
       JSON.stringify({ platform: "spotify", variant: "profile", username: "@dev" }),
-      JSON.stringify({ platform: "bbc", outlet: "bbc", feed: "https://feeds.bbci.co.uk/news/rss.xml" }),
+      JSON.stringify({ platform: "rss", outlet: "bbc", feed: "https://feeds.bbci.co.uk/news/rss.xml" }),
     ]);
-    expect(sources.map((s) => s.id)).toEqual(["spotify-@dev", "bbc"]);
+    expect(sources.map((s) => s.id)).toEqual(["spotify-@dev", "rss-bbc"]);
   });
 
   it("ignores configs with unknown platforms", () => {

@@ -1,14 +1,16 @@
 import {
   AuraUpdated,
-  CategorySet,
+  CategoriesSet,
   GraduatedSet,
+  MetadataSet,
   OwnershipTransferred,
   OwnershipTransferStarted,
   SourcesChanged,
   VerifiedSet,
+  WindowMinutesSet,
 } from "../generated/HandleFactory/Handle";
 import { HandleAddress, AuraHistory } from "../generated/schema";
-import { loadOrCreateUser, loadOrCreateHandle, categoryIdOf, ZERO_ADDRESS } from "./helpers";
+import { loadOrCreateUser, loadOrCreateHandle, categoryIdsOf, ZERO_ADDRESS } from "./helpers";
 
 /**
  * Handle.SourcesChanged — the handle's owner added/removed a source config.
@@ -50,13 +52,13 @@ export function handleAuraUpdated(event: AuraUpdated): void {
   hist.save();
 }
 
-/** Handle.CategorySet — the backend set the content category. */
-export function handleCategorySet(event: CategorySet): void {
+/** Handle.CategoriesSet — the backend set the handle's content categories. */
+export function handleCategoriesSet(event: CategoriesSet): void {
   let map = HandleAddress.load(event.address.toHexString());
   if (map == null) return;
   let handle = loadOrCreateHandle(map.handleId);
-  handle.category = event.params.category;
-  handle.categoryId = categoryIdOf(event.params.category);
+  handle.categories = event.params.categories;
+  handle.categoryIds = categoryIdsOf(event.params.categories);
   handle.save();
 }
 
@@ -76,6 +78,31 @@ export function handleVerifiedSet(event: VerifiedSet): void {
   if (map == null) return;
   let handle = loadOrCreateHandle(map.handleId);
   handle.verified = event.params.verified;
+  handle.save();
+}
+
+/**
+ * Handle.MetadataSet — the owner (or the oracle backend, signing for them) wrote
+ * the profile JSON: name, symbol, `photo`, `imageFit`.
+ *
+ * This event had NO handler, so every metadata write after creation was silently
+ * dropped: a profile edit never showed up in the app, and a handle that got its
+ * photo later (the pre-seed @ronaldo) stayed on a Jazzicon forever.
+ */
+export function handleMetadataSet(event: MetadataSet): void {
+  let map = HandleAddress.load(event.address.toHexString());
+  if (map == null) return;
+  let handle = loadOrCreateHandle(map.handleId);
+  handle.metadata = event.params.metadata;
+  handle.save();
+}
+
+/** Handle.WindowMinutesSet — the handle's window length (labels + sorting). */
+export function handleWindowMinutesSet(event: WindowMinutesSet): void {
+  let map = HandleAddress.load(event.address.toHexString());
+  if (map == null) return;
+  let handle = loadOrCreateHandle(map.handleId);
+  handle.windowMinutes = event.params.windowMinutes;
   handle.save();
 }
 

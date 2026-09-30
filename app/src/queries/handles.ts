@@ -8,7 +8,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { gql } from "@/lib/graphql";
 import { aura, type HandleVerifyResult } from "@/lib/privy";
 import { artworkOf } from "@/lib/handle-metadata";
-import type { CategoryId, LiveAsset } from "@/lib/aura-data";
+import { CATEGORY_MAP, type CategoryId, type LiveAsset } from "@/lib/aura-data";
 import { qk } from "./keys";
 
 export type SubgraphHandle = {
@@ -23,7 +23,10 @@ export type SubgraphHandle = {
   auraDelta: string;
   graduated: boolean;
   verified: boolean;
-  category: string;
+  /** On-chain category codes (100_001_001 → family codes). */
+  categories: string[];
+  /** Family ids derived from the codes — `["sports"]`. */
+  categoryIds: string[];
   windowMinutes: string;
   active: boolean;
   windowCount: number;
@@ -40,7 +43,7 @@ export type SubgraphHandle = {
 };
 
 /** Full selection used by both the public list and the wallet's own handles. */
-export const HANDLE_FIELDS = `id contract stake name symbol metadata sources aura auraDelta graduated verified category windowMinutes active windowCount`;
+export const HANDLE_FIELDS = `id contract stake name symbol metadata sources aura auraDelta graduated verified categories categoryIds windowMinutes active windowCount`;
 
 /**
  * The same fields PLUS the derived history the explore cards draw: the aura
@@ -79,7 +82,8 @@ export type PersonHit = {
 };
 
 export type HandleSearchHit = PersonHit & {
-  category: string;
+  categories: string[];
+  categoryIds: string[];
   graduated: boolean;
 };
 
@@ -104,7 +108,7 @@ export function handleSearchOptions(q: string, limit = 8) {
               orderDirection: desc
               first: ${limit}
             ) {
-              id name symbol aura auraDelta verified category graduated
+              id name symbol aura auraDelta verified categories categoryIds graduated
             }
           }`,
           { q: needle },
@@ -153,6 +157,26 @@ export function categoryFromCode(code: string): CategoryId {
   return "culture";
 }
 
+/**
+ * A handle's category list, mapped to the app's category ids. The subgraph
+ * carries both the derived family ids (`categoryIds: [String!]!`) and the raw
+ * on-chain codes (`categories: [BigInt!]!`); prefer the ids and fall back to
+ * decoding the codes. Never empty — an unlabelled handle reads as "culture", so
+ * no caller has to guard against a missing category.
+ */
+export function categoriesOf(h: {
+  categories?: string[] | null;
+  categoryIds?: string[] | null;
+}): CategoryId[] {
+  const ids = (h.categoryIds ?? []).filter((id): id is CategoryId =>
+    Object.prototype.hasOwnProperty.call(CATEGORY_MAP, id),
+  );
+  const uniqIds = [...new Set(ids)];
+  if (uniqIds.length > 0) return uniqIds;
+  const codes = [...new Set((h.categories ?? []).map(categoryFromCode))];
+  return codes.length > 0 ? codes : ["culture"];
+}
+
 const WINDOW_MINUTES_OPTIONS: { short: string; long: string; minutes: number }[] = [
   { short: "15m", long: "15-minute", minutes: 15 },
   { short: "30m", long: "30-minute", minutes: 30 },
@@ -172,9 +196,16 @@ export function windowLabels(minutes: number): { short: string; long: string } {
   return { short: nearest.short, long: nearest.long };
 }
 
-/** The handle's metadata JSON (name/photo/…) — tolerate a malformed blob. */
+/**
+ * The handle's real artwork from its metadata JSON.
+ *
+ * NOTE the shape: `artworkOf` returns `{ image, imageFit }` (not `{ photo }`) —
+ * reading `.photo` off it silently yielded `undefined`, which made EVERY handle
+ * fall back to a Jazzicon. Parsing lives in one place (`lib/handle-metadata`) so
+ * the two shapes can't drift again.
+ */
 function metadataOf(raw: string | null | undefined): {
-  photo?: string;
+  image?: string;
   imageFit?: "cover" | "contain";
 } {
   return artworkOf(raw);
@@ -191,15 +222,19 @@ export function toLiveAsset(h: SubgraphHandle): LiveAsset {
   const change = Number(h.auraDelta) / 100;
   const w = (h.windows ?? [])[0];
   // The seeded/edited profile photo lives in the on-chain metadata JSON.
-  const meta = metadataOf(h.metadata);
+  const art = metadataOf(h.metadata);
+  const categories = categoriesOf(h);
   return {
     id: h.id,
     symbol: (h.symbol ?? "?").toUpperCase().slice(0, 4),
     name: h.name ?? h.symbol ?? h.id,
-    category: categoryFromCode(h.category),
+    // Primary label kept for the single-category surfaces; `categories` is the
+    // full on-chain list.
+    category: categories[0]!,
+    categories,
     color: "hsl(var(--primary))",
-    image: meta.photo,
-    imageFit: meta.imageFit ?? "cover",
+    image: art.image,
+    imageFit: art.imageFit ?? "cover",
     // Keep the raw blob too: <Avatar> parses it itself, so any surface that
     // forwards the asset shows the real artwork without a lookup.
     metadata: h.metadata,
@@ -223,10 +258,9 @@ export type HandleArtwork = { image?: string; imageFit?: "cover" | "contain" };
 
 /**
  * Resolve a handle's photo by ANY identifier the UI happens to hold — handleId,
- * name, symbol, or "@label". Rows that only know a label (multi-outcome
- * members, position tables, order tickets) can then show the real artwork
- * instead of a Jazzicon; the identicon stays the fallback when there is no
- * photo (or the key matches nothing).
+ * name, symbol, or "@label". Rows that only know a label (position tables, order
+ * tickets) can then show the real artwork instead of a Jazzicon; the identicon
+ * stays the fallback when there is no photo (or the key matches nothing).
  */
 export function useHandleArtwork(): (key: string | null | undefined) => HandleArtwork {
   const { data } = useHandles();
@@ -242,8 +276,7 @@ export function useHandleArtwork(): (key: string | null | undefined) => HandleAr
           (h.symbol ?? "").toLowerCase() === needle,
       );
       if (!found) return {};
-      const meta = metadataOf(found.metadata);
-      return { image: meta.photo, imageFit: meta.imageFit ?? "cover" };
+      return metadataOf(found.metadata);
     },
     [data],
   );

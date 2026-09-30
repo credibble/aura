@@ -223,9 +223,7 @@ function PoolPage() {
                 type="button"
                 onClick={() => void login()}
                 className="mt-3 h-9 w-full rounded-xl border border-border/70 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                Connect wallet
-              </button>
+              >Sign in</button>
             )}
           </div>
           <SidebarFooter />

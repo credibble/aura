@@ -8,7 +8,7 @@ import { QueryError } from "@/components/QueryState";
 import { Skeleton, SkeletonAvatar, TableSkeleton } from "@/components/ui/skeletons";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { usePollGate } from "@/lib/poll-registry";
-import { HANDLE_FIELDS, categoryFromCode, type SubgraphHandle } from "@/queries/handles";
+import { HANDLE_FIELDS, categoriesOf, type SubgraphHandle } from "@/queries/handles";
 import { subgraphInfiniteOptions, flatSubgraphPages } from "@/lib/subgraph-page";
 import { handleSlug } from "@/lib/handle-id";
 import { qk } from "@/queries/keys";
@@ -167,7 +167,7 @@ function LeaderboardPage() {
                     </span>
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {CATEGORY_MAP[categoryFromCode(h.category)]?.label ?? "Market"}
+                    {CATEGORY_MAP[categoriesOf(h)[0]]?.label ?? "Market"}
                     {h.graduated ? " · Graduated" : ""}
                   </span>
                 </span>

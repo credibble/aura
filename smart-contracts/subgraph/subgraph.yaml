@@ -33,12 +33,16 @@ templates:
           handler: handleSourcesChanged
         - event: AuraUpdated(uint256,string)
           handler: handleAuraUpdated
-        - event: CategorySet(uint256)
-          handler: handleCategorySet
+        - event: CategoriesSet(uint256[])
+          handler: handleCategoriesSet
         - event: GraduatedSet(bool)
           handler: handleGraduatedSet
         - event: VerifiedSet(bool)
           handler: handleVerifiedSet
+        - event: MetadataSet(string)
+          handler: handleMetadataSet
+        - event: WindowMinutesSet(uint256)
+          handler: handleWindowMinutesSet
         - event: OwnershipTransferStarted(indexed address,indexed address)
           handler: handleOwnershipTransferStarted
         - event: OwnershipTransferred(indexed address,indexed address)
@@ -113,7 +117,7 @@ dataSources:
         - name: MarketRegistry
           file: ./abis/MarketRegistry.json
       eventHandlers:
-        - event: HandleRegistered(indexed bytes32,uint256,bool)
+        - event: HandleRegistered(indexed bytes32,uint256)
           handler: handleHandleRegistered
       file: ./src/registry.ts
 

@@ -93,7 +93,12 @@ function FeedDetailPage() {
     );
   }
 
-  const slug = handleSlug({ id: post.marketId || post.assetId || post.handle, name: post.name });
+  // The handle's authoritative id drives the link; the display name is only a
+  // last resort for rows whose id isn't decodable.
+  const slug = handleSlug({
+    id: post.handleId ?? post.handle,
+    name: post.handle ?? post.name,
+  });
   const cat = CATEGORY_MAP[post.category];
 
   return (
@@ -114,7 +119,7 @@ function FeedDetailPage() {
         <div className="flex items-center gap-3">
           <AssetAvatar
             asset={{
-              id: post.marketId || post.assetId || post.handle,
+              id: post.handleId ?? post.handle,
               symbol: (post.name || post.handle).toUpperCase().slice(0, 4),
               color: "hsl(var(--primary))",
               name: post.name,

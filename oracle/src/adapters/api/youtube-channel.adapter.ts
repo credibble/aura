@@ -1,6 +1,6 @@
-import type { AdapterCredentials, AdapterSample, SourceConfig } from "../core/domain/source";
-import { BaseSource } from "./base-source";
-import { apiGetJson, bucketStart } from "./http";
+import type { AdapterCredentials, AdapterSample, SourceConfig } from "../../core/domain/source";
+import { BaseSource } from ".././base-source";
+import { apiGetJson, bucketStart } from ".././http";
 
 /**
  * YouTube adapter — a channel's own metrics via the YouTube Data API (free,
@@ -9,7 +9,7 @@ import { apiGetJson, bucketStart } from "./http";
  *   views       — total view count
  *   videos      — video count
  */
-export class YouTubeAdapter extends BaseSource {
+export class YouTubeChannelAdapter extends BaseSource {
   readonly platform = "youtube";
   readonly weight = 550; // 1-1000 credibility
   readonly kind = "social" as const;

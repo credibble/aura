@@ -17,7 +17,7 @@ function makeService(
   return new HandleCreateService(config, portfolio);
 }
 
-const input = { name: "bitcoin", symbol: "BTC", category: 1_000_001, windowMinutes: 15 };
+const input = { name: "bitcoin", symbol: "BTC", categories: [1_000_001], windowMinutes: 15 };
 
 describe("HandleCreateService", () => {
   it("503s until HANDLE_OWNER_PRIVATE_KEY and HANDLE_FACTORY_ADDRESS are set", async () => {
@@ -49,9 +49,15 @@ describe("HandleCreateService", () => {
     await expect(service.create(creator, { ...input, symbol: "TOOLONGSYM" })).rejects.toBeInstanceOf(
       BadRequestException,
     );
-    await expect(service.create(creator, { ...input, category: 1.5 })).rejects.toBeInstanceOf(
+    await expect(service.create(creator, { ...input, categories: [0.5] })).rejects.toBeInstanceOf(
       BadRequestException,
     );
+    await expect(service.create(creator, { ...input, categories: [] })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(
+      service.create(creator, { ...input, categories: [1, 2, 3, 4, 5] }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
       service.create(creator, { ...input, windowMinutes: 20 }),
     ).rejects.toBeInstanceOf(BadRequestException);

@@ -1,6 +1,6 @@
-import type { AdapterCredentials, AdapterSample, SourceConfig } from "../core/domain/source";
-import { BaseSource } from "./base-source";
-import { apiGetJson, bucketStart, iso } from "./http";
+import type { AdapterCredentials, AdapterSample, SourceConfig } from "../../core/domain/source";
+import { BaseSource } from ".././base-source";
+import { apiGetJson, bucketStart, iso } from ".././http";
 
 /**
  * Shopify adapter — a merchant store's commerce metrics via the Shopify Admin
@@ -12,7 +12,7 @@ import { apiGetJson, bucketStart, iso } from "./http";
  *   products  — product count (products/count)
  * Returns an empty sample without credentials.
  */
-export class ShopifyAdapter extends BaseSource {
+export class ShopifyConnectAdapter extends BaseSource {
   readonly platform = "shopify";
   readonly weight = 750; // 1-1000 credibility
   readonly kind = "search" as const;

@@ -126,9 +126,7 @@ function FeedsPage() {
             type="button"
             onClick={() => void login()}
             className="mt-1 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
-          >
-            Connect wallet
-          </button>
+          >Sign in</button>
         </div>
       ) : (
         <>

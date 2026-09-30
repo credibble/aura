@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Loader2, Send, X } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
+import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { ReactionGifPicker } from "@/components/feeds/ReactionGifPicker";
 import { CommentSkeleton } from "@/components/ui/skeletons";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
@@ -67,10 +68,14 @@ export function FeedComments({ postId }: { postId: string }) {
 
       {/* Composer */}
       <div className="mt-3 flex items-start gap-3">
-        <Avatar
-          seed={active?.id ?? viewer ?? "guest"}
+        <AssetAvatar
+          asset={{
+            id: active?.id ?? viewer ?? "guest",
+            symbol: (active?.symbol ?? active?.name ?? viewer ?? "you").toUpperCase().slice(0, 4),
+            color: "hsl(var(--primary))",
+            name: active?.name ?? "You",
+          }}
           size={34}
-          alt={active?.name ?? "You"}
           className="shrink-0 border border-border/70"
         />
         <div className="min-w-0 flex-1">

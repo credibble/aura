@@ -1,6 +1,6 @@
-import type { AdapterCredentials, AdapterSample, SourceConfig } from "../core/domain/source";
-import { BaseSource } from "./base-source";
-import { apiGetJson, bucketStart } from "./http";
+import type { AdapterCredentials, AdapterSample, SourceConfig } from "../../core/domain/source";
+import { BaseSource } from ".././base-source";
+import { apiGetJson, bucketStart } from ".././http";
 
 /**
  * LinkedIn adapter — an org/page's follower count via the LinkedIn API
@@ -8,7 +8,7 @@ import { apiGetJson, bucketStart } from "./http";
  *   followers — org followers (OrganizationalEntityFollowerStatistics)
  * Returns an empty sample without credentials.
  */
-export class LinkedInAdapter extends BaseSource {
+export class LinkedInConnectAdapter extends BaseSource {
   readonly platform = "linkedin";
   readonly weight = 850; // 1-1000 credibility
   readonly kind = "social" as const;

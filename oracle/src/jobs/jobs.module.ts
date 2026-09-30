@@ -1,5 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
+import { RegistryModule } from "../registry/registry.module";
 import { QUEUE_AURA, QUEUE_FEED, QUEUE_WINDOW, QUEUE_NOTIFY, QUEUE_FILLS } from "./queue.constants";
 import { JobsScheduler } from "./jobs-scheduler.service";
 import { AuraProcessor } from "./aura/aura.processor";
@@ -34,6 +35,7 @@ import { SocialModule } from "../social/social.module";
     BullModule.registerQueue({ name: QUEUE_AURA }, { name: QUEUE_FEED }, { name: QUEUE_WINDOW }, { name: QUEUE_NOTIFY }, { name: QUEUE_FILLS }),
     AdaptersModule,
     IngestionModule,
+    RegistryModule,
 OrchestrationModule,
     AiModule,
     forwardRef(() => SocialModule),

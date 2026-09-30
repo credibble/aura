@@ -61,7 +61,7 @@ export function RevenueCard({ handle }: { handle: HandleLink }) {
         <div className="min-w-0">
           <p className="num text-2xl font-bold tracking-tight text-foreground">
             {!address
-              ? "Connect wallet"
+              ? "Sign in"
               : revenue.isPending
                 ? "…"
                 : revenue.isError

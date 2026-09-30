@@ -17,11 +17,12 @@ type Handle @entity {
   aura: BigInt! # the handle's live Aura score (1e2) - drives the Stake fee curve
   auraDelta: BigInt! # signed change of the latest AuraUpdated push (1e2)
   graduated: Boolean! # trading-prediction graduation (backend-granted)
-  category: BigInt! # market-style category code (e.g. 100_001_001 = sport/football/binary)
-  """Family id derived from the code (`crypto` | `ai` | `sports` | `people` |
-  `brands` | `memes` | `music` | `tech` | `culture`) — lets the index filter by
-  category at the API level, which the numeric code's family prefix can't do."""
-  categoryId: String!
+  categories: [BigInt!]! # market-style category codes (e.g. 100_001_001 = sport/football/binary)
+  """Family ids derived from the codes (`crypto` | `ai` | `sports` | `people` |
+  `brands` | `memes` | `music` | `tech` | `culture`), one per code and deduped —
+  lets the index filter by category at the API level, which the numeric code's
+  family prefix can't do."""
+  categoryIds: [String!]!
   verified: Boolean! # verification status (backend-granted)
   pendingOwner: Bytes! # OZ Ownable2Step two-step transfer target (0 = none)
   windowMinutes: BigInt!

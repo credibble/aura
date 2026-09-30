@@ -32,7 +32,9 @@ type ViewPosition = {
   oracle: string;
   outcomeIdx: number;
   outcomeLabel: string;
+  /** HUMAN shares (already divided by 1e18) — see `derivePositions`. */
   shares: number;
+  /** USDC spent/received, human units. */
   cost: number;
   entry: number;
   price: number;
@@ -71,7 +73,11 @@ function derivePositions(rows: PositionTrade[]): ViewPosition[] {
       };
       byKey.set(key, row);
     }
-    const shares = Number(t.shares);
+    // `t.shares` is outcome-token WEI (1e18). Every other amount here is scaled
+    // on read (`premium`, `proceeds`, `prices`) — skipping it here made shares
+    // 1e18× too large, which is why Equity/Claimable/PnL read as 195,180,496.6T
+    // and the entry price rounded to 0.00.
+    const shares = Number(t.shares) / 1e18;
     if (t.kind === "BUY") {
       row.shares += shares;
       row.costAcc += Number(t.premium) / 1e18;
@@ -153,9 +159,7 @@ function PortfolioPage() {
             onClick={() => void login()}
             className="mt-1 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-all hover:brightness-110"
           >
-            <LogIn className="h-4 w-4" />
-            Connect wallet
-          </button>
+            <LogIn className="h-4 w-4" />Sign in</button>
         </div>
       </PageShell>
     );

@@ -3,7 +3,6 @@ import { padToN, clampInt, bucketSec } from "../src/jobs/utils";
 import { auraJobId, feedJobId, windowJobId } from "../src/jobs/queue.constants";
 import { SourceCacheService } from "../src/jobs/source-cache/source-cache.service";
 import { parseMarketStyle, windowMetadata, gainBetween, CATEGORY_BASE } from "../src/jobs/window/market-style";
-import { sampleMembers, priorProbabilities, MAX_OUTCOMES } from "../src/jobs/window/category-market";
 
 describe("job utils", () => {
   it("padToN right-pads a fresh series with its first value (new-source rule)", () => {
@@ -122,34 +121,7 @@ describe("market-style category taxonomy", () => {
     expect(multi.style).toEqual("multi");
   });
 
-  it("multi-outcome samples category handles at random, capped at MAX_OUTCOMES", () => {
-    const style = parseMarketStyle(100_001_002)!;
-    expect(style.style).toEqual("multi");
-    // A seeded RNG picks a deterministic subset — the group handle is excluded.
-    const pool = [
-      { id: "a", label: "arsenal", contract: "0x1", sources: [], aura: 3040, graduated: true, category: 100_001_001, windowMinutes: 15 },
-      { id: "b", label: "manutd", contract: "0x2", sources: [], aura: 2890, graduated: true, category: 100_001_001, windowMinutes: 15 },
-      { id: "c", label: "chelsea", contract: "0x3", sources: [], aura: 2710, graduated: true, category: 100_001_001, windowMinutes: 15 },
-      { id: "g", label: "football", contract: "0x4", sources: [], aura: 3000, graduated: true, category: 100_001_002, windowMinutes: 60 },
-    ];
-    // `groupLabel` = the group handle itself is never an outcome.
-    const picked = sampleMembers(pool, "football", MAX_OUTCOMES, () => 0.5);
-    expect(picked.length).toEqual(3);
-    expect(picked.map((p) => p.label)).not.toContain("football");
-  });
 
-  it("priorProbabilities are aura-weighted, floored, and sum EXACTLY to 1e18", () => {
-    const members = [
-      { id: "a", label: "arsenal", contract: "0x1", sources: [], aura: 3000, graduated: true, category: 100_001_001, windowMinutes: 15 },
-      { id: "b", label: "manutd", contract: "0x2", sources: [], aura: 1000, graduated: true, category: 100_001_001, windowMinutes: 15 },
-      { id: "c", label: "chelsea", contract: "0x3", sources: [], aura: 2000, graduated: true, category: 100_001_001, windowMinutes: 15 },
-    ];
-    const probs = priorProbabilities(members).map(BigInt);
-    expect(probs.reduce((a, b) => a + b, 0n)).toEqual(10n ** 18n); // Σ == 1e18
-    expect(probs[0]! > probs[2]!).toBe(true); // highest aura → most favored
-    expect(probs[2]! > probs[1]!).toBe(true);
-    expect(Number(probs[1]!) / 1e18).toBeGreaterThan(0.0025); // floor respected
-  });
 
   it("gain math: absolute aura gained between 1e2 levels", () => {
     expect(gainBetween(3000, 3040)).toEqual(40); // 30.00 → 30.40 = +0.40 aura

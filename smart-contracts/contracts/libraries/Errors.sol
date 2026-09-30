@@ -35,7 +35,6 @@ library Errors {
     error AlreadySettled();
     error BadOutcome();
     error BadWindow();
-    error TooManyOutcomes();
 
     // --- signature -----------------------------------------------------
     error BadSignatureLength();
@@ -74,6 +73,8 @@ library Errors {
     error BadAura();
     /// Too many source configs on a handle.
     error SourceLimit();
+    /// More category codes on a handle than MAX_CATEGORIES allows.
+    error TooManyCategories();
     /// Outcome receipts are position proofs — they cannot be moved as ERC20s.
     error ReceiptsNotTransferable();
 

@@ -1,48 +1,59 @@
 import { Injectable } from "@nestjs/common";
 import { BaseSource } from "./base-source";
-import { SpotifyProfileAdapter } from "./spotify-profile.adapter";
-import { SpotifyMeAdapter } from "./spotify-me.adapter";
-import { ShopifyAdapter } from "./shopify.adapter";
-import { BbcAdapter } from "./bbc.adapter";
-import { FoxSportsAdapter } from "./foxsports.adapter";
-import { RssAdapter } from "./rss.adapter";
-import { InstagramAdapter } from "./instagram.adapter";
-import { GitHubAdapter } from "./github.adapter";
-import { RedditAdapter } from "./reddit.adapter";
-import { YouTubeAdapter } from "./youtube.adapter";
-import { HackerNewsAdapter } from "./hackernews.adapter";
-import { TwitchAdapter } from "./twitch.adapter";
-import { FacebookAdapter } from "./facebook.adapter";
-import { LinkedInAdapter } from "./linkedin.adapter";
+// public — no credentials: open feeds and open search APIs.
+import { RssFeedAdapter } from "./public/rss-feed.adapter";
+import { RedditSearchAdapter } from "./public/reddit-search.adapter";
+import { HackerNewsSearchAdapter } from "./public/hackernews-search.adapter";
+// api — an APP-LEVEL key/token reading OTHER people's public data.
+import { XSearchAdapter } from "./api/x-search.adapter";
+import { YouTubeChannelAdapter } from "./api/youtube-channel.adapter";
+import { GitHubProfileAdapter } from "./api/github-profile.adapter";
+import { TwitchChannelAdapter } from "./api/twitch-channel.adapter";
+// connections — PER-USER OAuth, the connected account's own data.
+import { SpotifyConnectAdapter } from "./connections/spotify-connect.adapter";
+import { InstagramConnectAdapter } from "./connections/instagram-connect.adapter";
+import { FacebookConnectAdapter } from "./connections/facebook-connect.adapter";
+import { LinkedInConnectAdapter } from "./connections/linkedin-connect.adapter";
+import { ShopifyConnectAdapter } from "./connections/shopify-connect.adapter";
 import type { Source, SourceConfig } from "../core/domain/source";
 
 /**
  * AdapterRegistry — maps a `platform` (plus an optional `variant`) to the
- * BaseSource that extracts that data source through its REAL API. Only
- * platforms with a reachable API are registered (X has no free tier, so it is
- * intentionally absent). Also parses the on-chain Handle's source JSON strings
- * (`{ platform: "spotify", variant: "me", account: "dev" }`) into Sources.
+ * BaseSource that extracts that data source through its REAL API, then parses
+ * the on-chain Handle's source JSON strings into Sources.
+ *
+ * NAMING: `<Platform><Purpose>Adapter`.
+ *   …SearchAdapter     open/public search (no credentials or an API key)
+ *   …Channel/Profile…  app-level key reading someone else's public data (`api/`)
+ *   …ConnectAdapter    the CONNECTED account's own data via OAuth (`connections/`)
+ * A `<Platform>ConnectAdapter` is never the same thing as a `<Platform>SearchAdapter`
+ * — different credential, different subject (you vs. the world).
+ *
+ * The `platform` string on each adapter is the key ON-CHAIN source configs use;
+ * folder and class names are internal and may change freely.
  */
 @Injectable()
 export class AdapterRegistry {
   private readonly byKey = new Map<string, BaseSource>();
 
   constructor() {
+    // Grouped by credential type, mirroring the folders.
     const adapters: BaseSource[] = [
-      new SpotifyProfileAdapter(),
-      new SpotifyMeAdapter(),
-      new ShopifyAdapter(),
-      new BbcAdapter(),
-      new FoxSportsAdapter(),
-      new RssAdapter(),
-      new InstagramAdapter(),
-      new GitHubAdapter(),
-      new RedditAdapter(),
-      new YouTubeAdapter(),
-      new HackerNewsAdapter(),
-      new TwitchAdapter(),
-      new FacebookAdapter(),
-      new LinkedInAdapter(),
+      // public
+      new RssFeedAdapter(),
+      new RedditSearchAdapter(),
+      new HackerNewsSearchAdapter(),
+      // api (app key → public data about anyone)
+      new XSearchAdapter(),
+      new YouTubeChannelAdapter(),
+      new GitHubProfileAdapter(),
+      new TwitchChannelAdapter(),
+      // connections (per-user OAuth → the connected account's own data)
+      new SpotifyConnectAdapter(),
+      new InstagramConnectAdapter(),
+      new FacebookConnectAdapter(),
+      new LinkedInConnectAdapter(),
+      new ShopifyConnectAdapter(),
     ];
     for (const adapter of adapters) this.byKey.set(adapter.registryKey(), adapter);
   }
@@ -50,7 +61,10 @@ export class AdapterRegistry {
   /** The adapter for a (platform, variant) key, or null. */
   get(platform: string, variant?: string): BaseSource | null {
     const key = variant ? `${platform}::${variant}` : platform;
-    return this.byKey.get(key) ?? null;
+    // An adapter may serve SEVERAL variants of one platform under a single
+    // registration (Spotify: artist profile + the connected account), so a
+    // config that names a variant falls back to the platform's adapter.
+    return this.byKey.get(key) ?? this.byKey.get(platform) ?? null;
   }
 
   /** Resolve by a config object. */

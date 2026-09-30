@@ -11,7 +11,13 @@ export interface FeedDraft {
 
 export interface FeedInput {
   handleLabel: string;
-  signals: { sourceId: string; label: string; metrics: { name: string; value: number; delta: number }[] }[];
+  signals: {
+    sourceId: string;
+    label: string;
+    metrics: { name: string; value: number; delta: number }[];
+    /** Verbatim headlines from this source that mention the handle. */
+    items?: string[];
+  }[];
   newItemCount: number;
   auraChange: number;
 }
@@ -24,7 +30,10 @@ const SYSTEM_PROMPT =
   "\"mid\", \"delulu\", \"rent free\", \"caught in 4k\", \"main character\", \"ratio\", \"W/L\", \"lowkey/highkey\", " +
   "\"fr\", \"iykyk\", \"glazing\", \"yapping\", \"ate and left no crumbs\". Funny, a little unhinged, zero cringe. " +
   "Never corporate, never a press release, no em-dashes.\n" +
-  "RULES: one idea per post; lead with the number that moved; name the handle with @; say AURA — never " +
+  "RULES: the post is a SUMMARY of everything below — read every source's quotes and write one take that " +
+  "covers the story they share; name what actually happened (the match, the launch, the number) and lead with it; " +
+  "NEVER copy a headline verbatim and never write \"Outlet: headline\" — that is what the sources said, not your take; " +
+  "if the sources disagree or cover different angles, say so; one idea per post; name the handle with @; say AURA — never " +
   "attention, engagement, clicks or trend-metrics; 0-2 emojis, no hashtag spam; NEVER invent an event, quote, " +
   "source or number that is not in the input, and never turn a weak/flat signal into hype (if it is quiet, say it is quiet).\n" +
   'Reply with ONLY JSON: {"title": string (<90 chars — the hook), "body": string (<280 chars — the take), ' +
@@ -42,16 +51,17 @@ export class FeedAiService {
   async build(input: FeedInput, fallback: FeedDraft): Promise<FeedDraft> {
     const user =
       `Handle: @${input.handleLabel}\n` +
-      `New source items: ${input.newItemCount}\n` +
+      `News items that mention it: ${input.newItemCount}\n` +
       `Aura change: ${input.auraChange}\n` +
-      `Signals:\n` +
-      input.signals
-        .map(
-          (s) =>
-            `- ${s.label} (${s.sourceId}) → ` +
-            s.metrics.map((m) => `${m.name}=${m.value} (Δ${m.delta})`).join(", "),
-        )
-        .join("\n") || "no signals";
+      "What the sources actually published:\n" +
+      (input.signals
+        .map((s) => {
+          const head = `- ${s.label} (${s.sourceId}) → ` +
+            s.metrics.map((m) => `${m.name}=${m.value}`).join(", ");
+          const quotes = (s.items ?? []).map((t) => `    · "${t}"`).join("\n");
+          return quotes ? `${head}\n${quotes}` : head;
+        })
+        .join("\n") || "nothing yet");
 
     // Write the post in the community's voice, from the numbers only.
     const reply = await this.ai.completeJson<Record<string, unknown>>(

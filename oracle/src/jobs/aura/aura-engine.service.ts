@@ -1,3 +1,4 @@
+import { keccak256, toBytes } from "viem";
 import { Injectable, Inject, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AdapterRegistry } from "../../adapters/adapter-registry.service";
@@ -7,8 +8,9 @@ import { ChainGateway } from "../chain/chain-gateway.service";
 import { WsBroadcastService } from "../ws/ws-broadcast.service";
 import { KimiAiModel, type SourceGroup, type PreviousTick } from "../../adapters/ai/llm/kimi-ai.model";
 import { padToN, clampInt } from "../utils";
-import { TIME_SERIES_STORE, AI_MODEL } from "../../core/ports/tokens";
+import { TIME_SERIES_STORE, AI_MODEL, SOURCE_REGISTRY } from "../../core/ports/tokens";
 import type { ITimeSeriesStore } from "../../core/ports/time-series-store";
+import type { SourceRegistry } from "../../core/ports/source-registry";
 import type { AuraHandle } from "../jobs.types";
 import type { Source, SourceConfig } from "../../core/domain/source";
 import type { RawDatum } from "../../core/domain/source-item";
@@ -19,6 +21,16 @@ const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** Redis TTL for the "already sent to the AI" set (matches the fresh window). */
 const SENT_TTL_SECONDS = 24 * 60 * 60;
 const AURA_SERIES = "aura:";
+/**
+ * The AI's per-tick move is a PERCENT of the handle's current aura, clamped to
+ * this band: a floor so the index always moves (no dead ticks) and a ceiling so
+ * one tick can't reprice the whole market.
+ */
+const MIN_AURA_PERCENT = 0.2;
+const MAX_AURA_PERCENT = 5;
+/** Evidence scaling floor/ceiling — see `evidenceWeight`. */
+const MIN_EVIDENCE_WEIGHT = 0.25;
+const REFERENCE_WEIGHTED_ITEMS = 4;
 
 /** One source's scored signal for a handle (grouped for the AI). */
 export interface AuraSignal {
@@ -30,6 +42,8 @@ export interface AuraSignal {
   items: string[];
   context?: string;
   topic?: string;
+  /** Normalized reach: the sum of the items' own engagement counters. */
+  engagement?: number;
 }
 
 export interface AuraTick {
@@ -62,6 +76,7 @@ export class AuraEngineService {
     private readonly ws: WsBroadcastService,
     @Inject(AI_MODEL) private readonly ai: KimiAiModel,
     @Inject(TIME_SERIES_STORE) private readonly series: ITimeSeriesStore,
+    @Inject(SOURCE_REGISTRY) private readonly registry: SourceRegistry,
   ) {}
 
   private get historyN(): number {
@@ -115,6 +130,7 @@ export class AuraEngineService {
     // Prior tick context from the POSTGRES aura series (aura + delta) + the
     // last persisted summary — helps the model score continuously.
     const last = await this.series.latest(AURA_SERIES + handle.label, "aura");
+    const lastKnown = last?.value;
     const prevSummary = await this.cache.get<{ summary: string }>(this.summaryKey(handle.label));
     const previous: PreviousTick = {
       aura: last ? last.value / 100 : undefined,
@@ -134,31 +150,75 @@ export class AuraEngineService {
       })),
       previous,
     );
-    const deltaDisplay = scored.aura;
-    // The AI replies in 2dp display aura units — convert to the 1e2 on-chain
-    // scale. Every aura tick must move at least ±0.01 (no zero/neutral ticks):
-    // a sub-0.01 score snaps to the minimum movement in its sign's direction.
-    let delta = Math.round(deltaDisplay * 100);
-    if (delta === 0) delta = deltaDisplay >= 0 ? 1 : -1;
-    const next = clampInt(onChain + delta, 0, 10_000);
+    // ── The move: AI direction × EVIDENCE-WEIGHTED magnitude ──────────────────
+    // The AI gives direction + a magnitude (percent) + the memo. Its magnitude is
+    // ADVISORY: `evidenceWeight` scales it by how much real signal actually
+    // arrived (weighted item volume × engagement), so a confident-sounding answer
+    // off one weak item can't move the index as far as a broad, high-reach story.
+    // Both the band and the weight are deterministic — the model is never the
+    // last word on size.
+    const weight = evidenceWeight(signals);
+    const rawPercent = scored.percent;
+    const direction = rawPercent < 0 ? -1 : 1;
+    const banded = Math.min(MAX_AURA_PERCENT, Math.max(MIN_AURA_PERCENT, Math.abs(rawPercent)));
+    const percent = round1(direction * banded * weight);
+
+    // Applied to the latest known aura: the series close if we have one, else the
+    // on-chain level (the AI's "last aura").
+    const base = lastKnown ?? onChain;
+    let next = clampInt(Math.round((base * (100 + percent)) / 100), 0, 10_000);
+    // POINTS FLOOR: aura is an integer at 1e2 scale, so a percentage floor of 0.2%
+    // rounds to ZERO on a low aura (0.2% of 19.90 = 0.04 → 0). A tick must always
+    // move at least one unit, otherwise "never a dead tick" silently fails and a
+    // window can open and close on an unchanged series.
+    if (next === base) next = clampInt(base + direction, 0, 10_000);
+    const delta = next - base;
 
     // Absolute aura points on the 1e2 scale — the window engine reads the
-    // open/close levels off this series (binary: rise vs fall; multi-outcome:
-    // the member with the highest gain over the window).
+    // open/close levels off this series (binary: rise vs fall).
     await this.series.append(`aura:${handle.label}`, "aura", {
       timestamp: now,
       value: next,
       delta,
     });
 
+    // ── Audit trail ─────────────────────────────────────────────────────────
+    // A tick moves a market price, so what it saw and what the model said must be
+    // reconstructable later: one structured line per tick, with an inputsHash over
+    // the evidence and the raw reply. The same hash rides the WS push (and is the
+    // hook for committing it into a resolution receipt later).
+    const inputsHash = hashTick({
+      handleId: handle.id,
+      ts: now,
+      base,
+      itemIds: signals.flatMap((s) => s.items.slice(0, 8)),
+      rawReply: scored.percent,
+      percent,
+    });
+    this.logger.log(
+      `@${handle.label}: ${delta >= 0 ? "+" : ""}${delta} → ${(next / 100).toFixed(2)} ` +
+        `(ai ${rawPercent}% × evidence ${weight.toFixed(2)} = ${percent}%) ` +
+        `sources=${signals.length} items=${signals.reduce((n, s) => n + s.items.length, 0)} hash=${inputsHash.slice(0, 10)}`,
+    );
+
+    // The memo written on-chain (`Handle.updateAura`'s summary) and pushed to the
+    // chart: the AI's own words, or a compact factual line if it returned none —
+    // an empty memo would leave the tick unexplained everywhere downstream.
+    const memo =
+      scored.summary ||
+      `${percent > 0 ? "+" : ""}${percent}% on @${handle.label}${
+        signals.length ? ` (${signals.length} source${signals.length === 1 ? "" : "s"})` : ""
+      }`;
+    const summary = memo.replace(/\s+/g, " ").trim().slice(0, 120);
+
     if (next !== onChain) {
-      const ok = await this.chain.updateAura(handle.contract, next, scored.summary);
+      const ok = await this.chain.updateAura(handle.contract, next, summary);
       if (!ok) {
         this.logger.warn(`@${handle.label}: on-chain aura write failed (${onChain} → ${next})`);
       }
     }
 
-    this.ws.publishAura({ handleId: handle.id, aura: next, delta, ts: now });
+    this.ws.publishAura({ handleId: handle.id, aura: next, delta, summary, inputsHash, ts: now });
     // Persist the summary so the NEXT tick can pass it as prior-tick context.
     await this.cache.set(this.summaryKey(handle.label), { summary: scored.summary }, SENT_TTL_SECONDS);
     // No backend aura history: the subgraph's aura records are the single
@@ -172,7 +232,10 @@ export class AuraEngineService {
 
   /** Per-source signals, each padded to N — the AI's "new data" view. */
   private async collectSignals(handle: AuraHandle, now: number): Promise<AuraSignal[]> {
-    const sources = this.adapters.buildFromJsonStrings(handle.sources);
+    // Registry-resolved: on-chain adapter configs + the static feeds for the
+    // handle's category. Reading `handle.sources` alone left a seeded handle with
+    // no sources at all, so its aura never moved.
+    const sources = await this.registry.sourcesForHandle(handle);
     const out: AuraSignal[] = [];
     for (const source of sources) {
       out.push(await this.signalFor(source, handle, now));
@@ -206,10 +269,19 @@ export class AuraEngineService {
       metrics.push({ name: metric.key, value: last.value, delta: last.delta ?? 0 });
       primary = padToN(points.map((p) => p.value), this.historyN);
     }
-    // Transport sources (rss/gdelt/...) contribute an item-count signal.
-    if (metrics.length === 0 && !source.adapter) {
+
+    // NORMALIZED VIEW: whatever the adapter declares, every source also reports
+    // the same two numbers — how much arrived (volume) and how much reach it had
+    // (engagement, summed from the items' own stats). Without this the AI's
+    // numeric picture isn't comparable across source types: an RSS feed shows an
+    // item count, X shows likes, Reddit shows upvotes.
+    const engagement = items.reduce((sum, d) => sum + (d.engagement ?? 0), 0);
+    metrics.push({ name: "volume", value: items.length, delta: fresh.length });
+    if (engagement > 0) metrics.push({ name: "engagement", value: engagement, delta: engagement });
+
+    // Transport sources (rss/gdelt/...) contribute an item-count series.
+    if (primary.length === 0) {
       primary = padToN(Array.from({ length: items.length }, (_, i) => items.length - i), this.historyN);
-      metrics.push({ name: "items", value: items.length, delta: items.length });
     }
 
     return {
@@ -217,13 +289,27 @@ export class AuraEngineService {
       label: source.label,
       weight: source.weight,
       metrics,
+      engagement,
       series: primary,
       // The actual item texts — this is the SENTIMENT the AI scores on. Only
       // fresh (<24h, not already scored) items; deduped via Redis. Economic
       // caps: 8 items x 240 chars per source is plenty of sentiment signal.
-      items: fresh.slice(0, 8).map((d) => (d.text.length > 240 ? d.text.slice(0, 240) : d.text)),
-      context: source.adapter ? this.strConfig(source.adapter, "context") : undefined,
-      topic: source.adapter ? this.strConfig(source.adapter, "topic") : undefined,
+      //
+      // Each line carries the endpoint's own engagement when it has one, so the
+      // model can weigh reach ("88K views · 12.4K likes") against the words.
+      items: fresh
+        .slice(0, 8)
+        .map((d) => {
+          const text = d.text.length > 240 ? d.text.slice(0, 240) : d.text;
+          const stats = countLine(d.stats);
+          const who = d.author ? ` by ${d.author}` : "";
+          return `${text}${who}${stats ? ` [${stats}]` : ""}`;
+        }),
+      // The on-chain source JSON carries the handle-specific frame: what the
+      // outlet is and how to read it for THIS handle (topic + context). Fall back
+      // to the raw adapter config for configs built before toSource copied them.
+      context: source.context ?? (source.adapter ? this.strConfig(source.adapter, "context") : undefined),
+      topic: source.topic ?? (source.adapter ? this.strConfig(source.adapter, "topic") : undefined),
     };
   }
 
@@ -245,4 +331,90 @@ export class AuraEngineService {
     const v = config[key];
     return typeof v === "string" && v.length > 0 ? v : undefined;
   }
+}
+
+/**
+ * "12.4K likes · 340 replies · 88K views" — the engagement the source endpoint
+ * returned, rendered as one line for the AI prompt (and the feed card).
+ */
+export function countLine(stats: Record<string, number> | undefined): string {
+  if (!stats) return "";
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(stats)) {
+    if (!Number.isFinite(value) || value <= 0) continue;
+    const label =
+      key === "score"
+        ? "upvotes"
+        : key === "upvoteRatio"
+          ? "% upvoted"
+          : key.replace(/([A-Z])/g, " $1").toLowerCase();
+    parts.push(`${formatCount(value)}${label === "% upvoted" ? "" : " "}${label}`);
+  }
+  return parts.slice(0, 4).join(" · ");
+}
+
+/**
+ * How much the evidence justifies a move, in [0.25, 1]. Deterministic — the same
+ * inputs always scale the AI's magnitude the same way.
+ *
+ *  - credibility-weighted item volume: a BBC article (weight 1000) counts ~3× an
+ *    anonymous community post (weight 300);
+ *  - a mild engagement bonus for reach (log-scaled, capped), so a story everyone
+ *    is talking about moves further than one nobody read.
+ *
+ * A single weak item lands near the 0.25 floor, a broad high-reach story at 1.0.
+ * The point is that "the model sounded confident" is never enough on its own.
+ */
+export function evidenceWeight(
+  signals: { weight: number; items: string[]; engagement?: number }[],
+): number {
+  if (signals.length === 0) return MIN_EVIDENCE_WEIGHT;
+  let weightedItems = 0;
+  let engagement = 0;
+  for (const s of signals) {
+    const credibility = Math.max(0.2, Math.min(1, (s.weight ?? 0) / 1000));
+    weightedItems += credibility * Math.min(s.items.length, 8);
+    engagement += s.engagement ?? 0;
+  }
+  // 4 weighted items ≈ full strength; engagement adds at most +25%.
+  const volume = Math.min(1, weightedItems / REFERENCE_WEIGHTED_ITEMS);
+  const reach = Math.min(0.25, Math.log10(1 + engagement) / 28);
+  return Math.max(MIN_EVIDENCE_WEIGHT, Math.min(1, volume + reach));
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+/**
+ * keccak256 over the tick's evidence + the model's raw answer. Deterministic and
+ * cheap; the audit log and the WS push carry it, so a tick can be replayed and a
+ * resolution receipt can commit to it later.
+ */
+export function hashTick(input: {
+  handleId: string;
+  ts: number;
+  base: number;
+  itemIds: string[];
+  rawReply: number;
+  percent: number;
+}): string {
+  return keccak256(
+    toBytes(
+      [
+        input.handleId,
+        String(input.ts),
+        String(input.base),
+        String(input.rawReply),
+        String(input.percent),
+        input.itemIds.join("|"),
+      ].join("\n"),
+    ),
+  );
+}
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(Math.round(n));
 }

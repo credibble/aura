@@ -37,5 +37,8 @@ export function useAsset(id: string): LiveAsset | undefined {
 
 export function useAssetsByCategory(category: string): LiveAsset[] {
   const { assets } = useAura();
-  return useMemo(() => assets.filter((a) => a.category === category), [assets, category]);
+  return useMemo(
+    () => assets.filter((a) => a.categories.some((c) => c === category)),
+    [assets, category],
+  );
 }

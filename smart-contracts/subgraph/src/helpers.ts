@@ -45,6 +45,27 @@ export function categoryIdOf(code: BigInt): string {
   return "culture";
 }
 
+/**
+ * Map a handle's category CODES to family ids, deduped — several codes can share
+ * a family (e.g. 100_001_001 and 100_002_001 are both `sports`), and the index
+ * only needs each family once.
+ */
+export function categoryIdsOf(codes: BigInt[]): string[] {
+  let ids = new Array<string>();
+  for (let i = 0; i < codes.length; i++) {
+    let id = categoryIdOf(codes[i]);
+    let seen = false;
+    for (let j = 0; j < ids.length; j++) {
+      if (ids[j] == id) {
+        seen = true;
+        break;
+      }
+    }
+    if (!seen) ids.push(id);
+  }
+  return ids;
+}
+
 export function loadOrCreateHandle(handleId: Bytes): Handle {
   let handle = Handle.load(handleId.toHexString());
   if (handle == null) {
@@ -79,8 +100,8 @@ function newHandle(handleId: Bytes, active: bool): Handle {
   handle.aura = BigInt.zero();
   handle.auraDelta = BigInt.zero();
   handle.graduated = false;
-  handle.category = BigInt.zero();
-  handle.categoryId = "culture";
+  handle.categories = [];
+  handle.categoryIds = [];
   handle.verified = false;
   handle.pendingOwner = ZERO_ADDRESS;
   handle.windowMinutes = BigInt.zero();

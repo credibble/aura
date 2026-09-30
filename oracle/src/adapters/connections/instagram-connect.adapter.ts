@@ -1,6 +1,6 @@
-import type { AdapterCredentials, AdapterSample, SourceConfig } from "../core/domain/source";
-import { BaseSource } from "./base-source";
-import { apiGetJson, bucketStart } from "./http";
+import type { AdapterCredentials, AdapterSample, SourceConfig } from "../../core/domain/source";
+import { BaseSource } from ".././base-source";
+import { apiGetJson, bucketStart } from ".././http";
 
 /**
  * Instagram adapter — an Instagram Business profile's own metrics via the
@@ -9,7 +9,7 @@ import { apiGetJson, bucketStart } from "./http";
  *   media     — media count
  * Returns an empty sample without credentials.
  */
-export class InstagramAdapter extends BaseSource {
+export class InstagramConnectAdapter extends BaseSource {
   readonly platform = "instagram";
   readonly weight = 480; // 1-1000 credibility
   readonly kind = "social" as const;

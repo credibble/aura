@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdapterRegistry } from "../src/adapters/adapter-registry.service";
-import { SpotifyProfileAdapter } from "../src/adapters/spotify-profile.adapter";
-import { SpotifyMeAdapter } from "../src/adapters/spotify-me.adapter";
-import { ShopifyAdapter } from "../src/adapters/shopify.adapter";
-import { BbcAdapter } from "../src/adapters/bbc.adapter";
-import { GitHubAdapter } from "../src/adapters/github.adapter";
-import { RedditAdapter } from "../src/adapters/reddit.adapter";
+import { SpotifyConnectAdapter } from "../src/adapters/connections/spotify-connect.adapter";
+import { ShopifyConnectAdapter } from "../src/adapters/connections/shopify-connect.adapter";
+import { RssFeedAdapter } from "../src/adapters/public/rss-feed.adapter";
+import { GitHubProfileAdapter } from "../src/adapters/api/github-profile.adapter";
+import { RedditSearchAdapter } from "../src/adapters/public/reddit-search.adapter";
 import { PrismaTimeSeriesStore } from "../src/adapters/prisma-time-series.service";
 
 /** Fake `metricPoint` Prisma delegate for the store tests. */
@@ -95,20 +94,27 @@ describe("AdapterRegistry — on-chain source JSON configs → real adapters", (
 describe("Adapters — real API extraction (mocked responses)", () => {
   it("Spotify me: GET /v1/me → followers.total", async () => {
     mockFetch({ "api.spotify.com/v1/me": { followers: { total: 1024 } } });
-    const sample = await new SpotifyMeAdapter().fetch({ platform: "spotify", variant: "me", account: "@dev" }, 0, 5 * 60_000, { accessToken: "tok" });
+    const sample = await new SpotifyConnectAdapter().fetch({ platform: "spotify", variant: "me", account: "@dev" }, 0, 5 * 60_000, { accessToken: "tok" });
     expect(sample.points.followers![0]!.value).toBe(1024);
   });
 
-  it("Spotify profile: search → artist → followers/popularity", async () => {
+  it("Spotify profile: search → artist → followers/popularity + top tracks", async () => {
     mockFetch({
       "api.spotify.com/v1/search": { artists: { items: [{ id: "abc" }] } },
+      "api.spotify.com/v1/artists/abc/top-tracks": {
+        tracks: [{ id: "t1", name: "Banger", popularity: 88, external_urls: { spotify: "https://open.spotify.com/track/t1" }, album: { name: "Album" } }],
+      },
       "api.spotify.com/v1/artists/abc": { followers: { total: 1000 }, popularity: 70 },
     });
-    const sample = await new SpotifyProfileAdapter().fetch({ platform: "spotify", variant: "profile", artist: "dev" }, 0, 5 * 60_000, { accessToken: "tok" });
+    const sample = await new SpotifyConnectAdapter().fetch({ platform: "spotify", variant: "profile", artist: "dev" }, 0, 5 * 60_000, { accessToken: "tok" });
     expect(sample.points.followers![0]!.value).toBe(1000);
     expect(sample.points.popularity![0]!.value).toBe(70);
-    // listeners derived from followers × popularity.
-    expect(sample.points.listeners![0]!.value).toBe(1000 * (0.6 + 70 / 200));
+    // No `listeners`: Spotify never exposed that number — the adapter must not
+    // invent a metric that moves the aura.
+    expect(sample.points.listeners).toBeUndefined();
+    // The top tracks ARE the text signal.
+    expect(sample.items?.[0]?.text).toContain("Banger");
+    expect(sample.items?.[0]?.author).toBe("dev");
   });
 
   it("Shopify: GraphQL revenue + REST counts", async () => {
@@ -118,7 +124,7 @@ describe("Adapters — real API extraction (mocked responses)", () => {
       "/customers/count.json": { count: 4 },
       "/products/count.json": { count: 120 },
     });
-    const sample = await new ShopifyAdapter().fetch({ platform: "shopify", shop: "nike" }, 0, 5 * 60_000, { accessToken: "tok" });
+    const sample = await new ShopifyConnectAdapter().fetch({ platform: "shopify", shop: "nike" }, 0, 5 * 60_000, { accessToken: "tok" });
     expect(sample.points.sales![0]!.value).toBeCloseTo(19.5, 5);
     expect(sample.points.orders![0]!.value).toBe(31);
     expect(sample.points.customers![0]!.value).toBe(4);
@@ -130,7 +136,7 @@ describe("Adapters — real API extraction (mocked responses)", () => {
       "api.github.com/users/dev/repos": [{ stargazers_count: 5 }, { stargazers_count: 8 }],
       "api.github.com/users/dev": { followers: 42, public_repos: 2 },
     });
-    const sample = await new GitHubAdapter().fetch({ platform: "github", username: "dev" }, 0, 5 * 60_000, { apiKey: "k" });
+    const sample = await new GitHubProfileAdapter().fetch({ platform: "github", username: "dev" }, 0, 5 * 60_000, { apiKey: "k" });
     expect(sample.points.followers![0]!.value).toBe(42);
     expect(sample.points.stars![0]!.value).toBe(13);
     expect(sample.points.repos![0]!.value).toBe(2);
@@ -141,7 +147,7 @@ describe("Adapters — real API extraction (mocked responses)", () => {
       "/about.json": { data: { subscribers: 12345, active_user_count: 900 } },
       "/new.json": { data: { children: [{}, {}] } },
     });
-    const sample = await new RedditAdapter().fetch({ platform: "reddit", subreddit: "crypto" }, 0, 5 * 60_000);
+    const sample = await new RedditSearchAdapter().fetch({ platform: "reddit", subreddit: "crypto" }, 0, 5 * 60_000);
     expect(sample.points.subscribers![0]!.value).toBe(12345);
     expect(sample.points.posts![0]!.value).toBe(2);
   });
@@ -152,12 +158,12 @@ describe("Adapters — real API extraction (mocked responses)", () => {
       <item><title>Two</title><pubDate>Thu, 01 Jan 2026 11:00:00 GMT</pubDate></item>
     </channel></rss>`;
     mockFetch({ "feeds.bbci.co.uk": rss });
-    const sample = await new BbcAdapter().fetch({ platform: "bbc", outlet: "bbc", feed: "https://feeds.bbci.co.uk/news/rss.xml" }, 0, 5 * 60_000);
+    const sample = await new RssFeedAdapter().fetch({ platform: "rss", outlet: "bbc", weight: 900, feed: "https://feeds.bbci.co.uk/news/rss.xml" }, 0, 5 * 60_000);
     expect(sample.points.articles![0]!.value).toBeGreaterThanOrEqual(1);
   });
 
   it("adapters without credentials return an empty sample (no fake data)", async () => {
-    const sample = await new ShopifyAdapter().fetch({ platform: "shopify", shop: "nike" }, 0, 5 * 60_000);
+    const sample = await new ShopifyConnectAdapter().fetch({ platform: "shopify", shop: "nike" }, 0, 5 * 60_000);
     expect(sample.points).toEqual({});
   });
 });

@@ -7,7 +7,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { createPublicClient, createWalletClient, http, toHex, type Address } from "viem";
+import { createPublicClient, createWalletClient, http, parseAbi, toHex, type Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { monadTestnet } from "viem/chains";
 import { handleIdBytes32 } from "@aura/contracts";
@@ -15,10 +15,12 @@ import { PortfolioService } from "./portfolio.service";
 
 /** HandleFactory creator-side surface — `createHandle` is `onlyOwner`, so the
  *  oracle signs with HANDLE_OWNER_PRIVATE_KEY on the user's behalf. */
-const HANDLE_FACTORY_ABI = [
-  "function createHandle(bytes32 handleId, address creator, string name, string symbol, string metadata, uint256 windowMinutes, uint256 category) returns (address)",
+// Parsed, not raw strings: viem's write path needs a real ABI (raw strings
+// throw `Cannot use 'in' operator to search for 'name' in function …`).
+const HANDLE_FACTORY_ABI = parseAbi([
+  "function createHandle(bytes32 handleId, address creator, string name, string symbol, string metadata, uint256 windowMinutes, uint256[] categories) returns (address)",
   "function handleOf(bytes32 handleId) view returns (address)",
-] as const;
+]);
 
 /** Owner-side writes on a deployed Handle (the oracle holds the owner key). */
 const HANDLE_ABI = [
@@ -29,11 +31,34 @@ const HANDLE_ABI = [
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const WINDOW_MINUTES_ALLOWED = new Set([15, 30, 60, 120, 240, 480, 1440]);
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+/** Mirrors `Handle.MAX_CATEGORIES`. */
+const MAX_CATEGORIES = 4;
+
+/**
+ * Validate + dedupe the market-style codes a handle is being created with.
+ * A handle belongs to one or more families (a footballer is sport AND people);
+ * the first entry is its primary category.
+ */
+function normaliseCategories(input: unknown): number[] {
+  if (!Array.isArray(input) || input.length === 0)
+    throw new BadRequestException("categories must be a non-empty array of codes");
+  const codes: number[] = [];
+  for (const raw of input) {
+    const code = Number(raw);
+    if (!Number.isSafeInteger(code) || code < 0 || code >= 1_000_000_000)
+      throw new BadRequestException("each category must be an integer code below 1e9");
+    if (!codes.includes(code)) codes.push(code);
+  }
+  if (codes.length > MAX_CATEGORIES)
+    throw new BadRequestException(`at most ${MAX_CATEGORIES} categories per handle`);
+  return codes;
+}
 
 export interface HandleCreateInput {
   name: string;
   symbol: string;
-  category: number;
+  /** One or more market-style codes — e.g. a footballer is sport AND people. */
+  categories: number[];
   windowMinutes: number;
   metadata?: string;
   /** Cloudinary https URL of the uploaded handle photo (multipart `photo`). */
@@ -58,7 +83,7 @@ export interface HandleCreateResult {
 
 /**
  * Handle creation (permissionless for users, env-gated for the backend):
- * the frontend posts name/symbol/category/windowMinutes with a wallet JWT;
+ * the frontend posts name/symbol/categories/windowMinutes with a wallet JWT;
  * the oracle validates, runs the claim flow's availability check (reserved /
  * claimed / CVI), then signs `HandleFactory.createHandle(handleId, creator,
  * …)` with the factory owner key. handleId is the left-aligned bytes32 of the
@@ -92,15 +117,13 @@ export class HandleCreateService {
     const name = String(input.name ?? "").trim();
     const label = name.toLowerCase();
     const symbol = String(input.symbol ?? "").trim();
-    const category = Number(input.category);
+    const categories = normaliseCategories(input.categories);
     const windowMinutes = Number(input.windowMinutes);
 
     if (!/^[a-z0-9]{3,20}$/.test(label))
       throw new BadRequestException("name must be 3-20 characters of a-z and 0-9");
     if (!/^[A-Za-z0-9]{1,8}$/.test(symbol))
       throw new BadRequestException("symbol must be 1-8 letters or digits");
-    if (!Number.isSafeInteger(category) || category < 0 || category >= 1_000_000_000)
-      throw new BadRequestException("category must be an integer code below 1e9");
     if (!WINDOW_MINUTES_ALLOWED.has(windowMinutes))
       throw new BadRequestException(
         "windowMinutes must be one of 15/30/60/120/240/480/1440",
@@ -164,7 +187,7 @@ export class HandleCreateService {
         symbol,
         metadataJson,
         BigInt(windowMinutes),
-        BigInt(category),
+        categories.map((code) => BigInt(code)),
       ],
       chain,
       account,

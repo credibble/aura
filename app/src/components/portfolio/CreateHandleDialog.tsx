@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { notifyError } from "@/lib/notify";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,7 +54,9 @@ export function CreateHandleDialog({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
-  const [category, setCategory] = useState(CATEGORY_OPTIONS[0].code);
+  // A handle can belong to several families (a footballer is sport AND people);
+  // the FIRST one is its primary category.
+  const [categories, setCategories] = useState<number[]>([CATEGORY_OPTIONS[0].code]);
   const [windowMinutes, setWindowMinutes] = useState(WINDOW_OPTIONS[0]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -82,7 +85,8 @@ export function CreateHandleDialog({ children }: { children: ReactNode }) {
       const fd = new FormData();
       fd.append("name", name);
       fd.append("symbol", symbol);
-      fd.append("category", String(category));
+      // Repeated keys → the oracle reads them as `categories: number[]`.
+      for (const code of categories) fd.append("categories", String(code));
       fd.append("windowMinutes", String(windowMinutes));
       if (photo) fd.append("photo", photo);
       return api<CreateHandleResult>("/handles", { method: "POST", body: fd });
@@ -168,19 +172,37 @@ export function CreateHandleDialog({ children }: { children: ReactNode }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Category</Label>
-              <Select value={String(category)} onValueChange={(v) => setCategory(Number(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <SelectItem key={c.id} value={String(c.code)}>
+              {/* Multi-select: the first pick is the primary category. */}
+              <Label>Categories</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORY_OPTIONS.map((c) => {
+                  const on = categories.includes(c.code);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() =>
+                        setCategories((prev) => {
+                          if (prev.includes(c.code)) {
+                            // Never leave the handle with zero categories.
+                            return prev.length === 1 ? prev : prev.filter((x) => x !== c.code);
+                          }
+                          return prev.length >= 4 ? prev : [...prev, c.code];
+                        })
+                      }
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
+                        on
+                          ? "border-primary bg-primary/15 text-foreground"
+                          : "border-border text-muted-foreground hover:text-foreground",
+                      )}
+                    >
                       {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Window</Label>

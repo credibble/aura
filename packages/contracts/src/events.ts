@@ -78,6 +78,10 @@ export interface AuraUpdateData {
   aura: number;
   /** Change vs the previous tick (+/-). */
   delta: number;
+  /** The AI's sign this tick — the same short memo written on-chain. */
+  summary?: string;
+  /** keccak256 over the tick's inputs + the raw model reply (audit/replay). */
+  inputsHash?: string;
   ts: number;
 }
 export interface AuraUpdatedEvent extends AuraEvent<"aura.updated", AuraUpdateData> {}

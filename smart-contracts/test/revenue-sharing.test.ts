@@ -55,7 +55,7 @@ describe("RevenueSharing (pure splitter) + Handle (claims) + singleton Pool (PLP
       await ap.getAddress(),
     );
     // A handle: creator = alice (owner), wired to the factory + revenue.
-    await factory.createHandle(handle, alice.address, "Elon", "ELON", "", 15n, 0n);
+    await factory.createHandle(handle, alice.address, "Elon", "ELON", "", 15n, [0n]);
     handleC = await ethers.getContractAt(
       "Handle",
       await factory.handleOf(handle),
@@ -119,7 +119,7 @@ describe("RevenueSharing (pure splitter) + Handle (claims) + singleton Pool (PLP
         "NOPE",
         "",
         15n,
-        0n,
+        [0n],
       ),
       "ZeroAddress",
     );
@@ -251,7 +251,7 @@ describe("RevenueSharing (pure splitter) + Handle (claims) + singleton Pool (PLP
     expect(await factory.poolOf(handle)).to.equal(await poolC.getAddress());
     expect(await factory.poolOf(handle)).to.equal(await poolC.getAddress());
     await expectError(
-      factory.createHandle(handle, alice.address, "Elon", "ELON", "", 15n, 0n),
+      factory.createHandle(handle, alice.address, "Elon", "ELON", "", 15n, [0n]),
       "HandleExists",
     );
   });

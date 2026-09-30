@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Avatar, GUEST_SEED } from "@/components/Avatar";
+import { GUEST_SEED } from "@/components/Avatar";
+import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { handleSlug } from "@/lib/handle-id";
 import { cn } from "@/lib/utils";
 import { GRADUATION_AURA } from "@/lib/portfolio";
@@ -44,10 +45,14 @@ export function HandleAccountChip({
           }
         }}
       >
-        <Avatar
-          seed={active?.id ?? address ?? GUEST_SEED}
+        <AssetAvatar
+          asset={{
+            id: active?.id ?? address ?? GUEST_SEED,
+            symbol: (active?.symbol ?? active?.name ?? "you").toUpperCase().slice(0, 4),
+            color: "hsl(var(--primary))",
+            name: active?.name ?? "Account",
+          }}
           size={36}
-          alt={active?.name ?? "Account"}
           className={cn(
             "border border-border bg-background",
             // Ring = trading-graduated (≥100 Aura) vs not.

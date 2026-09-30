@@ -59,6 +59,11 @@ export abstract class BaseSource {
       weight: this.weight,
       fetchIntervalMs: this.fetchIntervalMs,
       label: this.label(config),
+      // Per-handle guidance carried by the on-chain source JSON. Without copying
+      // them here they never reach the AI: the prompt renders `context="…"` and
+      // flags `<<MENTION>>` by topic, both of which read off the Source.
+      context: this.str(config, "context") ?? undefined,
+      topic: this.str(config, "topic") ?? undefined,
       adapter: config,
       metrics: this.metrics,
     };

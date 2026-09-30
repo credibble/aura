@@ -19,6 +19,7 @@ import { FeedLayout } from "@/components/social/FeedLayout";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { FeedItem } from "@/components/feeds/FeedItem";
 import { QueryError } from "@/components/QueryState";
+import { ActivityChart } from "@/components/aura/charts";
 import { ChartSkeleton, HandleHeaderSkeleton } from "@/components/ui/skeletons";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { AuraText } from "@/components/aura/AuraTerm";
@@ -35,7 +36,7 @@ import { StakePopup } from "@/components/portfolio/StakePopup";
 import { StakeButton } from "@/components/aura/StakeButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cents } from "@/components/aura/pm";
-import { isTwoWay, toMarket } from "@/lib/aura-markets";
+import { toMarket } from "@/lib/aura-markets";
 import { CATEGORY_MAP, indexLabel, type CategoryId } from "@/lib/aura-data";
 import { findHandle, handleSlug, labelOf } from "@/lib/handle-id";
 import { formatCompact, formatIndex, formatPct, formatUsd } from "@/lib/format";
@@ -118,6 +119,12 @@ function TradePage() {
   const live = viewable.find((w) => !w.settled) ?? null;
 
   const [range, setRange] = useState<(typeof RANGES)[number]["id"]>("1D");
+  /**
+   * What the single chart plots: the outcome PRICES (the odds) or the handle's
+   * AURA — the value the market's question is about, which is where the strike
+   * line belongs. One chart, two lenses.
+   */
+  const [chartMode, setChartMode] = useState<"aura" | "prices">("prices");
   const [tab, setTab] = useState<TabId>("feeds");
   const [picked, setPicked] = useState(0);
   const [compact, setCompact] = useState(false);
@@ -144,8 +151,11 @@ function TradePage() {
   const pointsQuery = useQuery(windowPricePointsOptions(viewed?.id));
   const tradesQuery = useInfiniteQuery(windowTradesOptions(viewed?.id));
 
-  // AURA staked on this handle: subgraph first (always available), RPC as a
-  // live cross-check; the viewer's own receipts come from the vault.
+  // AURA staked on this handle. The CHAIN leads for the numbers (exact + fresh,
+  // per the repo's data-source rules); the subgraph is the fallback while an RPC
+  // read is in flight. Mixing the two was the bug: the viewer's receipts came
+  // from the vault (1e18) while the share price came from the subgraph, so a
+  // "Worth" figure could disagree with the receipts it was derived from.
   const vault = h?.stake && h.stake !== "0x" ? (h.stake as `0x${string}`) : undefined;
   const stakeEntity = useQuery(stakeOptions(vault));
   const stakeStatsQuery = useQuery({
@@ -163,15 +173,15 @@ function TradePage() {
     queryFn: () => api.readStakeEarned(vault!, address ?? undefined),
     enabled: !!vault && !!address,
   });
-  const stakeStats = stakeEntity.data
+  const stakeStats = stakeStatsQuery.data
     ? {
-        totalAssets: Number(stakeEntity.data.totalAssets) / 1e18,
-        valuePerToken: Number(stakeEntity.data.valuePerToken) / 1e18,
+        totalAssets: Number(stakeStatsQuery.data.totalAssets) / 1e18,
+        valuePerToken: Number(stakeStatsQuery.data.valuePerToken) / 1e18,
       }
-    : stakeStatsQuery.data
+    : stakeEntity.data
       ? {
-          totalAssets: Number(stakeStatsQuery.data.totalAssets) / 1e18,
-          valuePerToken: Number(stakeStatsQuery.data.valuePerToken) / 1e18,
+          totalAssets: Number(stakeEntity.data.totalAssets) / 1e18,
+          valuePerToken: Number(stakeEntity.data.valuePerToken) / 1e18,
         }
       : undefined;
   const myStake =
@@ -218,6 +228,32 @@ function TradePage() {
       }))
       .filter((m) => m.ts >= chart.from && m.ts <= chart.to)
       .map((m) => ({ ...m, frac: (m.ts - chart.from) / span }));
+  }, [chart, h]);
+
+  /**
+   * The handle's aura series, oldest→newest — the value the market's question is
+   * about, so the strike line can be drawn against it. (The main chart plots
+   * outcome PRICES in cents; an aura level has no meaning on that axis.)
+   */
+  const auraSeries = useMemo(
+    () => [...(h?.auraHistory ?? [])].reverse().map((p) => Number(p.aura) / 100),
+    [h],
+  );
+
+  /**
+   * The aura series clipped to the chart's time range, as one MultiChart series —
+   * so the Aura lens lines up with the price lens (same x axis, same memos).
+   */
+  const auraLine = useMemo(() => {
+    if (!chart || !h) return [] as { label: string; color: string; data: number[] }[];
+    const pts = (h.auraHistory ?? [])
+      .map((p) => ({ ts: Number(p.timestamp) * 1000, v: Number(p.aura) / 100 }))
+      .filter((p) => p.ts >= chart.from && p.ts <= chart.to)
+      .sort((a, b) => a.ts - b.ts)
+      .map((p) => p.v);
+    if (pts.length === 0) return [];
+    const data = pts.length === 1 ? [pts[0]!, pts[0]!] : pts;
+    return [{ label: "Aura", color: "hsl(var(--primary))", data }];
   }, [chart, h]);
 
   const [hover, setHover] = useState<number | null>(null);
@@ -432,6 +468,29 @@ function TradePage() {
               <section className="rounded-2xl border border-border/70 bg-card p-3 sm:p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-1">
+                    {/* What the chart plots. One chart: Aura shows the index the
+                        market is about (with its strike line); Prices shows the
+                        outcome odds. */}
+                    {(["Aura", "Prices"] as const).map((m) => {
+                      const on = (m === "Aura") === (chartMode === "aura");
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => setChartMode(m === "Aura" ? "aura" : "prices")}
+                          className={cn(
+                            "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                            on
+                              ? "bg-secondary text-foreground"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {m}
+                        </button>
+                      );
+                    })}
+                    <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
                     {RANGES.map((r) => (
                       <button
                         key={r.id}
@@ -531,7 +590,15 @@ function TradePage() {
                   }}
                   onMouseLeave={() => setHover(null)}
                 >
-                  <MultiChart series={chart?.series ?? []} height={280} />
+                  <MultiChart
+                    series={
+                      chartMode === "aura" && auraLine.length > 0
+                        ? auraLine
+                        : (chart?.series ?? [])
+                    }
+                    height={280}
+                    strike={chartMode === "aura" ? market.strike : undefined}
+                  />
 
                   {/* Aura snapshot markers — the memo behind each point */}
                   {memos.map((m, i) => (
@@ -590,7 +657,7 @@ function TradePage() {
                   ))}
                   {!market.settled && (
                     <span className="ml-auto text-xs text-muted-foreground">
-                      {market.deadline} window · {isTwoWay(market) ? "two-sided" : "multi-outcome"}
+                      {market.deadline} window · two-sided
                     </span>
                   )}
                 </div>
@@ -626,7 +693,7 @@ function TradePage() {
                 [
                   ["feeds", "Feeds", feedsPosts.length],
                   ["trades", "Trades", trades.length],
-                  ["orderbook", "Orderbook", market?.outcomes.length ?? 0],
+                  ["orderbook", "Orderbook", market ? 2 : 0],
                 ] as const
               ).map(([id, label, count]) => (
                 <button

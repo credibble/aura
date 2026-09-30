@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, Droplets, LogIn, Wallet } from "lucide-react";
+import { BadgeCheck, Droplets, LogIn, Plus, Wallet } from "lucide-react";
 import { FeedLayout } from "@/components/social/FeedLayout";
 import { QueryError } from "@/components/QueryState";
 import { Skeleton } from "@/components/ui/skeletons";
@@ -12,6 +12,7 @@ import { StakeButton } from "@/components/aura/StakeButton";
 import { ActivityChart } from "@/components/aura/charts";
 import { StakePopup } from "@/components/portfolio/StakePopup";
 import { ConnectionsSection } from "@/components/portfolio/ConnectionsRow";
+import { CreateHandleDialog } from "@/components/portfolio/CreateHandleDialog";
 import { EditProfileDialog } from "@/components/portfolio/EditProfileDialog";
 import { findHandle, handleSlug } from "@/lib/handle-id";
 import { formatCompact, formatIndex, formatPct } from "@/lib/format";
@@ -108,8 +109,7 @@ function MePage() {
             onClick={() => void login()}
             className="mt-1 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
           >
-            <LogIn className="h-4 w-4" /> Connect wallet
-          </button>
+            <LogIn className="h-4 w-4" />Sign in</button>
         </div>
       </FeedLayout>
     );
@@ -123,6 +123,15 @@ function MePage() {
           <p className="max-w-sm text-sm text-muted-foreground">
             Claim a handle to trade, publish sources and receive stake.
           </p>
+          {/* Signed in with no handle: creating one is the page's primary action. */}
+          <CreateHandleDialog>
+            <button
+              type="button"
+              className="mt-1 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+            >
+              <Plus className="h-4 w-4" /> Create a handle
+            </button>
+          </CreateHandleDialog>
         </div>
       </FeedLayout>
     );

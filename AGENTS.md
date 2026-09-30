@@ -55,6 +55,16 @@ Queries without an event source (positions, open orders, pool/stake stats) poll 
 
 ## Redeploy runbook (one pass)
 
+Prefer the orchestrator — it runs steps 1-5 in order and prints the env lines:
+
+```bash
+cd smart-contracts
+PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK node scripts/deploy-all.mjs
+# (add --skip-subgraph to compile/deploy only the contracts + seed)
+```
+
+The same steps by hand:
+
 ```bash
 # 0. Fund the deployer/relayer (it deploys AND settles; same address is fine).
 #    Monad's gas floor is ~100 gwei — do NOT force a much higher GAS_PRICE or a
@@ -79,6 +89,11 @@ npx graph create --node http://localhost:8020 aura/aura   # first time only
 npx graph deploy aura/aura --node http://localhost:8020 --ipfs http://localhost:5001 \
   --version-label v0.1.0
 
+# 5. Seed the handles (10, each with its OWN scoped sources: an exact-phrase
+#    news feed + an entity-only site where one exists — never a general desk).
+PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK \
+  npx hardhat run scripts/seed-handles.ts --network monadTestnet
+
 # 4. Point the oracle at the new addresses, then rebuild + restart it
 #    (paste the env lines printed by step 2 into oracle/.env)
 cd ../../oracle
@@ -95,6 +110,88 @@ Notes:
   DB `aura`) — the graph-node's Postgres container also hosts it.
 - `docker compose up` **without** service names would start the bundled
   `postgres` and fight for 5432; always name the services.
+
+## Adapter contract (what "a good adapter" means)
+
+Naming: **`<Platform><Purpose>Adapter`**, grouped by credential type.
+
+| folder | credential | adapters | reads |
+|---|---|---|---|
+| `adapters/public/` | none | `RssFeedAdapter` · `RedditSearchAdapter` · `HackerNewsSearchAdapter` | open feeds + open search APIs |
+| `adapters/api/` | app key / app token | `XSearchAdapter` · `YouTubeChannelAdapter` · `GitHubProfileAdapter` · `TwitchChannelAdapter` | **other people's** public data |
+| `adapters/connections/` | per-user OAuth | `SpotifyConnectAdapter` · `InstagramConnectAdapter` · `FacebookConnectAdapter` · `LinkedInConnectAdapter` · `ShopifyConnectAdapter` | **the connected account's own** data |
+
+`…ConnectAdapter` is never the same thing as `…SearchAdapter`: different
+credential, different subject (you vs. the world). The `platform` string inside an
+adapter is the key on-chain configs use (`"x"`, `"spotify"`, …) and must not
+change; folder and class names are internal.
+
+Every adapter must:
+
+1. **Emit ITEMS, not just metrics, whenever the platform has text.** Metrics alone
+   make a platform a number; the AI reads text. (RSS, X, Reddit, HackerNews,
+   Spotify top tracks do.)
+2. **Carry reach on each item** — `author` (with the follower count where the API
+   gives it) and `stats` (likes/replies/reposts/views/score/upvotes). These drive
+   both the prompt and the feed card line.
+3. **Never synthesize a number.** If the API doesn't expose it, it doesn't exist —
+   `spotify-profile` used to derive "monthly listeners" from followers ×
+   popularity, which invented a metric that moved the aura. Fail closed instead.
+4. **Fail closed without credentials** — an empty sample, never a fabricated
+   series. `requiredCredentials` declares what it needs (resolved from the
+   ConnectionStore, never from the on-chain config).
+5. **Be one code path per protocol, configured per source.** There is ONE RSS
+   adapter: `platform: "rss"` + `feed` (+ optional `weight`, `outlet`, `topic`,
+   `context`). Per-outlet subclasses (BbcAdapter, FoxSportsAdapter) were deleted —
+   credibility is a config value, not a class. Likewise Spotify's artist and
+   "me" halves are one adapter, mode chosen by the config.
+6. **Honour the source-scoping intent**: `topic` (drives <<MENTION>>) and
+   `context` (how to read this outlet for this handle) flow onto the Source via
+   `BaseSource.toSource` — don't drop them.
+7. **Respect `since`** so a poll doesn't re-ingest the same day's items, and
+   declare `metrics` with real units/labels.
+
+Still metrics-only (text is a follow-up): `YouTubeChannelAdapter` (video titles),
+`GitHubProfileAdapter` (release/commit titles), `TwitchChannelAdapter` (stream
+titles), the `*ConnectAdapter`s (token-gated posts), `ShopifyConnectAdapter`
+(commerce metrics — no ambient text).
+
+## The aura → market decision path (audit & replay)
+
+One tick, and what constrains it:
+
+| Step | Where | Deterministic? |
+|---|---|---|
+| Fetch scoped sources → raw items (+ engagement) | `adapters/*`, shared Redis cache | yes |
+| Build signals: normalized `volume` + `engagement` + item texts + per-source `context`/`topic` | `AuraEngineService.signalFor` | yes |
+| AI answer: **direction + magnitude (percent, ±5) + memo** | `KimiAiModel.scoreWithSummary` | no (the only non-deterministic step) |
+| Evidence weight: credibility-weighted item volume × reach, clamped to [0.25, 1] | `evidenceWeight` | yes |
+| Applied move: `percent × evidenceWeight`, band ±0.2–5%, **points floor ≥ 1 unit** | `AuraEngineService.tick` | yes |
+| Memo → on-chain (`Handle.updateAura`) + audit hash → WS | `ChainGateway`, `publishAura` | yes |
+
+- **The model never decides size alone.** Its magnitude is advisory and scaled by
+  evidence, so a confident answer off one weak item moves the index far less than
+  a broad high-reach story.
+- **Nothing resolves without an observation.** The points floor guarantees a tick
+  always moves ≥ 1 unit (a 0.2% floor rounds to zero on a low aura), and a window
+  with no aura observations is deliberately left unsettled — the market's grace
+  window VOIDs it and `redeemVoid` refunds traders, instead of resolving YES on an
+  unchanged series.
+- **Every tick is replayable.** `hashTick` commits to the handle, timestamp, base
+  level, the item ids the model saw, its raw reply and the applied percent; the
+  hash is logged and pushed with the aura event. To verify a resolution: re-fetch
+  the item ids for that window, re-run the prompt and compare the hash.
+- **Windows must be ≥ the aura cadence** (`AURA_AI_MIN_INTERVAL_MS`). The engine
+  warns when a handle's window is shorter, because such a window can open and
+  close between two observations (→ void).
+
+**Not yet done (needs the next contract revision):** commit `inputsHash` into the
+`ResolutionReceipt` itself, so a settlement carries the evidence hash on-chain
+rather than only over the WS/audit log. That is a `ResolutionReceiptLib` +
+`Oracle.submitResolution` + EIP-712 types change; it belongs in the same deploy as
+the categories[]/binary migration. Governance for the same reason: the relayer is
+a single signer — a multisig (or a challenge window on `submitResolution`) is the
+real mitigation, and it is a deployment/config decision, not a code one.
 
 ## Verification without a wallet or an RPC
 

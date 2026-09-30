@@ -40,7 +40,7 @@ describe("OrderBook (limit orders on MarketMaker outcome shares)", () => {
       await registry.getAddress(),
       oracle.address,
     );
-    await registry.registerHandle(h("btc"), 15, false);
+    await registry.registerHandle(h("btc"), 15);
     const aura = await (await ethers.getContractFactory("AuraToken")).deploy();
     const configurator = await (
       await ethers.getContractFactory("Configurator")
@@ -69,7 +69,6 @@ describe("OrderBook (limit orders on MarketMaker outcome shares)", () => {
       await handleFactory.getAddress(),
       await configurator.getAddress(),
       0n,
-      20n,
     );
     book = await (
       await ethers.getContractFactory("OrderBook")

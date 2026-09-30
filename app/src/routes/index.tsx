@@ -3,7 +3,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
 import { FeedLayout } from "@/components/social/FeedLayout";
-import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
+import { FeedSearch } from "@/components/social/RightSidebar";
 import { SearchPopover } from "@/components/SearchPopover";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { SparkCard } from "@/components/aura/SparkCard";
@@ -87,7 +87,10 @@ function ExplorePage() {
   );
 
   return (
-    <FeedLayout fluid sidebar={<ExploreSidebar />}>
+    // No `sidebar`: the explore grid owns the full width (the shell only renders
+    // the right column when a `sidebar` is passed). Every other route keeps its
+    // sidebar; the left rail and centre column are unchanged.
+    <FeedLayout fluid>
       {/* Hero — one line, one action, one search */}
       <div className="px-4 pt-10 pb-6 text-center sm:px-6">
         <h1 className="text-[28px] font-bold tracking-tight sm:text-4xl">
@@ -202,20 +205,5 @@ function CategoryChip({
     >
       {label}
     </button>
-  );
-}
-
-function ExploreSidebar() {
-  return (
-    <>
-      <section className="rounded-2xl border border-border/70 bg-card p-4">
-        <h2 className="text-sm font-semibold text-foreground">How it settles</h2>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
-          Every market is one handle and one window. Trade Up or Down on its aura index before the
-          window closes — the winning side pays 100¢.
-        </p>
-      </section>
-      <SidebarFooter />
-    </>
   );
 }

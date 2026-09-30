@@ -83,7 +83,11 @@ function strikeOf(question: string): number | undefined {
 }
 
 /** Stable outcome palette — YES keeps slot 0, NO slot 1, everywhere. */
-const OUTCOME_COLORS = ["hsl(var(--primary))", "hsl(var(--up))"];
+/** Binary outcomes are semantic, not decorative: YES is the up (green) leg,
+ *  NO is the down (red) one. Every consumer — the price-chart series, the
+ *  legend, the ticket's outcome segments — takes its colour from here, so this
+ *  is the single place the mapping is decided. */
+const OUTCOME_COLORS = ["hsl(var(--up))", "hsl(var(--down))"];
 
 function outcomeColor(i: number): string {
   return OUTCOME_COLORS[i % OUTCOME_COLORS.length]!;

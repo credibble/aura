@@ -14,6 +14,7 @@ import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
 import { CONTRACTS } from "@/lib/chain";
 import { formatCompact, formatUsd } from "@/lib/format";
+import { trendColor } from "@/lib/chart-domain";
 import { explainRevert } from "@/lib/trade";
 import { cn } from "@/lib/utils";
 import { qk } from "@/queries/keys";
@@ -291,7 +292,7 @@ function PoolPage() {
             {history.length > 0 ? (
               <ActivityChart
                 data={history}
-                color={up ? "hsl(var(--up))" : "hsl(var(--down))"}
+                color={trendColor(history, up ? 1 : -1)}
                 height={240}
                 padX={0}
                 strokeWidth={1.75}

@@ -19,6 +19,7 @@ import { FeedLayout } from "@/components/social/FeedLayout";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { FeedItem } from "@/components/feeds/FeedItem";
 import { QueryError } from "@/components/QueryState";
+import { trendColor } from "@/lib/chart-domain";
 import { ActivityChart } from "@/components/aura/charts";
 import { ChartSkeleton, HandleHeaderSkeleton } from "@/components/ui/skeletons";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
@@ -253,7 +254,9 @@ function TradePage() {
       .map((p) => p.v);
     if (pts.length === 0) return [];
     const data = pts.length === 1 ? [pts[0]!, pts[0]!] : pts;
-    return [{ label: "Aura", color: "hsl(var(--primary))", data }];
+    // The Aura lens is green while the index is rising over the visible range —
+    // same rule as every other chart, so the line agrees with the % beside it.
+    return [{ label: "Aura", color: trendColor(data), data }];
   }, [chart, h]);
 
   const [hover, setHover] = useState<number | null>(null);

@@ -16,6 +16,7 @@ import { CreateHandleDialog } from "@/components/portfolio/CreateHandleDialog";
 import { EditProfileDialog } from "@/components/portfolio/EditProfileDialog";
 import { findHandle, handleSlug } from "@/lib/handle-id";
 import { formatCompact, formatIndex, formatPct } from "@/lib/format";
+import { trendColor } from "@/lib/chart-domain";
 import { GRADUATION_AURA } from "@/lib/portfolio";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
@@ -63,6 +64,11 @@ function MePage() {
   });
   const positions = useQuery(positionsOptions(address ?? undefined));
   const openPositions = (positions.data ?? []).length;
+  /** The vault's asset history, oldest → newest (the chart + its trend colour). */
+  const stakeSeries = useMemo(
+    () => (stakeHistory.data ?? []).map((s) => Number(s.totalAssets) / 1e18),
+    [stakeHistory.data],
+  );
 
   // The account page had neither a loading nor an error state: a failed handles
   // query rendered the "No handle yet" state for someone who HAS a handle.
@@ -282,8 +288,9 @@ function MePage() {
           </div>
           <div className="mt-2">
             <ActivityChart
-              data={(stakeHistory.data ?? []).map((s) => Number(s.totalAssets) / 1e18)}
-              color="hsl(var(--primary))"
+              data={stakeSeries}
+              // The vault's own asset history: green while it is growing.
+              color={trendColor(stakeSeries)}
               height={140}
               padX={0}
               showDot={false}

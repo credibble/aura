@@ -1,4 +1,20 @@
 /**
+ * Green when the series is rising, red when it is falling — the SAME colour the
+ * number next to the chart uses. Pass `change` (the % or points already shown in
+ * the UI) whenever you have it, so the line can never disagree with its label;
+ * otherwise it derives from first→last.
+ */
+export function trendColor(data: number[], change?: number): string {
+  const first = data[0];
+  const last = data[data.length - 1];
+  const rising =
+    typeof change === "number" && Number.isFinite(change)
+      ? change >= 0
+      : (last ?? 0) >= (first ?? 0);
+  return rising ? "hsl(var(--up))" : "hsl(var(--down))";
+}
+
+/**
  * Chart domain helper. Charts must read at any scale: a series that moves 0.01
  * over an hour should look like movement, and a series that genuinely doesn't
  * move should sit centred instead of being pinned to the floor.

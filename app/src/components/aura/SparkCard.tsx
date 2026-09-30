@@ -4,6 +4,7 @@ import { ActivityChart } from "@/components/aura/charts";
 import type { LiveAsset } from "@/lib/aura-data";
 import { handleSlug } from "@/lib/handle-id";
 import { formatCompact, formatIndex, formatPct } from "@/lib/format";
+import { trendColor } from "@/lib/chart-domain";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +15,8 @@ import { cn } from "@/lib/utils";
  */
 export function SparkCard({ asset, className }: { asset: LiveAsset; className?: string }) {
   const up = asset.change >= 0;
-  const color = up ? "hsl(var(--up))" : "hsl(var(--down))";
+  // One rule for every chart: green when the trend is up, red when it is down.
+  const color = trendColor(asset.history, asset.change);
   // Real history when the subgraph has more than one point; otherwise draw the
   // latest real move (index − delta → index) so a young handle still shows the
   // movement it has instead of a dead flat line.

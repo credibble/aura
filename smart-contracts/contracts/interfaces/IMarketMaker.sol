@@ -7,7 +7,6 @@ import { OutcomeToken } from "../tokens/OutcomeToken.sol";
 /// @title IMarketMaker
 /// @notice The binary LMSR prediction market (YES/NO windows on the aura index).
 interface IMarketMaker {
-    function transferFrom(address from, address to, IAuraOracle oracle, uint256 outcome, uint256 q) external;
     event WindowOpened(
         bytes32 indexed handleId,
         address indexed oracle,
@@ -15,8 +14,14 @@ interface IMarketMaker {
         uint256 windowEnd,
         string[] outcomes,
         uint256[] probabilities,
-        uint256 funding
+        uint256 funding,
+        string oracleMetadata
     );
+
+    /// The window's live price vector (1e18 per outcome), emitted after every
+    /// state change — open, buy, sell — so the indexer's price chart reads the
+    /// exact numbers traders pay instead of re-deriving the LMSR off-chain.
+    event PricesUpdated(bytes32 indexed handleId, address indexed oracle, uint256[] prices);
     event Bought(
         bytes32 indexed handleId,
         address indexed oracle,
@@ -104,4 +109,6 @@ interface IMarketMaker {
     function buyCost(IAuraOracle oracle, uint256 outcome, uint256 delta) external view returns (uint256);
 
     function sellProceeds(IAuraOracle oracle, uint256 outcome, uint256 delta) external view returns (uint256);
+
+    function transferFrom(address from, address to, IAuraOracle oracle, uint256 outcome, uint256 q) external;
 }

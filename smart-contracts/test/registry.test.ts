@@ -90,7 +90,7 @@ export async function graduateHandle(
     "TST",
     "",
     15n,
-    [100_001_001n],
+    [3n],
   );
   const handleC = await ethers.getContractAt(
     "Handle",

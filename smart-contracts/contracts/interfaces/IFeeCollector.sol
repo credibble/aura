@@ -7,10 +7,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @notice The protocol's fee sink. RevenueSharing routes the protocol share of
 ///         every fee split here (per token); the protocol treasury withdraws.
 interface IFeeCollector {
-    /// Balances held per token.
-    function balanceOf(IERC20 token) external view returns (uint256);
     event FeesDeposited(IERC20 indexed token, uint256 amount);
     event FeesWithdrawn(IERC20 indexed token, address indexed to, uint256 amount);
+
+    /// Balances held per token.
+    function balanceOf(IERC20 token) external view returns (uint256);
 
     /// Receive fees for a token (called by RevenueSharing).
     function depositFees(IERC20 token, uint256 amount) external;

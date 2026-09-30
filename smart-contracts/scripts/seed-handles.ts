@@ -20,15 +20,19 @@ import type { Contract } from "ethers";
 
 const ONE = 10n ** 18n;
 
-/** Category codes: `{cat}_{sub}_{format}`, format 1 = binary (all markets now). */
+/** Category codes: the plain on-chain list — 1 people · 2 crypto · 3 sports ·
+ *  4 ai · 5 tech · 6 brands · 7 music · 8 memes · 9 culture. The UI maps a code
+ *  to its family; the contracts never interpret them. */
 const CAT = {
-  crypto: 1_000_000,
-  ai: 2_000_000,
-  people: 3_000_000,
-  memes: 5_000_000,
-  music: 6_000_000,
-  tech: 7_000_000,
-  football: 100_001_000,
+  people: 1,
+  crypto: 2,
+  sports: 3,
+  ai: 4,
+  tech: 5,
+  brands: 6,
+  music: 7,
+  memes: 8,
+  culture: 9,
 };
 
 /** A source config, exactly the shape the oracle's adapters read. */
@@ -92,6 +96,7 @@ type Seed = {
   name: string;
   symbol: string;
   /** One or more `{cat}_{sub}_{format}` codes (a footballer is also a person). */
+  /** On-chain category codes. */
   categories: number[];
   /** On-chain aura, 1e2 scale (3040 = 30.40). Capped at 10_000 by Handle. */
   aura: number;
@@ -117,7 +122,7 @@ const SEEDS: Seed[] = [
   {
     // A footballer is also a person — exercises the multi-category path from the
     // seed on.
-    label: "ronaldo", name: "Cristiano Ronaldo", symbol: "RON", categories: [CAT.football + 1, CAT.people + 1],
+    label: "ronaldo", name: "Cristiano Ronaldo", symbol: "RON", categories: [CAT.sports, CAT.people],
     aura: 3040, windowMinutes: 30, summary: "Portugal captain · five Champions League titles",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg/330px-Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg",
     sources: [
@@ -127,7 +132,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "messi", name: "Lionel Messi", symbol: "MESSI", categories: [CAT.football + 1, CAT.people + 1],
+    label: "messi", name: "Lionel Messi", symbol: "MESSI", categories: [CAT.sports, CAT.people],
     aura: 2875, windowMinutes: 30, summary: "Inter Miami · World Cup winner",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg/330px-Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg",
     sources: [
@@ -137,7 +142,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "btc", name: "Bitcoin", symbol: "BTC", categories: [CAT.crypto + 1],
+    label: "btc", name: "Bitcoin", symbol: "BTC", categories: [CAT.crypto],
     aura: 4150, windowMinutes: 30, imageFit: "contain", summary: "The original crypto index",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/330px-Bitcoin.svg.png",
     sources: [
@@ -147,7 +152,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "eth", name: "Ethereum", symbol: "ETH", categories: [CAT.crypto + 1],
+    label: "eth", name: "Ethereum", symbol: "ETH", categories: [CAT.crypto],
     aura: 3220, windowMinutes: 30, imageFit: "contain", summary: "Smart-contract settlement layer",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/Eth-diamond-%28color%29.svg/330px-Eth-diamond-%28color%29.svg.png",
     sources: [
@@ -157,7 +162,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "sol", name: "Solana", symbol: "SOL", categories: [CAT.crypto + 1],
+    label: "sol", name: "Solana", symbol: "SOL", categories: [CAT.crypto],
     aura: 2180, windowMinutes: 30, imageFit: "contain", summary: "High-throughput L1",
     photo: "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png",
     sources: [
@@ -167,7 +172,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "openai", name: "OpenAI", symbol: "OPENAI", categories: [CAT.ai + 1, CAT.tech + 1],
+    label: "openai", name: "OpenAI", symbol: "OPENAI", categories: [CAT.ai, CAT.tech],
     aura: 3980, windowMinutes: 60, summary: "Frontier model lab",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a7/1515_Third_Street.jpg/330px-1515_Third_Street.jpg",
     sources: [
@@ -185,7 +190,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "tesla", name: "Tesla", symbol: "TSLA", categories: [CAT.tech + 1, CAT.people + 1],
+    label: "tesla", name: "Tesla", symbol: "TSLA", categories: [CAT.tech, CAT.people],
     aura: 2360, windowMinutes: 60, imageFit: "contain", summary: "EVs, energy, autonomy",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bd/Tesla_Motors.svg/330px-Tesla_Motors.svg.png",
     sources: [
@@ -203,7 +208,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "elon", name: "Elon Musk", symbol: "ELON", categories: [CAT.people + 1, CAT.tech + 1],
+    label: "elon", name: "Elon Musk", symbol: "ELON", categories: [CAT.people, CAT.tech],
     aura: 4290, windowMinutes: 60, summary: "Founder · most-followed voice on the feed",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/330px-Elon_Musk_-_54820081119_%28cropped%29.jpg",
     sources: [
@@ -213,7 +218,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "trump", name: "Donald Trump", symbol: "TRUMP", categories: [CAT.people + 1],
+    label: "trump", name: "Donald Trump", symbol: "TRUMP", categories: [CAT.people],
     aura: 3110, windowMinutes: 60, summary: "US President · headline mover",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/330px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg",
     sources: [
@@ -223,7 +228,7 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    label: "taylor", name: "Taylor Swift", symbol: "TAYLOR", categories: [CAT.music + 1, CAT.people + 1],
+    label: "taylor", name: "Taylor Swift", symbol: "TAYLOR", categories: [CAT.music, CAT.people],
     aura: 3550, windowMinutes: 60, summary: "Touring + release-cycle aura",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png/330px-Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png",
     sources: [

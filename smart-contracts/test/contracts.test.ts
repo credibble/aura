@@ -18,7 +18,7 @@ async function base() {
   const factory = await deployOracleFactory(await registry.getAddress(), oracle.address);
   await registry.registerHandle(h("btc"), 15);
   const handleFactory = await (await ethers.getContractFactory("HandleFactory")).deploy(await aura.getAddress(), await usdc.getAddress(), await configurator.getAddress(), await ap.getAddress());
-  await handleFactory.createHandle(h("btc"), alice.address, "Bitcoin", "BTC", "", 15n, [100_001_001n, 3_000_001n]);
+  await handleFactory.createHandle(h("btc"), alice.address, "Bitcoin", "BTC", "", 15n, [3n, 3_000_001n]);
   const handleC = await ethers.getContractAt("Handle", await handleFactory.handleOf(h("btc")));
   const stakeC = await ethers.getContractAt("Stake", await handleFactory.stakeOf(h("btc")));
   const poolC = await (await ethers.getContractFactory("Pool")).deploy("Aura Pool", "AURALP", await usdc.getAddress(), await ap.getAddress());
@@ -108,16 +108,16 @@ describe("Full contract scenarios", () => {
     const { alice, oracle, handleC, handleFactory } = await base();
     // Built with [sport/football/binary, people/binary] (see base()).
     expect(await handleC.categoriesCount()).to.equal(2n);
-    expect(await handleC.categories(0n)).to.equal(100_001_001n);
+    expect(await handleC.categories(0n)).to.equal(3n);
     expect(await handleC.categories(1n)).to.equal(3_000_001n);
-    expect(await handleC.hasCategory(100_001_001n)).to.equal(true);
+    expect(await handleC.hasCategory(3n)).to.equal(true);
     expect(await handleC.hasCategory(3_000_001n)).to.equal(true);
     expect(await handleC.hasCategory(7_000_001n)).to.equal(false);
 
     // The curator can replace the whole set.
     await handleC.connect(oracle).setCategories([7_000_001n]);
     expect(await handleC.categoriesCount()).to.equal(1n);
-    expect(await handleC.hasCategory(100_001_001n)).to.equal(false);
+    expect(await handleC.hasCategory(3n)).to.equal(false);
     expect(await handleC.hasCategory(7_000_001n)).to.equal(true);
 
     // Empty and oversized sets are rejected (MAX_CATEGORIES = 4).

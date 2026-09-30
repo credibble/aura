@@ -7,7 +7,6 @@ pragma solidity ^0.8.24;
 ///         protocol can tune them without redeploying. Read-only getters are
 ///         consumed by the contracts; the owner mutates them.
 interface IConfigurator {
-    function setMarketFeeBps(uint64 bps) external;
     event DepositFeeRangeSet(uint64 minBps, uint64 maxBps);
     event MaxFeeAuraSet(uint256 maxFeeAura);
     event MarketFeeBpsSet(uint64 bps);
@@ -51,4 +50,6 @@ interface IConfigurator {
     function setWindowPadding(uint256 _seconds) external;
 
     function setSettlementGraceSeconds(uint256 seconds_) external;
+    
+    function setMarketFeeBps(uint64 bps) external;
 }

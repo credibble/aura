@@ -10,7 +10,16 @@ interface IHandleFactory {
     event HandleCreated(
         bytes32 indexed handleId,
         address indexed handle,
-        address indexed stake
+        address indexed stake,
+        address creator,
+        address market,
+        address oracleFactory,
+        address revenue,
+        string name,
+        string symbol,
+        string metadata,
+        uint256 windowMinutes,
+        uint256[] categories
     );
 
     function createHandle(

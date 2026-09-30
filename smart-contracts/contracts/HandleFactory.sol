@@ -92,7 +92,20 @@ contract HandleFactory is IHandleFactory {
         h.setRevenue(addresses.revenueSharing());
         handles[handleId] = h;
         handleList.push(h);
-        emit HandleCreated(handleId, address(h), address(stake));
+        emit HandleCreated(
+            handleId,
+            address(h),
+            address(stake),
+            creator,
+            addresses.marketMaker(),
+            addresses.oracleFactory(),
+            addresses.revenueSharing(),
+            name,
+            symbol,
+            metadata,
+            windowMinutes,
+            categories
+        );
         return address(h);
     }
 

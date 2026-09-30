@@ -71,6 +71,7 @@ contract Stake is IStake, ERC20, ReentrancyGuard {
 
         _mint(msg.sender, shares);
         emit Deposited(msg.sender, amount, shares);
+        emit StakeStateChanged(totalSupply(), totalAssets(), valuePerToken());
     }
 
     /// @notice Burn receipts to withdraw pro-rata AURA from the vault.
@@ -88,6 +89,7 @@ contract Stake is IStake, ERC20, ReentrancyGuard {
         aura.safeTransfer(msg.sender, payout);
 
         emit Withdrawn(msg.sender, shares, payout);
+        emit StakeStateChanged(totalSupply(), totalAssets(), valuePerToken());
     }
 
     /// @notice Reward stakers: AURA gifted to the vault increases share value
@@ -97,6 +99,7 @@ contract Stake is IStake, ERC20, ReentrancyGuard {
         if (amount == 0) revert Errors.ZeroAmount();
         aura.safeTransferFrom(msg.sender, address(this), amount);
         emit Rewarded(amount, memo);
+        emit StakeStateChanged(totalSupply(), totalAssets(), valuePerToken());
     }
 
     /// @notice Value of `user`'s receipts in AURA at current share price.

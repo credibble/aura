@@ -16,6 +16,9 @@ interface IPool {
     event PaidOut(address indexed oracle, address indexed to, uint256 amount);
     event Unreserved(address indexed oracle, uint256 amount);
 
+    /// The vault's state after any movement — the indexer's pool chart source.
+    event PoolStateChanged(uint256 totalAssets, uint256 totalSupply, uint256 idle, uint256 totalReserved);
+
     function decimals() external view returns (uint8);
 
     function totalAssets() external view returns (uint256);

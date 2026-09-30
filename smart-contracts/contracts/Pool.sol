@@ -111,6 +111,7 @@ contract Pool is IPool, ERC20, Ownable2Step, ReentrancyGuard {
         _mint(msg.sender, shares);
 
         emit Deposited(msg.sender, amount, shares);
+        emit PoolStateChanged(totalAssets(), totalSupply(), idle(), totalReserved);
     }
 
     /// Burn Pool receipts → pro-rata USDC value up to idle().
@@ -129,6 +130,7 @@ contract Pool is IPool, ERC20, Ownable2Step, ReentrancyGuard {
         usdc.safeTransfer(msg.sender, payoutUsdc);
 
         emit Withdrawn(msg.sender, shares, payoutUsdc);
+        emit PoolStateChanged(totalAssets(), totalSupply(), idle(), totalReserved);
     }
 
     /// Full value of `user`'s receipts in USDC.
@@ -154,6 +156,7 @@ contract Pool is IPool, ERC20, Ownable2Step, ReentrancyGuard {
         totalReserved += amount;
 
         emit Reserved(oracle, amount);
+        emit PoolStateChanged(totalAssets(), totalSupply(), idle(), totalReserved);
     }
 
     /// Pay a winner from a window's reserved capacity.
@@ -170,6 +173,7 @@ contract Pool is IPool, ERC20, Ownable2Step, ReentrancyGuard {
 
         usdc.safeTransfer(to, amount);
         emit PaidOut(oracle, to, amount);
+        emit PoolStateChanged(totalAssets(), totalSupply(), idle(), totalReserved);
     }
 
     /// Release unused reserved capacity back to idle.
@@ -184,5 +188,6 @@ contract Pool is IPool, ERC20, Ownable2Step, ReentrancyGuard {
         totalReserved -= amount;
 
         emit Unreserved(oracle, amount);
+        emit PoolStateChanged(totalAssets(), totalSupply(), idle(), totalReserved);
     }
 }

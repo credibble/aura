@@ -166,7 +166,16 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         // resolution can't be submitted early, and any metadata a squatter put on
         // a pre-deployed oracle is overwritten with the protocol's.
         oracle.confirmWindow(windowEnd, oracleMetadata);
-        emit WindowOpened(handleId, address(oracle), windowStart, windowEnd, outcomes, probabilities, funding);
+        emit WindowOpened(handleId, address(oracle), windowStart, windowEnd, outcomes, probabilities, funding, oracleMetadata);
+        emit PricesUpdated(handleId, address(oracle), _prices(oracle));
+    }
+
+    /// The current price vector (binary). Emitted after every state change so the
+    /// indexer's chart reads the same numbers traders pay, with no `eth_call`.
+    function _prices(IAuraOracle oracle) private view returns (uint256[] memory prices) {
+        prices = new uint256[](2);
+        prices[0] = priceOf(oracle, 0);
+        prices[1] = priceOf(oracle, 1);
     }
 
     /// Settle: the ORACLE's own on-chain resolution is the authority. The relayer
@@ -411,6 +420,7 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         _moveToken(oracle, outcome, address(0), msg.sender, delta);
         _routeFee(oracle, w.handleId, fee);
         emit Bought(w.handleId, address(oracle), msg.sender, outcome, cost + fee, delta, price);
+        emit PricesUpdated(w.handleId, address(oracle), _prices(oracle));
     }
 
     function sell(
@@ -436,6 +446,7 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         _fundPayout(oracle, w.handleId, msg.sender, proceeds - fee);
         _routeFee(oracle, w.handleId, fee);
         emit Sold(w.handleId, address(oracle), msg.sender, outcome, delta, proceeds);
+        emit PricesUpdated(w.handleId, address(oracle), _prices(oracle));
     }
 
     function claim(IAuraOracle oracle, uint256 outcome) external nonReentrant {

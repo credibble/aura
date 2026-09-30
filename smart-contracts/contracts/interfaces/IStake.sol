@@ -14,6 +14,9 @@ interface IStake {
     event Withdrawn(address indexed user, uint256 sharesBurned, uint256 auraPayout);
     event Rewarded(uint256 auraAmount, string memo);
 
+    /// The receipt's state after any movement — the indexer's staking chart source.
+    event StakeStateChanged(uint256 totalSupply, uint256 totalAssets, uint256 valuePerToken);
+
     function totalAssets() external view returns (uint256);
 
     function valuePerToken() external view returns (uint256);

@@ -2,130 +2,235 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateTable
-CREATE TABLE "handles" (
+CREATE TABLE "metric_points" (
     "id" TEXT NOT NULL,
-    "symbol" TEXT NOT NULL,
+    "sourceId" TEXT NOT NULL,
+    "metric" TEXT NOT NULL,
+    "value" DOUBLE PRECISION NOT NULL,
+    "delta" DOUBLE PRECISION,
+    "timestamp" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "metric_points_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "connections" (
+    "id" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "account" TEXT NOT NULL,
+    "accessToken" TEXT,
+    "refreshToken" TEXT,
+    "secrets" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "connections_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "handle_connections" (
+    "id" TEXT NOT NULL,
+    "handleId" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "account" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'connected',
+    "connectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "handle_connections_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "posts" (
+    "id" TEXT NOT NULL,
+    "authorId" TEXT,
+    "handleId" TEXT NOT NULL,
+    "handle" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "category" TEXT NOT NULL,
     "kind" TEXT NOT NULL,
-    "windowMinutes" INTEGER NOT NULL,
-    "color" TEXT NOT NULL,
-    "image" TEXT,
-    "imageFit" TEXT,
-    "baseline" DOUBLE PRECISION NOT NULL,
-    "volatility" DOUBLE PRECISION NOT NULL,
-    "allowedSources" TEXT[],
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "handles_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "sources" (
-    "id" TEXT NOT NULL,
-    "kind" TEXT NOT NULL,
-    "weight" DOUBLE PRECISION NOT NULL,
-    "fetchIntervalMs" INTEGER NOT NULL,
-    "transport" JSONB NOT NULL,
-    "label" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "sources_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "source_items" (
-    "id" TEXT NOT NULL,
-    "sourceId" TEXT NOT NULL,
-    "kind" TEXT NOT NULL,
-    "sourceName" TEXT NOT NULL,
-    "text" TEXT NOT NULL,
-    "url" TEXT,
-    "author" TEXT,
-    "publishedAt" TIMESTAMP(3) NOT NULL,
-    "collectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "engagement" DOUBLE PRECISION,
-    "dedupeKey" TEXT NOT NULL,
+    "marketId" TEXT NOT NULL,
+    "summary" TEXT NOT NULL,
+    "body" JSONB NOT NULL,
+    "sources" JSONB NOT NULL,
     "media" JSONB,
+    "replies" INTEGER NOT NULL DEFAULT 0,
+    "reposts" INTEGER NOT NULL DEFAULT 0,
+    "likes" INTEGER NOT NULL DEFAULT 0,
+    "views" INTEGER NOT NULL DEFAULT 0,
+    "ai" BOOLEAN NOT NULL DEFAULT true,
+    "ts" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "source_items_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "handle_scores" (
-    "itemId" TEXT NOT NULL,
-    "handleId" TEXT NOT NULL,
-    "relevance" DOUBLE PRECISION NOT NULL,
-    "sentiment" DOUBLE PRECISION NOT NULL,
-    "confidence" DOUBLE PRECISION NOT NULL,
-    "analyzedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "handle_scores_pkey" PRIMARY KEY ("itemId","handleId")
-);
-
--- CreateTable
-CREATE TABLE "window_results" (
-    "handleId" TEXT NOT NULL,
-    "windowStart" TIMESTAMP(3) NOT NULL,
-    "windowEnd" TIMESTAMP(3) NOT NULL,
-    "s" DOUBLE PRECISION NOT NULL,
-    "expectation" DOUBLE PRECISION NOT NULL,
-    "delta" DOUBLE PRECISION NOT NULL,
-    "indexOpen" DOUBLE PRECISION NOT NULL,
-    "indexClose" DOUBLE PRECISION NOT NULL,
-    "direction" TEXT NOT NULL,
-    "itemCount" INTEGER NOT NULL,
-    "proof" JSONB,
-    "outcomeDominance" JSONB,
-    "resolvedAt" TIMESTAMP(3) NOT NULL,
-    "resolutionHash" TEXT NOT NULL,
-
-    CONSTRAINT "window_results_pkey" PRIMARY KEY ("handleId","windowStart")
-);
-
--- CreateTable
-CREATE TABLE "feed_events" (
+CREATE TABLE "comments" (
     "id" TEXT NOT NULL,
-    "assetId" TEXT NOT NULL,
+    "postId" TEXT NOT NULL,
+    "userId" TEXT,
+    "handle" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
+    "media" TEXT,
+    "likes" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "comments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "follows" (
+    "follower" TEXT NOT NULL,
+    "following" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "follows_pkey" PRIMARY KEY ("follower","following")
+);
+
+-- CreateTable
+CREATE TABLE "likes" (
+    "userId" TEXT NOT NULL,
+    "targetId" TEXT NOT NULL,
+    "targetType" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "likes_pkey" PRIMARY KEY ("userId","targetId","targetType")
+);
+
+-- CreateTable
+CREATE TABLE "subscriptions" (
+    "userId" TEXT NOT NULL,
+    "handleId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "subscriptions_pkey" PRIMARY KEY ("userId","handleId")
+);
+
+-- CreateTable
+CREATE TABLE "notifications" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
     "kind" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "body" TEXT NOT NULL,
-    "ts" TIMESTAMP(3) NOT NULL,
-    "change" DOUBLE PRECISION NOT NULL,
+    "meta" JSONB,
+    "read" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "feed_events_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "baselines" (
-    "handleId" TEXT NOT NULL,
-    "expectation" DOUBLE PRECISION NOT NULL,
-    "lastS" DOUBLE PRECISION NOT NULL,
-    "lastIndex" DOUBLE PRECISION NOT NULL,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+CREATE TABLE "reposts" (
+    "userId" TEXT NOT NULL,
+    "eventId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "baselines_pkey" PRIMARY KEY ("handleId")
+    CONSTRAINT "reposts_pkey" PRIMARY KEY ("userId","eventId")
+);
+
+-- CreateTable
+CREATE TABLE "outbox_events" (
+    "id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "publishedAt" TIMESTAMP(3),
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "lastError" TEXT,
+
+    CONSTRAINT "outbox_events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "bookmarks" (
+    "userId" TEXT NOT NULL,
+    "postId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "bookmarks_pkey" PRIMARY KEY ("userId","postId")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "source_items_dedupeKey_key" ON "source_items"("dedupeKey");
+CREATE INDEX "metric_points_sourceId_metric_idx" ON "metric_points"("sourceId", "metric");
 
 -- CreateIndex
-CREATE INDEX "source_items_sourceId_publishedAt_idx" ON "source_items"("sourceId", "publishedAt");
+CREATE UNIQUE INDEX "metric_points_sourceId_metric_timestamp_key" ON "metric_points"("sourceId", "metric", "timestamp");
 
 -- CreateIndex
-CREATE INDEX "source_items_collectedAt_idx" ON "source_items"("collectedAt");
+CREATE UNIQUE INDEX "connections_platform_account_key" ON "connections"("platform", "account");
 
 -- CreateIndex
-CREATE INDEX "handle_scores_handleId_relevance_idx" ON "handle_scores"("handleId", "relevance");
+CREATE UNIQUE INDEX "handle_connections_handleId_key" ON "handle_connections"("handleId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "window_results_resolutionHash_key" ON "window_results"("resolutionHash");
+CREATE INDEX "posts_handleId_ts_idx" ON "posts"("handleId", "ts");
 
 -- CreateIndex
-CREATE INDEX "feed_events_assetId_ts_idx" ON "feed_events"("assetId", "ts");
+CREATE INDEX "comments_postId_createdAt_idx" ON "comments"("postId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "follows_following_idx" ON "follows"("following");
+
+-- CreateIndex
+CREATE INDEX "likes_targetId_idx" ON "likes"("targetId");
+
+-- CreateIndex
+CREATE INDEX "subscriptions_handleId_idx" ON "subscriptions"("handleId");
+
+-- CreateIndex
+CREATE INDEX "notifications_userId_read_createdAt_idx" ON "notifications"("userId", "read", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "reposts_eventId_idx" ON "reposts"("eventId");
+
+-- CreateIndex
+CREATE INDEX "outbox_events_publishedAt_createdAt_idx" ON "outbox_events"("publishedAt", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "bookmarks_postId_idx" ON "bookmarks"("postId");
 
 -- AddForeignKey
-ALTER TABLE "handle_scores" ADD CONSTRAINT "handle_scores_itemId_fkey" FOREIGN KEY ("itemId") REFERENCES "source_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "posts" ADD CONSTRAINT "posts_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "comments" ADD CONSTRAINT "comments_postId_fkey" FOREIGN KEY ("postId") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "comments" ADD CONSTRAINT "comments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "follows" ADD CONSTRAINT "follows_follower_fkey" FOREIGN KEY ("follower") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "likes" ADD CONSTRAINT "likes_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "reposts" ADD CONSTRAINT "reposts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "reposts" ADD CONSTRAINT "reposts_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bookmarks" ADD CONSTRAINT "bookmarks_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bookmarks" ADD CONSTRAINT "bookmarks_postId_fkey" FOREIGN KEY ("postId") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

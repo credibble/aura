@@ -11,6 +11,8 @@ import { countLine } from "../aura/aura-engine.service";
 import { FeedAiService, type FeedDraft, type FeedInput } from "./feed-ai.service";
 import { PrismaService } from "../../persistence/prisma.service";
 import type { AuraHandle } from "../jobs.types";
+import type { Source } from "../../core/domain/source";
+import type { RawDatum } from "../../core/domain/source-item";
 import type { FeedEvent } from "@aura/contracts";
 
 const HORIZON_MS = 6 * 60 * 60 * 1000;
@@ -54,36 +56,140 @@ function mentionsHandle(text: string, handle: AuraHandle): boolean {
 }
 
 /**
- * The fallback post, used when the AI is unavailable. It AGGREGATES the sources
- * that carried the story instead of echoing one headline back verbatim (what the
- * reader saw before was literally "Teslarati: Elon Musk and Trump are closer than
- * ever…" — the source's own words presented as Aura's summary).
+ * Normalized-title key for cross-source dedupe. Rules, in order:
+ *  1. collapse whitespace;
+ *  2. peel a trailing outlet credit — "… - Not a Tesla App", "… | Reuters",
+ *     "… — …". A tail only counts as a credit when it is short (≤ 5 words /
+ *     40 chars), does not end in sentence punctuation, and starts with a
+ *     capital or no letter (a lowercase clause after the dash — "… - what it
+ *     means" — is part of the story, not an outlet);
+ *  3. casefold;
+ *  4. drop possessives ("Tesla's robotaxi" == "Tesla robotaxi");
+ *  5. strip punctuation (% & quotes ellipses emoji) down to single spaces.
+ * The same story carried by two feeds lands on one key; different headlines do
+ * not. Returns "" when nothing readable is left — such items never merge.
  */
-function fallbackDraft(
-  label: string,
-  count: number,
-  lead: { source: string; text: string } | null,
-  outlets: string[],
-): FeedDraft {
-  if (!lead) {
-    return {
-      kind: "new",
-      title: `@${label} is in the news`,
-      body: `${count} new item${count === 1 ? "" : "s"} mention @${label} across its sources.`,
-      change: 0,
-    };
+export function normalizeTitle(text: string): string {
+  let t = (text ?? "").replace(/\s+/g, " ").trim();
+  for (let pass = 0; pass < 3; pass++) {
+    const m = /\s[-–—|]\s*([^-–—|]{1,40})$/u.exec(t);
+    if (!m) break;
+    const tail = m[1]!.trim();
+    const words = tail.split(/\s+/).filter(Boolean);
+    if (words.length === 0 || words.length > 5 || /[.!?:;,]$/.test(tail)) break;
+    const firstLetter = /\p{L}/u.exec(tail)?.[0];
+    if (firstLetter && firstLetter !== firstLetter.toUpperCase()) break;
+    t = t.slice(0, m.index).trimEnd();
   }
-  const headline = lead.text.replace(/\s+/g, " ").trim();
-  const who = outlets.length > 1 ? `${outlets.length} sources` : lead.source;
+  return t
+    .toLowerCase()
+    .replace(/['’]s\b/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** How a source is named in the fallback text and on the feed card. */
+export interface StorySource {
+  id: string;
+  /** Human label — "Teslarati", "Google News · Tesla". */
+  label: string;
+  /** Feed-card account: the adapter's @handle when it has one, else the label. */
+  account: string;
+  /** Frontend FeedPlatform for the card ("news", "x", ...). */
+  platform: string;
+}
+
+export interface StoryBatch {
+  source: StorySource;
+  /** Fresh, handle-relevant items this source carried. */
+  items: RawDatum[];
+}
+
+export interface Story {
+  /** The real item that represents the story — never a synthesized headline. */
+  rep: RawDatum;
+  /** The source the representative item came from. */
+  repSource: StorySource;
+  /** Every distinct source that carried the story, first-seen order. */
+  sources: StorySource[];
+  /** Every raw item that collapsed into the story, first-seen order. */
+  items: RawDatum[];
+}
+
+/**
+ * Collapse the same story from several feeds into ONE item: items group when
+ * `normalizeTitle` agrees, the group keeps every contributing source (so the
+ * card can attribute the story to all of them), and the highest-reach item
+ * (engagement; ties → first seen) becomes the representative. No headline is
+ * invented — the representative is always a real item.
+ */
+export function groupStories(batches: readonly StoryBatch[]): Story[] {
+  const groups = new Map<string, Story>();
+  let unkeyed = 0;
+  for (const batch of batches) {
+    for (const item of batch.items) {
+      const key = normalizeTitle(item.text);
+      const existing = key ? groups.get(key) : undefined;
+      if (!existing) {
+        groups.set(key || `\u0000unkeyed:${unkeyed++}`, {
+          rep: item,
+          repSource: batch.source,
+          sources: [batch.source],
+          items: [item],
+        });
+        continue;
+      }
+      existing.items.push(item);
+      if (!existing.sources.some((s) => s.id === batch.source.id)) {
+        existing.sources.push(batch.source);
+      }
+      if (reach(item) > reach(existing.rep)) {
+        existing.rep = item;
+        existing.repSource = batch.source;
+      }
+    }
+  }
+  return [...groups.values()];
+}
+
+function reach(item: RawDatum): number {
+  return typeof item.engagement === "number" && Number.isFinite(item.engagement) ? item.engagement : 0;
+}
+
+/**
+ * The fallback post, used when the AI is unavailable. It AGGREGATES instead of
+ * echoing: it reports how many DISTINCT stories arrived and names the sources
+ * that carried them. The old text counted raw items and then quoted the lead
+ * headline verbatim — the source's own words presented as Aura's summary.
+ * Deterministic (no model call), one line.
+ */
+export function fallbackDraft(
+  label: string,
+  storyCount: number,
+  sourceNames: readonly string[],
+): FeedDraft {
+  const names = nameList(sourceNames);
+  const storyWord = storyCount === 1 ? "story" : "stories";
+  const sourceWord = sourceNames.length === 1 ? "source" : "sources";
   return {
     kind: "new",
-    title: `@${label}: ${headline.length > 72 ? `${headline.slice(0, 71)}…` : headline}`.slice(0, 90),
-    body: `${count} new item${count === 1 ? "" : "s"} on @${label} across ${who}. Lead story: ${headline}`.slice(
-      0,
-      280,
-    ),
+    title: `@${label}: ${storyCount} new ${storyWord} from ${sourceNames.length} ${sourceWord}`.slice(0, 90),
+    body: (names
+      ? `${storyCount} new ${storyWord} on @${label} across ${names}.`
+      : `${storyCount} new ${storyWord} on @${label}.`
+    ).slice(0, 280),
     change: 0,
   };
+}
+
+/** "a, b and c" / "a, b, c, d and 2 more" — unique, deterministic, capped. */
+function nameList(names: readonly string[], max = 4): string {
+  const unique = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+  if (unique.length === 0) return "";
+  if (unique.length === 1) return unique[0]!;
+  if (unique.length <= max) return `${unique.slice(0, -1).join(", ")} and ${unique[unique.length - 1]}`;
+  return `${unique.slice(0, max).join(", ")} and ${unique.length - max} more`;
 }
 
 /** Frontend FeedPlatform mapping (adapter platform → timeline platform). */
@@ -100,6 +206,13 @@ function feedPlatform(platform: string | undefined): string {
     default:
       return "news";
   }
+}
+
+/** Feed-card account for a source: the adapter's @handle when it has one, else
+ *  the human source label ("Teslarati") — never the raw source id. */
+function sourceAccount(source: Source): string {
+  const account = source.adapter?.account;
+  return typeof account === "string" && account.length > 0 ? account : source.label;
 }
 
 /**
@@ -141,12 +254,9 @@ export class FeedEngineService {
     // platform adapters had NOTHING to read — so no feed ever got published.
     const sources = await this.registry.sourcesForHandle(handle);
 
-    let newItemCount = 0;
     let newestTs = lastPosted ?? 0;
-    /** The freshest relevant item across all sources — the story to write about. */
-    let bestLead: { ts: number; source: string; text: string } | null = null;
-    const signals: FeedInput["signals"] = [];
-    const postSources: { id: string; platform: string; account: string; text: string; ts: number; aura: number; stats?: string }[] = [];
+    /** Fresh, handle-relevant items grouped by source — deduped across sources below. */
+    const batches: StoryBatch[] = [];
     // Media (images/videos) carried by the analysed source items — deduped by
     // URL and capped at MAX_MEDIA for the post card.
     const postMedia: { kind: "image" | "video"; src: string; alt: string }[] = [];
@@ -167,56 +277,74 @@ export class FeedEngineService {
       // mention Tesla at all.
       const relevant = fresh.filter((i) => mentionsHandle(i.text, handle));
       if (relevant.length === 0) continue;
-      newItemCount += relevant.length;
       for (const item of relevant) newestTs = Math.max(newestTs, item.publishedAt);
-      {
-        const lead = relevant[0]!;
-        if (!bestLead || lead.publishedAt > bestLead.ts) {
-          bestLead = { ts: lead.publishedAt, source: source.label, text: lead.text };
-        }
-        postSources.push({
-          id: source.id,
-          platform: feedPlatform(source.adapter?.platform),
-          account: (source.adapter?.account as string | undefined) ?? source.id,
-          text: lead.text.slice(0, 280),
-          ts: now,
-          aura: 0,
-          // The endpoint's own engagement when it has any (X likes/views, Reddit
-          // score/comments), else the fresh-item count.
-          stats: countLine(lead.stats) || `${relevant.length} new`,
-        });
-        // Pick the first fresh item's media for this post card.
-        for (const item of relevant) {
+      // Pick fresh items' media for this post card.
+      for (const item of relevant) {
+        if (postMedia.length >= MAX_MEDIA) break;
+        for (const media of item.media ?? []) {
           if (postMedia.length >= MAX_MEDIA) break;
-          for (const media of item.media ?? []) {
-            if (postMedia.length >= MAX_MEDIA) break;
-            if (postMedia.some((m) => m.src === media.url)) continue;
-            postMedia.push({ kind: media.kind, src: media.url, alt: media.title ?? item.text.slice(0, 80) });
-          }
+          if (postMedia.some((m) => m.src === media.url)) continue;
+          postMedia.push({ kind: media.kind, src: media.url, alt: media.title ?? item.text.slice(0, 80) });
         }
-        // A REAL signal for the AI draft — the verbatim headlines so the post can
-        // be about the actual story, not "N items arrived".
-        signals.push({
-          sourceId: source.id,
-          label: source.label,
-          metrics: [{ name: "items", value: relevant.length, delta: relevant.length }],
-          items: relevant.slice(0, 3).map((i) => i.text.slice(0, 200)),
-        });
       }
+      batches.push({
+        source: {
+          id: source.id,
+          label: source.label,
+          account: sourceAccount(source),
+          platform: feedPlatform(source.adapter?.platform),
+        },
+        items: relevant,
+      });
     }
 
-    // Nothing about this handle happened — publish nothing (an "0 new items"
+    // ONE item per DISTINCT story: a story two feeds both carry collapses into a
+    // single item that keeps every contributing source. The fallback then counts
+    // stories (not raw rows), and the card attributes the story to all of them.
+    const stories = groupStories(batches);
+
+    // Nothing about this handle happened — publish nothing (an "0 new stories"
     // post is worse than an empty feed).
-    if (newItemCount === 0) return null;
+    if (stories.length === 0) return null;
+
+    // Every source that carried any story, first-seen order — each story entry
+    // below names the sources it came from, and the fallback names them all.
+    const storySources = [
+      ...new Map(stories.flatMap((s) => s.sources).map((s): [string, StorySource] => [s.id, s])).values(),
+    ];
+    const postSources = stories.map((story) => ({
+      id: story.sources.map((s) => s.id).join("+"),
+      // The card line shows the representative item's platform; the account
+      // string attributes the story to every source that carried it.
+      platform: story.repSource.platform,
+      account: story.sources.map((s) => s.account).join(" · "),
+      text: story.rep.text.slice(0, 280),
+      ts: now,
+      aura: 0,
+      // The endpoint's own engagement when it has any (X likes/views, Reddit
+      // score/comments), else how many items backed the story.
+      stats: countLine(story.rep.stats) || `${story.items.length} new`,
+    }));
+
+    // A REAL signal for the AI draft — each distinct story's verbatim headlines,
+    // labelled with every source that carried it. Distinct stories, not raw
+    // items, so the model does not see the same piece twice.
+    const signals: FeedInput["signals"] = stories.map((story) => ({
+      sourceId: story.sources.map((s) => s.id).join("+"),
+      label: story.sources.map((s) => s.label).join(" + "),
+      metrics: [{ name: "items", value: story.items.length, delta: story.items.length }],
+      items: story.items.slice(0, 3).map((i) => i.text.slice(0, 200)),
+    }));
 
     const draft = await this.ai.build(
-      { handleLabel: handle.label, signals, newItemCount, auraChange: 0 },
-      fallbackDraft(
-        handle.label,
-        newItemCount,
-        bestLead,
-        [...new Set(postSources.map((s) => s.account))],
-      ),
+      {
+        handleLabel: handle.label,
+        signals,
+        // Distinct stories, not raw items — the same number the fallback reports.
+        newItemCount: stories.length,
+        auraChange: 0,
+      },
+      fallbackDraft(handle.label, stories.length, storySources.map((s) => s.label)),
     );
 
     const feed: FeedEvent = {
@@ -262,7 +390,7 @@ export class FeedEngineService {
     }
 
     this.ws.publishFeed(feed);
-    this.logger.debug(`@${handle.label}: posted feed (${newItemCount} new items)`);
+    this.logger.debug(`@${handle.label}: posted feed (${stories.length} stories)`);
     return feed;
   }
 

@@ -3,6 +3,15 @@ import { padToN, clampInt, bucketSec } from "../src/jobs/utils";
 import { auraJobId, feedJobId, windowJobId } from "../src/jobs/queue.constants";
 import { SourceCacheService } from "../src/jobs/source-cache/source-cache.service";
 import { marketStyle, windowMetadata, gainBetween } from "../src/jobs/window/market-style";
+import {
+  FeedEngineService,
+  fallbackDraft,
+  groupStories,
+  normalizeTitle,
+  type StorySource,
+} from "../src/jobs/feed/feed-engine.service";
+import type { RawDatum } from "../src/core/domain/source-item";
+import type { AuraHandle } from "../src/jobs/jobs.types";
 
 describe("job utils", () => {
   it("padToN right-pads a fresh series with its first value (new-source rule)", () => {
@@ -100,5 +109,164 @@ describe("market style from the category code", () => {
     expect(gainBetween(3000, 3000)).toEqual(0);
     expect(gainBetween(0, 1000)).toEqual(1000); // pure subtraction — open 0 is fine
     expect(gainBetween(3040, 3000)).toEqual(-40); // a loss is a negative gain
+  });
+});
+
+describe("feed story dedupe", () => {
+  const source = (id: string, label = id, account = label, platform = "news"): StorySource => ({
+    id,
+    label,
+    account,
+    platform,
+  });
+  const item = (text: string, engagement?: number): RawDatum => ({
+    sourceName: "feed",
+    text,
+    publishedAt: 1_000,
+    ...(engagement === undefined ? {} : { engagement }),
+  });
+
+  it("normalizes case, punctuation and trailing outlet credits", () => {
+    // Casefold + possessive + punctuation.
+    expect(normalizeTitle("Tesla's stock jumps 5%!")).toBe("tesla stock jumps 5");
+    // "… - Not a Tesla App" and "… | Reuters" peel off to the same story.
+    const fromGnews = normalizeTitle("Tesla's Robotaxi rollout in Austin begins - Not a Tesla App");
+    const fromReuters = normalizeTitle("Tesla's Robotaxi rollout in Austin begins | Reuters");
+    expect(fromGnews).toBe("tesla robotaxi rollout in austin begins");
+    expect(fromGnews).toBe(fromReuters);
+    // "… — …" (a truncated suffix after an em-dash) peels too.
+    expect(normalizeTitle("Tesla teases Robotaxi — …")).toBe("tesla teases robotaxi");
+  });
+
+  it("keeps a lowercase dash clause as part of the story (not an outlet)", () => {
+    expect(normalizeTitle("Tesla cuts prices - what it means for buyers")).toBe(
+      "tesla cuts prices what it means for buyers",
+    );
+  });
+
+  it("collapses the same story from two feeds into one item with both sources", () => {
+    const stories = groupStories([
+      {
+        source: source("rss-gnews-tesla", "Google News · Tesla"),
+        items: [item("Tesla Robotaxi rollout begins in Austin - Not a Tesla App")],
+      },
+      {
+        source: source("rss-teslarati", "Teslarati"),
+        items: [item("Tesla Robotaxi rollout begins in Austin | Teslarati")],
+      },
+    ]);
+    expect(stories).toHaveLength(1);
+    expect(stories[0]!.items).toHaveLength(2);
+    expect(stories[0]!.sources.map((s) => s.id)).toEqual(["rss-gnews-tesla", "rss-teslarati"]);
+    // The representative is a REAL item — the headline is never rewritten.
+    expect(stories[0]!.rep.text).toBe("Tesla Robotaxi rollout begins in Austin - Not a Tesla App");
+  });
+
+  it("keeps different stories apart and picks the highest-reach representative", () => {
+    const stories = groupStories([
+      {
+        source: source("a"),
+        items: [
+          item("Tesla robotaxi lands in Austin - Reuters", 120),
+          item("Tesla opens a new Gigafactory in Mexico", 10),
+        ],
+      },
+      { source: source("b"), items: [item("Tesla robotaxi lands in Austin | Not a Tesla App", 4_500)] },
+    ]);
+    expect(stories).toHaveLength(2);
+    const robotaxi = stories[0]!;
+    expect(robotaxi.sources.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(robotaxi.rep.engagement).toBe(4_500); // highest reach wins
+    expect(robotaxi.repSource.id).toBe("b");
+    expect(robotaxi.rep.text).toBe("Tesla robotaxi lands in Austin | Not a Tesla App");
+  });
+
+  it("fallback reports distinct stories and names the sources — never the headline", () => {
+    const draft = fallbackDraft("tesla", 1, ["Google News · Tesla", "Teslarati"]);
+    expect(draft.title).toBe("@tesla: 1 new story from 2 sources");
+    expect(draft.body).toBe("1 new story on @tesla across Google News · Tesla and Teslarati.");
+    expect(draft.body).not.toContain("Robotaxi"); // no verbatim headline
+    expect(draft.body).not.toContain("\n"); // still a single line
+    expect(draft.change).toBe(0);
+  });
+
+  it("fallback pluralizes and caps a long source list", () => {
+    const draft = fallbackDraft("tesla", 3, ["A", "B", "C", "D", "E"]);
+    expect(draft.title).toBe("@tesla: 3 new stories from 5 sources");
+    expect(draft.body).toBe("3 new stories on @tesla across A, B, C, D and 1 more.");
+  });
+
+  it("end to end: two items that differ only by outlet suffix → 1 story / 2 sources", () => {
+    const stories = groupStories([
+      {
+        source: source("rss-gnews-tesla", "Google News · Tesla"),
+        items: [item("Tesla Robotaxi rollout begins in Austin - Not a Tesla App")],
+      },
+      {
+        source: source("rss-teslarati", "Teslarati"),
+        items: [item("Tesla Robotaxi rollout begins in Austin | Teslarati")],
+      },
+    ]);
+    const sources = new Map(stories.flatMap((s) => s.sources).map((s) => [s.id, s] as const));
+    expect(stories).toHaveLength(1); // distinct stories
+    expect(sources.size).toBe(2); // contributing sources
+    const draft = fallbackDraft("tesla", stories.length, [...sources.values()].map((s) => s.label));
+    expect(draft.body).toBe("1 new story on @tesla across Google News · Tesla and Teslarati.");
+  });
+
+  it("run(): the fallback is a distinct-story count and the card merges both sources", async () => {
+    const gnews = "Tesla Robotaxi rollout begins in Austin - Not a Tesla App";
+    const teslarati = "Tesla Robotaxi rollout begins in Austin | Teslarati";
+    const sources = [
+      {
+        id: "rss-gnews-tesla", kind: "media" as const, weight: 840, fetchIntervalMs: 300_000,
+        label: "Google News · Tesla", transport: { type: "rss" as const, feedUrl: "https://example.test/gnews" },
+      },
+      {
+        id: "rss-teslarati", kind: "media" as const, weight: 840, fetchIntervalMs: 300_000,
+        label: "Teslarati", transport: { type: "rss" as const, feedUrl: "https://example.test/teslarati" },
+      },
+    ];
+    const itemsBySource: Record<string, RawDatum[]> = {
+      "rss-gnews-tesla": [{ sourceName: "gnews", text: gnews, publishedAt: 9_000 }],
+      "rss-teslarati": [{ sourceName: "teslarati", text: teslarati, publishedAt: 9_500 }],
+    };
+    const built: { input: { newItemCount: number }; fallback: { title: string; body: string } }[] = [];
+    const persisted: { sources: { id: string; account: string }[] }[] = [];
+    const engine = new FeedEngineService(
+      { get: () => undefined } as never,
+      { fetch: async (source: { id: string }) => itemsBySource[source.id] ?? [] } as never,
+      { wrap: async (_key: unknown, _ttl: number, fn: () => Promise<RawDatum[]>) => fn() } as never,
+      { publishFeed: vi.fn() } as never,
+      {
+        build: async (input: { newItemCount: number }, fallback: { title: string; body: string }) => {
+          built.push({ input, fallback });
+          return fallback; // simulate "model unavailable" → the fallback is published
+        },
+      } as never,
+      {
+        post: {
+          create: async ({ data }: { data: { sources: { id: string; account: string }[] } }) => {
+            persisted.push(data);
+          },
+        },
+      } as never,
+      { get: async () => null, set: async () => "OK" } as never,
+      { sourcesForHandle: async () => sources } as never,
+    );
+    const handle: AuraHandle = {
+      id: "0x7465736c61000000000000000000000000000000000000000000000000000000",
+      label: "tesla", contract: "0x0", sources: [], aura: 2360, graduated: true, categories: [5, 1], windowMinutes: 60,
+    };
+
+    const feed = await engine.run(handle, 1_000_000);
+    expect(feed).not.toBeNull();
+    expect(built[0]!.input.newItemCount).toBe(1); // distinct stories, not 2 raw items
+    expect(built[0]!.fallback.body).toBe("1 new story on @tesla across Google News · Tesla and Teslarati.");
+    expect(feed!.body).toBe("1 new story on @tesla across Google News · Tesla and Teslarati.");
+    // ONE merged card entry, attributed to both sources; no headline quote.
+    expect(persisted[0]!.sources).toHaveLength(1);
+    expect(persisted[0]!.sources[0]!.id).toBe("rss-gnews-tesla+rss-teslarati");
+    expect(persisted[0]!.sources[0]!.account).toBe("Google News · Tesla · Teslarati");
   });
 });

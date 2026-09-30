@@ -22,6 +22,9 @@ export function explainRevert(e: unknown): string {
   if (/exceeds allowance|allowance/.test(m)) return "Approval missing — try again";
   if (/idle|reserve|insufficient cash/.test(m))
     return "Vault cash moved — try a smaller amount";
+  if (/ledgershort/.test(m))
+    return "The market can't cover this sale right now — try a smaller size";
+  if (/insufficientshares/.test(m)) return "Not enough shares to sell";
   if (/not active|already (filled|cancelled)|order (filled|cancelled|missing)/.test(m))
     return "That order was already filled or cancelled";
   if (/minshares|minproceeds|slippage|price moved/.test(m))

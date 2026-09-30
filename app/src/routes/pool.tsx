@@ -80,6 +80,13 @@ function PoolPage() {
   const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
   const [pending, setPending] = useState<"deposit" | "withdraw" | null>(null);
+  /**
+   * The EXACT 1e18 receipt amount behind a withdraw-Max click. Receipts are
+   * whole-token 1e18 balances; converting the rounded text field back through a
+   * float (`toUnits(Number(...))`) can round above the balance and revert, so
+   * Max holds the bigint and submit prefers it.
+   */
+  const [withdrawExact, setWithdrawExact] = useState<bigint | null>(null);
 
   const snapshots = useQuery(poolSnapshotsOptions);
   const events = useQuery(poolEventsOptions);
@@ -131,11 +138,16 @@ function PoolPage() {
 
   const up = history.length > 1 ? history[history.length - 1]! >= history[0]! : true;
   const amt = Number(amount) || 0;
+  // Withdraw-all sends the exact receipt balance; a typed amount is converted
+  // once. Deposits are always a typed USDC amount.
+  const amtWei = withdrawExact ?? (amt > 0 ? toUnits(amt) : 0n);
   const s = stats.data;
   const previewShares =
     s && amt > 0 ? (toUnits(amt) * (s.totalSupply + 1_000n)) / (s.totalAssets + 1n) : 0n;
   const previewPayout =
-    s && amt > 0 && s.totalSupply > 0n ? (toUnits(amt) * s.totalAssets) / s.totalSupply : 0n;
+    s && tab === "withdraw" && s.totalSupply > 0n
+      ? (amtWei * s.totalAssets) / s.totalSupply
+      : 0n;
   const overIdle = tab === "withdraw" && s ? previewPayout > s.idle : false;
 
   const submit = async () => {
@@ -144,7 +156,7 @@ function PoolPage() {
       toast.info("Connect a wallet to provide liquidity");
       return;
     }
-    const wei = toUnits(amt);
+    const wei = tab === "withdraw" ? amtWei : toUnits(amt);
     if (wei <= 0n) {
       toast.error("Enter an amount");
       return;
@@ -188,6 +200,7 @@ function PoolPage() {
         });
       }
       setAmount("");
+      setWithdrawExact(null);
       void qc.invalidateQueries({ queryKey: ["pool"] });
     } catch (e) {
       toast.error("Transaction failed", { description: explainRevert(e) });
@@ -326,7 +339,10 @@ function PoolPage() {
               <button
                 key={t}
                 type="button"
-                onClick={() => setTab(t)}
+                onClick={() => {
+                  setTab(t);
+                  setWithdrawExact(null);
+                }}
                 aria-pressed={tab === t}
                 className={cn(
                   "rounded-lg py-2 text-[13px] font-semibold capitalize transition-colors",
@@ -342,12 +358,33 @@ function PoolPage() {
             <UsdcIcon size={26} />
             <AmountInput
               value={amount}
-              onChange={setAmount}
+              onChange={(v) => {
+                setAmount(v);
+                setWithdrawExact(null);
+              }}
               placeholder="0"
               textClassName="num text-5xl font-semibold"
               ariaLabel={tab === "deposit" ? "Amount in USDC" : "auraLP receipts"}
             />
           </div>
+
+          {tab === "withdraw" && (
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                disabled={!shares.data || shares.data <= 0n}
+                onClick={() => {
+                  // Exact receipt balance — never the rounded display string.
+                  const held = shares.data ?? 0n;
+                  setWithdrawExact(held);
+                  setAmount(fromUnits(held).toFixed(4));
+                }}
+                className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 transition-colors hover:bg-secondary/70 disabled:opacity-50"
+              >
+                Max
+              </button>
+            </div>
+          )}
 
           <div className="mt-4 space-y-1.5 rounded-2xl bg-secondary/40 p-3 text-[13px]">
             {tab === "deposit" ? (

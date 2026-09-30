@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Coins, Loader2, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { depositFeeBps, type HandleLink } from "@/lib/portfolio";
 import { formatCompact } from "@/lib/format";
 import { explainRevert } from "@/lib/trade";
 import { cn } from "@/lib/utils";
+import { qk } from "@/queries/keys";
 
 /**
  * Staking — deposit/withdraw AURA into the handle's Stake vault. The deposit
@@ -24,8 +26,29 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
   const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("100");
   const [pending, setPending] = useState<"deposit" | "withdraw" | null>(null);
+  /**
+   * The EXACT 1e18 receipt amount behind a withdraw-Max click. Receipts are a
+   * 1e18 ERC20 balance; rebuilding the amount from the rounded text field
+   * (`BigInt(Math.round(amt * 1e18))`) can round above it and revert, so Max
+   * holds the bigint and submit prefers it.
+   */
+  const [stakeExact, setStakeExact] = useState<bigint | null>(null);
   const { api } = useAuraContracts();
   const { auth, login } = useAuraAuth();
+
+  const stakeAddress =
+    handle.stake && handle.stake !== "0x" ? (handle.stake as `0x${string}`) : undefined;
+  // The viewer's exact receipts — the source of truth for Max. Shared key with
+  // /me and /:slug, so it's usually already cached.
+  const sharesQuery = useQuery({
+    queryKey: qk.stake("shares", stakeAddress ?? "", auth.address ?? ""),
+    queryFn: () =>
+      api.readStakeShares(
+        stakeAddress!,
+        auth.address ? (auth.address as `0x${string}`) : undefined,
+      ),
+    enabled: open && tab === "withdraw" && !!stakeAddress && !!auth.address,
+  });
 
   const amt = Number(amount) || 0;
   const feeBps = depositFeeBps(handle.aura);
@@ -33,11 +56,13 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
   const net = amt - fee;
 
   const submit = async () => {
-    if (!handle.stake || handle.stake === "0x") {
+    if (!stakeAddress) {
       toast.error("Stake address not deployed for this handle yet");
       return;
     }
-    const wei = BigInt(Math.round(amt * 1e18));
+    const typedWei = BigInt(Math.round(amt * 1e18));
+    // Withdraw-all sends the exact receipt bigint; deposits use the typed amount.
+    const wei = tab === "withdraw" && stakeExact !== null ? stakeExact : typedWei;
     if (wei <= 0n) {
       toast.error("Enter an amount");
       return;
@@ -49,7 +74,6 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
       });
       return;
     }
-    const stakeAddress = handle.stake as `0x${string}`;
     try {
       // Pre-flight: on-chain balance/receipt checks, so a doomed tx never signs.
       if (tab === "deposit") {
@@ -87,6 +111,7 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
           description: `confirmed ${wd.hash.slice(0, 10)}…`,
         });
       }
+      setStakeExact(null);
       setOpen(false);
     } catch (e) {
       toast.error("Transaction failed", { description: explainRevert(e) });
@@ -131,7 +156,10 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
             <button
               key={t}
               type="button"
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setTab(t);
+                setStakeExact(null);
+              }}
               aria-pressed={tab === t}
               className={cn(
                 "rounded-lg py-2 text-[13px] font-semibold capitalize transition-colors",
@@ -147,7 +175,10 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-border/70 px-4 py-3">
           <input
             value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+            onChange={(e) => {
+              setAmount(e.target.value.replace(/[^0-9.]/g, ""));
+              setStakeExact(null);
+            }}
             inputMode="decimal"
             placeholder="0"
             aria-label="Amount in AURA"
@@ -155,6 +186,24 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
           />
           <span className="shrink-0 text-sm font-medium text-muted-foreground">AURA</span>
         </div>
+
+        {tab === "withdraw" && (
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              disabled={!sharesQuery.data || sharesQuery.data <= 0n}
+              onClick={() => {
+                // Exact receipt bigint — never a rounded display value.
+                const held = sharesQuery.data ?? 0n;
+                setStakeExact(held);
+                setAmount((Number(held) / 1e18).toFixed(4));
+              }}
+              className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 transition-colors hover:bg-secondary/70 disabled:opacity-50"
+            >
+              Max
+            </button>
+          </div>
+        )}
 
         <div className="mt-3 space-y-1.5 rounded-2xl bg-secondary/40 p-3 text-[13px]">
           <Row label="Handle aura" value={handle.aura.toFixed(1)} />

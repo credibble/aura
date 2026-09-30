@@ -255,6 +255,12 @@ function TradePage() {
     return [{ label: "Aura", color: trendColor(data), data }];
   }, [chart, h]);
 
+  // The strike is an AURA level: only draw it when the Aura series is what's
+  // plotted. (If aura history is empty we fall back to the price series, which
+  // is in whole percent — the strike belongs to a different space there and
+  // would sit at the wrong height.)
+  const auraShown = chartMode === "aura" && auraLine.length > 0;
+
   const [hover, setHover] = useState<number | null>(null);
 
   if (handlesPending || windowsQuery.isPending) {
@@ -590,13 +596,9 @@ function TradePage() {
                   onMouseLeave={() => setHover(null)}
                 >
                   <MultiChart
-                    series={
-                      chartMode === "aura" && auraLine.length > 0
-                        ? auraLine
-                        : (chart?.series ?? [])
-                    }
+                    series={auraShown ? auraLine : (chart?.series ?? [])}
                     height={280}
-                    strike={chartMode === "aura" ? market.strike : undefined}
+                    strike={auraShown ? market.strike : undefined}
                   />
 
                   {/* Aura snapshot markers — the memo behind each point */}

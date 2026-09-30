@@ -60,6 +60,9 @@ export const MARKET_MAKER_ABI = parseAbi([
   "function isOpen(address oracle) view returns (bool)",
   "function buyCost(address oracle, uint256 outcome, uint256 delta) view returns (uint256)",
   "function feeBips() view returns (uint256)",
+  // The `windows` public mapping's auto-getter (dynamic array members omitted,
+  // as Solidity does) — `cash` (1e18 USDC) is what a sell must not exceed.
+  "function windows(address oracle) view returns (bytes32 handleId, uint256 windowStart, uint256 windowEnd, uint256 liquidity, uint256 cash, bool settled, uint256 winningOutcome)",
 ]);
 
 /** Resting limit orders — escrowed USDC (buy) or MarketMaker outcome shares (sell). */

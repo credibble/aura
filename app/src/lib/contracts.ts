@@ -239,6 +239,20 @@ export function useAuraContracts() {
           functionName: "isOpen",
           args: [oracle],
         }) as Promise<boolean>,
+      /**
+       * USDC cash held inside a window (1e18). `sell` reverts `LedgerShort` when
+       * the proceeds exceed this, so the executor pre-checks it instead of
+       * letting the wallet burn gas on a revert.
+       */
+      readWindowCash: async (oracle: Address): Promise<bigint> => {
+        const w = (await publicClient.readContract({
+          address: market(),
+          abi: MARKET_MAKER_ABI,
+          functionName: "windows",
+          args: [oracle],
+        })) as readonly unknown[];
+        return w[4] as bigint;
+      },
       /** Allow the OrderBook to escrow this account's outcome shares (sell side). */
       approveOutcomeShares: (oracle: Address, outcome: bigint, amount: bigint) =>
         sendAndConfirm(market(), write(MARKET_MAKER_ABI, "approve", [oracle, outcome, amount])),

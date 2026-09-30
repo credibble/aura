@@ -52,6 +52,13 @@ export function TradeTicket({ market }: { market: Market }) {
   const [amount, setAmount] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [sharesIn, setSharesIn] = useState("");
+  /**
+   * The EXACT 1e18 share amount behind a Max/sell-all click. The text field is
+   * rounded for display, so sizing a sell from it (`toE18Units(Number(...))`)
+   * can round ABOVE the real balance and revert. Holding the bigint lets Max
+   * send exactly what the wallet has.
+   */
+  const [sellExact, setSellExact] = useState<bigint | null>(null);
   const [pending, setPending] = useState(false);
 
   const positions = useQuery(positionsOptions(address ?? undefined));
@@ -69,12 +76,36 @@ export function TradeTicket({ market }: { market: Market }) {
     for (const t of positions.data ?? []) {
       if (t.window.id !== win.id || t.outcome !== picked) continue;
       const s = BigInt(t.shares);
-      if (t.kind === "BUY") shares += s;
+      // Order-book fills arrive as TRANSFER_IN (received) / TRANSFER_OUT (sent):
+      // the received side ADDS to the position, so it can't share the
+      // "everything else subtracts" branch.
+      if (t.kind === "BUY" || t.kind === "TRANSFER_IN") shares += s;
       else shares -= s;
     }
     return shares < 0n ? 0n : shares;
   }, [positions.data, address, win.id, picked]);
   const heldNum = Number(held) / 1e18;
+
+  /**
+   * Size Max from the EXACT on-chain balance (falling back to the position
+   * memo when the read fails), never from the rounded `heldNum`. The 1e18
+   * bigint is what `exec.sell` takes, so a full exit can't round up past the
+   * balance and revert `InsufficientShares`.
+   */
+  const sellMax = async (): Promise<void> => {
+    if (!address) return;
+    try {
+      const onchain = (await api.readOutcomeShares(
+        win.oracle as Address,
+        BigInt(picked),
+      )) as bigint;
+      setSellExact(onchain);
+      setSharesIn((Number(onchain) / 1e18).toFixed(4));
+    } catch {
+      setSellExact(held);
+      setSharesIn(heldNum.toFixed(4));
+    }
+  };
 
   /** Public MockUSDC faucet — 1,000 test dollars, one confirmed tx. */
   const getTestUsdc = async (): Promise<void> => {
@@ -163,17 +194,23 @@ export function TradeTicket({ market }: { market: Market }) {
           await exec.placeOrder(target, picked, true, limitCents / 100, limitShares);
         else await exec.buy(target, picked, usd);
       } else {
+        // Market sells send the exact bigint (Max) or the exact typed amount.
+        const exact = sellExact ?? toE18Units(Number(sharesIn));
         const shares = Number(sharesIn) || 0;
-        if (shares <= 0) return;
-        if (mode === "limit")
+        if (mode === "limit") {
+          if (shares <= 0) return;
           await exec.placeOrder(target, picked, false, limitCents / 100, shares);
-        else await exec.sell(target, picked, toE18Units(shares));
+        } else {
+          if (exact <= 0n) return;
+          await exec.sell(target, picked, exact);
+        }
       }
       // The amounts are spent: clear them so the next trade starts from empty
       // instead of resubmitting a stale one.
       setAmount("");
       setSharesIn("");
       setLimitPrice("");
+      setSellExact(null);
     } finally {
       setPending(false);
     }
@@ -254,7 +291,10 @@ export function TradeTicket({ market }: { market: Market }) {
                 <button
                   key={o.id}
                   type="button"
-                  onClick={() => setPicked(i)}
+                  onClick={() => {
+                    setPicked(i);
+                    setSellExact(null);
+                  }}
                   aria-pressed={on}
                   className={cn(
                     "rounded-lg py-2 text-[13px] font-semibold transition-colors",
@@ -278,7 +318,10 @@ export function TradeTicket({ market }: { market: Market }) {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setSide(s)}
+                  onClick={() => {
+                    setSide(s);
+                    setSellExact(null);
+                  }}
                   aria-pressed={side === s}
                   className={cn(
                     "text-[13px] font-semibold capitalize transition-colors",
@@ -301,9 +344,30 @@ export function TradeTicket({ market }: { market: Market }) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setMode("tap")}>1-Tap</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setMode("market")}>Market</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setMode("limit")}>Limit</DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setMode("tap");
+                    setSellExact(null);
+                  }}
+                >
+                  1-Tap
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setMode("market");
+                    setSellExact(null);
+                  }}
+                >
+                  Market
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setMode("limit");
+                    setSellExact(null);
+                  }}
+                >
+                  Limit
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -396,7 +460,10 @@ export function TradeTicket({ market }: { market: Market }) {
               <div className="mt-3 flex items-center justify-center gap-2">
                 <AmountInput
                   value={sharesIn}
-                  onChange={setSharesIn}
+                  onChange={(v) => {
+                    setSharesIn(v);
+                    setSellExact(null);
+                  }}
                   placeholder="0"
                   textClassName="num text-4xl font-semibold"
                   ariaLabel="Shares to sell"
@@ -414,7 +481,16 @@ export function TradeTicket({ market }: { market: Market }) {
                     key={q}
                     type="button"
                     disabled={heldNum <= 0}
-                    onClick={() => setSharesIn(((heldNum * q) / 100).toFixed(4))}
+                    onClick={() => {
+                      // Max sends the exact on-chain balance, not the rounded
+                      // text field; the smaller chips are just fractions.
+                      if (q === 100) {
+                        void sellMax();
+                      } else {
+                        setSellExact(null);
+                        setSharesIn(((heldNum * q) / 100).toFixed(4));
+                      }
+                    }}
                     className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 hover:bg-secondary/70 disabled:opacity-50"
                   >
                     {q === 100 ? "Max" : `${q}%`}

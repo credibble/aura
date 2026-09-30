@@ -82,6 +82,19 @@ function strikeOf(question: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * The market's strike in DISPLAY aura points (e.g. 41.5), which is the space the
+ * aura series and the chart's strike line live in. The indexer's `strike` is the
+ * oracle's metadata field at the on-chain 1e2 scale (4150), so it MUST be
+ * divided by 100 before display — a missing value falls back to parsing the
+ * question text (same scale) rather than reporting a 100× line.
+ */
+function strikeDisplay(w: IndexerWindow): number | undefined {
+  const raw = Number(w.strike);
+  if (Number.isFinite(raw) && raw > 0) return raw / 100;
+  return strikeOf(w.question);
+}
+
 /** Stable outcome palette — YES keeps slot 0, NO slot 1, everywhere. */
 /** Binary outcomes are semantic, not decorative: YES is the up (green) leg,
  *  NO is the down (red) one. Every consumer — the price-chart series, the
@@ -116,7 +129,7 @@ export function toMarket(w: IndexerWindow): Market {
   return {
     id: w.handle.id,
     question: w.question,
-    strike: strikeOf(w.question),
+    strike: strikeDisplay(w),
     handle: `@${(w.handle.symbol ?? w.handle.name ?? w.handle.id).toLowerCase()}`,
     handleId: w.handle.id,
     category: categories[0]!,

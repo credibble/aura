@@ -80,10 +80,16 @@ const RESOLUTION_TYPES = {
   ],
 } as const;
 
-/** Receipt numbers are 1e4-scaled on-chain (PRICE_SCALE in the shared spec). */
-const RECEIPT_SCALE = 10_000;
-const scaled = (n: number): bigint => BigInt(Math.round(n * RECEIPT_SCALE));
-const scaledSigned = (n: number): bigint => BigInt(Math.round(n * RECEIPT_SCALE));
+/**
+ * The window engine hands the receipt AURA values, which are 1e2 on-chain
+ * (4150 = 41.50). The EIP-712 receipt struct is 1e4-scaled (PRICE_SCALE: a real
+ * value × 10_000 — the contract tests sign `SCALED(64.1)`), so an aura has to be
+ * converted 1e2 → 1e4 by ×100. Scaling an already-1e2 value by 1e4 would land
+ * 100× too high (41.50 → 41,500,000 instead of 415,000).
+ */
+const AURA_PER_RECEIPT_UNIT = 100n;
+const scaled = (aura1e2: number): bigint => BigInt(Math.round(aura1e2)) * AURA_PER_RECEIPT_UNIT;
+const scaledSigned = (aura1e2: number): bigint => BigInt(Math.round(aura1e2)) * AURA_PER_RECEIPT_UNIT;
 
 /**
  * viem gateway to the Aura contracts (MarketMaker, OracleFactory, Handle).

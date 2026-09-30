@@ -33,7 +33,13 @@ export const FEE_CURVE = { minBps: 25, maxBps: 250, maxFeeAura: 999_999 };
 /** Deposit fee bps for a handle's aura: 0 at 0, floored at 0.25%, capped at 2.5%. */
 export function depositFeeBps(aura: number): number {
   if (aura <= 0) return 0;
-  const scaled = Math.round((aura * FEE_CURVE.maxBps) / FEE_CURVE.maxFeeAura);
+  // `aura` arrives in DISPLAY points (4150 on-chain → 41.50 here, and every
+  // caller passes `Number(h.aura) / 100`). The Configurator's `maxFeeAura`
+  // (999_999) is on the on-chain 1e2 scale, so scale up before applying the
+  // curve — otherwise the fee is computed at 1/100 of the real aura.
+  const onChainAura = Math.round(aura * 100);
+  if (onChainAura >= FEE_CURVE.maxFeeAura) return FEE_CURVE.maxBps;
+  const scaled = Math.floor((onChainAura * FEE_CURVE.maxBps) / FEE_CURVE.maxFeeAura);
   return Math.max(FEE_CURVE.minBps, Math.min(FEE_CURVE.maxBps, scaled));
 }
 

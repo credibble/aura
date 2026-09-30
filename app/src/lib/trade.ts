@@ -203,6 +203,27 @@ export function useTradeExecutor() {
       const oracle = t.oracle as Address;
       if (!(await needOpen(oracle))) return false;
       if (!(await needShares(oracle, outcome, shares))) return false;
+      // The window's own cash must cover the proceeds, or `sell` reverts
+      // `LedgerShort`. Check it here so the user gets a clear message (and no
+      // wasted gas) instead of a raw revert.
+      const covered = await preflight(async () => {
+        const proceeds = (await api.readSellProceeds(oracle, BigInt(outcome), shares)) as bigint;
+        if (proceeds <= 0n) {
+          toast.error("This size returns nothing", {
+            description: "The live price makes this sale worthless — try a smaller size.",
+          });
+          return false;
+        }
+        const cash = await api.readWindowCash(oracle);
+        if (proceeds > cash) {
+          toast.error("Market can't cover this sale", {
+            description: `The window holds ${units(cash)} USDC of cash — this sale pays ${units(proceeds)}. Try a smaller size.`,
+          });
+          return false;
+        }
+        return true;
+      });
+      if (!covered) return false;
       return run(
         t,
         "Selling shares…",

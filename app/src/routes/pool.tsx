@@ -280,7 +280,7 @@ function PoolPage() {
       </div>
 
       {/* Chart + deposit/withdraw, side by side */}
-      <div className="grid gap-4 px-4 pt-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-4 px-4 pt-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="rounded-2xl border border-border/70 bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>

@@ -64,7 +64,13 @@ export function MultiChart({
   const clamped = hasStrike ? Math.min(max, Math.max(min, strike as number)) : 0;
   const last = series[0]?.data[series[0].data.length - 1];
   const above = hasStrike && typeof last === "number" ? last >= (strike as number) : false;
-  const offChart = hasStrike ? (strike as number) > max ? "above" : (strike as number) < min ? "below" : null : null;
+  const offChart = hasStrike
+    ? (strike as number) > max
+      ? "above"
+      : (strike as number) < min
+        ? "below"
+        : null
+    : null;
   const strikeY = hasStrike ? yFor(clamped) : 0;
   const strikeColor = above ? "hsl(var(--up))" : "hsl(var(--down))";
 
@@ -106,85 +112,97 @@ export function MultiChart({
             vectorEffect="non-scaling-stroke"
           />
         )}
-      {mode === "candles"
-        ? series.map((s) => {
-            const step = Math.max(1, Math.ceil(s.data.length / 22));
-            const barW = Math.max(2, (w / s.data.length) * step * 0.55);
-            const bars = [];
-            for (let i = step; i < s.data.length; i += step) {
-              const prev = s.data[i - step];
-              const cur = s.data[i];
-              const up = cur >= prev;
-              const y1 = yFor(prev);
-              const y2 = yFor(cur);
-              const x = xFor(i);
-              bars.push(
-                <g key={i}>
-                  <line
-                    x1={x}
-                    x2={x}
-                    y1={Math.min(y1, y2) - 3}
-                    y2={Math.max(y1, y2) + 3}
-                    stroke={s.color}
-                    strokeWidth="1"
-                    vectorEffect="non-scaling-stroke"
-                    opacity="0.75"
-                  />
-                  <rect
-                    x={x - barW / 2}
-                    y={Math.min(y1, y2)}
-                    width={barW}
-                    height={Math.max(1.5, Math.abs(y2 - y1))}
-                    fill={up ? s.color : "hsl(var(--background))"}
-                    stroke={s.color}
-                    strokeWidth="1.2"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </g>,
-              );
-            }
-            return <g key={s.label + id}>{bars}</g>;
-          })
-        : series.map((s) => (
-            <path
-              key={s.label + id}
-              d={pathFor(s.data, w, h, min, max)}
-              fill="none"
-              stroke={s.color}
-              strokeWidth="2.2"
-              vectorEffect="non-scaling-stroke"
-              strokeLinecap="round"
-            />
-          ))}
-      {mode === "coin" &&
-        series.map((s) => {
-          const step = Math.max(1, Math.ceil(s.data.length / 14));
-          return (
-            <g key={s.label + id}>
-              {s.data.map((v, i) =>
-                i % step === 0 ? (
-                  <circle
-                    key={i}
-                    cx={xFor(i)}
-                    cy={yFor(v)}
-                    r="3"
-                    fill="hsl(var(--background))"
-                    stroke={s.color}
-                    strokeWidth="2"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ) : null,
-              )}
-              <circle
-                cx={xFor(s.data.length - 1)}
-                cy={yFor(s.data[s.data.length - 1])}
-                r="3.5"
-                fill={s.color}
+        {mode === "candles"
+          ? series.map((s) => {
+              const step = Math.max(1, Math.ceil(s.data.length / 22));
+              const barW = Math.max(2, (w / s.data.length) * step * 0.55);
+              const bars = [];
+              for (let i = step; i < s.data.length; i += step) {
+                const prev = s.data[i - step];
+                const cur = s.data[i];
+                const up = cur >= prev;
+                const y1 = yFor(prev);
+                const y2 = yFor(cur);
+                const x = xFor(i);
+                bars.push(
+                  <g key={i}>
+                    <line
+                      x1={x}
+                      x2={x}
+                      y1={Math.min(y1, y2) - 3}
+                      y2={Math.max(y1, y2) + 3}
+                      stroke={s.color}
+                      strokeWidth="1"
+                      vectorEffect="non-scaling-stroke"
+                      opacity="0.75"
+                    />
+                    <rect
+                      x={x - barW / 2}
+                      y={Math.min(y1, y2)}
+                      width={barW}
+                      height={Math.max(1.5, Math.abs(y2 - y1))}
+                      fill={up ? s.color : "hsl(var(--background))"}
+                      stroke={s.color}
+                      strokeWidth="1.2"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </g>,
+                );
+              }
+              return <g key={s.label + id}>{bars}</g>;
+            })
+          : series.map((s) => (
+              <path
+                key={s.label + id}
+                d={pathFor(s.data, w, h, min, max)}
+                fill="none"
+                stroke={s.color}
+                strokeWidth="2.2"
+                vectorEffect="non-scaling-stroke"
+                strokeLinecap="round"
               />
+            ))}
+        {mode === "coin" &&
+          series.map((s) => {
+            const step = Math.max(1, Math.ceil(s.data.length / 14));
+            return (
+              <g key={s.label + id}>
+                {s.data.map((v, i) =>
+                  i % step === 0 ? (
+                    <circle
+                      key={i}
+                      cx={xFor(i)}
+                      cy={yFor(v)}
+                      r="3"
+                      fill="hsl(var(--background))"
+                      stroke={s.color}
+                      strokeWidth="2"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ) : null,
+                )}
+                <circle
+                  cx={xFor(s.data.length - 1)}
+                  cy={yFor(s.data[s.data.length - 1])}
+                  r="3.5"
+                  fill={s.color}
+                />
+              </g>
+            );
+          })}
+        {/* The live tail: EVERY line ends in a dot with the pulse on top, in both
+          modes, so the newest value is unmistakable at a glance. */}
+        {series.map((s) => {
+          const cx = xFor(s.data.length - 1);
+          const cy = yFor(s.data[s.data.length - 1]);
+          return (
+            <g key={`tail-${s.label}-${id}`}>
+              <circle cx={cx} cy={cy} r="3.5" fill={s.color} />
+              <circle className="tip-pulse" cx={cx} cy={cy} r="3.5" fill={s.color} />
             </g>
           );
         })}
-    </svg>
+      </svg>
 
       {/* The strike, labelled in HTML so the text isn't stretched by the
           chart's non-uniform scaling. Non-interactive: the memo hover targets

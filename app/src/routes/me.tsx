@@ -124,7 +124,9 @@ function MePage() {
             onClick={() => void login()}
             className="mt-1 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
           >
-            <LogIn className="h-4 w-4" />Sign in</button>
+            <LogIn className="h-4 w-4" />
+            Sign in
+          </button>
         </div>
       </FeedLayout>
     );
@@ -233,31 +235,16 @@ function MePage() {
         />
         <Stat
           label="Staked on you"
-          value={
-            staked !== undefined
-              ? `${formatCompact(staked)}`
-              : "—"
-          }
+          value={staked !== undefined ? `${formatCompact(staked)}` : "—"}
           suffix="AURA"
         />
         <Stat
           label="Your stake"
-          value={
-            myValue !== undefined
-              ? `${formatCompact(myValue)}`
-              : "—"
-          }
+          value={myValue !== undefined ? `${formatCompact(myValue)}` : "—"}
           suffix="AURA"
           hint={share !== undefined ? `${share.toFixed(1)}% of vault` : undefined}
         />
-        <Stat
-          label="Receipts"
-          value={
-            myShares !== undefined
-              ? formatCompact(myShares)
-              : "—"
-          }
-        />
+        <Stat label="Receipts" value={myShares !== undefined ? formatCompact(myShares) : "—"} />
       </dl>
 
       {/* The core action */}
@@ -290,9 +277,7 @@ function MePage() {
           <div className="flex items-baseline justify-between">
             <h2 className="text-sm font-semibold">Stake history</h2>
             <span className="num text-[13px] text-muted-foreground">
-              {staked !== undefined
-                ? `${formatCompact(staked)} AURA`
-                : ""}
+              {staked !== undefined ? `${formatCompact(staked)} AURA` : ""}
             </span>
           </div>
           <div className="mt-2">
@@ -302,7 +287,6 @@ function MePage() {
               color={trendColor(stakeSeries)}
               height={140}
               padX={0}
-              showDot={false}
               strokeWidth={1.75}
             />
           </div>

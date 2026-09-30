@@ -71,14 +71,7 @@ export function SparkCard({ asset, className }: { asset: LiveAsset; className?: 
 
       {/* Full-bleed history — the card's edge-to-edge signal */}
       <div className="-mx-3.5 -mb-3.5 mt-2.5">
-        <ActivityChart
-          data={data}
-          color={color}
-          height={112}
-          padX={0}
-          showDot={false}
-          strokeWidth={1.75}
-        />
+        <ActivityChart data={data} color={color} height={112} padX={0} strokeWidth={1.75} />
       </div>
     </Link>
   );

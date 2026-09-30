@@ -61,7 +61,7 @@ export function ActivityChart({
   color,
   height = 240,
   className,
-  showDot = true,
+
   strokeWidth = 2.25,
   padX,
   strike,
@@ -70,7 +70,7 @@ export function ActivityChart({
   color: string;
   height?: number;
   className?: string;
-  showDot?: boolean;
+
   strokeWidth?: number;
   /** Horizontal inset of the line — pass 0 to run the line end to end. */
   padX?: number;
@@ -101,7 +101,8 @@ export function ActivityChart({
     ? Math.min(domain.max, Math.max(domain.min, strike as number))
     : domain.min;
   const lastValue = data[data.length - 1];
-  const above = hasStrike && typeof lastValue === "number" ? lastValue >= (strike as number) : false;
+  const above =
+    hasStrike && typeof lastValue === "number" ? lastValue >= (strike as number) : false;
   const offBand = hasStrike
     ? (strike as number) > domain.max
       ? "above"
@@ -154,7 +155,7 @@ export function ActivityChart({
             transition={{ duration: 1.1, ease: "easeOut" }}
             style={{ filter: `drop-shadow(0 0 5px ${color}55)` }}
           />
-          {showDot && last && (
+          {last && (
             <>
               <circle
                 cx={last.x}
@@ -205,14 +206,7 @@ export function Sparkline({
   className?: string;
 }) {
   return (
-    <ActivityChart
-      data={data}
-      color={color}
-      height={40}
-      showDot={false}
-      strokeWidth={1.75}
-      className={className}
-    />
+    <ActivityChart data={data} color={color} height={40} strokeWidth={1.75} className={className} />
   );
 }
 

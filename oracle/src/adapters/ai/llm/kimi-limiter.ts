@@ -20,10 +20,10 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Cross-process single slot, keyed in the Redis both containers already use. */
 const LOCK_KEY = "aura:kimi:single-slot";
-/** Well above the 180s AI_FETCH timeout, so a live call is never evicted mid-flight. */
-const LOCK_TTL_MS = 240_000;
+/** Above the 300s AI_FETCH timeout, so a live call is never evicted mid-flight. */
+const LOCK_TTL_MS = 330_000;
 /** Stop waiting on a lock that looks stuck (a crashed holder clears via the TTL). */
-const LOCK_WAIT_MAX_MS = 300_000;
+const LOCK_WAIT_MAX_MS = 600_000;
 /** How often a waiter re-tries the lock. */
 const LOCK_POLL_MS = 150;
 /** Release only the lock we own, so a TTL-expired lock can't be deleted by its old owner. */

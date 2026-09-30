@@ -7,13 +7,15 @@ import { KimiWebSearchService } from "../jobs/ai/kimi-web-search.service";
   providers: [
     {
       provide: AI_FETCH,
-      // Bounded: a reasoning-model call can take 40s+ (thinking happens before
-      // the answer), so the limit is generous — but a hung request must not pin a
-      // job forever.
+      // Bounded: kimi-k2.* is a reasoning model whose thinking tokens are spent
+      // BEFORE any answer, so a large aura prompt with a full token budget can
+      // run for minutes. 180s was aborting real calls mid-thinking (the tick then
+      // fell back to its mechanical memo); 300s leaves headroom while still
+      // ensuring a genuinely hung request can't pin a job forever.
       useValue: ((input: RequestInfo | URL, init?: RequestInit) =>
         globalThis.fetch(input, {
           ...init,
-          signal: init?.signal ?? AbortSignal.timeout(180_000),
+          signal: init?.signal ?? AbortSignal.timeout(300_000),
         })) as typeof fetch,
     },
     { provide: AI_MODEL, useClass: KimiAiModel },

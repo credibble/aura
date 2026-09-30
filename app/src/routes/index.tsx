@@ -162,7 +162,7 @@ function ExplorePage() {
           xl (1280) is the first width where 1190px actually fits beside the rail. */}
       <div
         ref={gate}
-        className="grid grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 xl:grid-cols-4"
+        className="grid grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3"
       >
         {isPending
           ? Array.from({ length: 8 }, (_, i) => <SparkCardSkeleton key={i} />)

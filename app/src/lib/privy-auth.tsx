@@ -2,6 +2,7 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useCallback, useMemo } from "react";
 import type { AuraAuth } from "./aura-auth";
 import { logoutApi } from "./api";
+import { ensureMonadChain } from "./chain-switch";
 import type { AuthState } from "./privy";
 
 /**
@@ -42,7 +43,8 @@ export function usePrivyAuth(): AuraAuth {
     async (tx) => {
       const wallet = wallets.find((w) => w.connectorType === "embedded") ?? wallets[0];
       if (!wallet) throw new Error("No Privy wallet connected");
-      await wallet.switchChain?.(10_143);
+      // Wrong-network writes cannot work: put the wallet on Monad first.
+      await ensureMonadChain(wallet);
       const provider = await wallet.getEthereumProvider();
       const hash = await provider.request({
         method: "eth_sendTransaction",

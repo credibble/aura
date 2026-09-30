@@ -27,6 +27,38 @@ const ADD_CHAIN_PARAMS = {
   blockExplorerUrls: ["https://testnet.monadexplorer.com"],
 };
 
+/** The slice of a Privy wallet the chain helpers need. */
+export type ChainWallet = {
+  switchChain?: (chainId: number) => Promise<void>;
+  getEthereumProvider: () => Promise<{
+    request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  }>;
+};
+
+/**
+ * Guarantee the wallet is on Monad BEFORE a write.
+ *
+ * Every write path calls this first, so no signature can land on another
+ * network — where it would either revert or, worse, hit a different deployment.
+ * A wallet that has never seen the chain answers `wallet_switchEthereumChain`
+ * with 4902, so the chain is added (which also selects it).
+ */
+export async function ensureMonadChain(wallet: ChainWallet): Promise<void> {
+  const provider = await wallet.getEthereumProvider();
+  try {
+    if (wallet.switchChain) await wallet.switchChain(monad.id);
+    else
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: HEX_CHAIN_ID }],
+      });
+  } catch (error) {
+    const code = (error as { code?: number }).code;
+    if (code !== 4902 && code !== -32603) throw error;
+    await provider.request({ method: "wallet_addEthereumChain", params: [ADD_CHAIN_PARAMS] });
+  }
+}
+
 export type ChainSwitchState = {
   /** A wallet is connected, so there is a chain to talk about. */
   hasWallet: boolean;
@@ -90,17 +122,7 @@ export function useChainSwitch(): ChainSwitchState {
     if (!wallet) return;
     setSwitching(true);
     try {
-      const provider = await wallet.getEthereumProvider();
-      try {
-        // Privy's own helper where it exists (it also updates the wallet record).
-        if (wallet.switchChain) await wallet.switchChain(monad.id);
-        else await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: HEX_CHAIN_ID }] });
-      } catch (error) {
-        // 4902: the wallet does not know the chain — adding it also selects it.
-        const code = (error as { code?: number }).code;
-        if (code !== 4902 && code !== -32603) throw error;
-        await provider.request({ method: "wallet_addEthereumChain", params: [ADD_CHAIN_PARAMS] });
-      }
+      await ensureMonadChain(wallet);
       setChainId(monad.id);
     } finally {
       setSwitching(false);

@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useWallets } from "@privy-io/react-auth";
+import { ensureMonadChain } from "./chain-switch";
 import {
   createPublicClient,
   createWalletClient,
@@ -49,7 +50,10 @@ export function useAuraContracts() {
       confirmations = 1,
     ): Promise<ConfirmedWrite> => {
       if (!wallet) throw new Error("No Privy wallet connected");
-      await wallet.switchChain?.(monad.id);
+      // Every write goes through here: put the wallet on Monad first (adding the
+      // chain when the wallet has never seen it) so no signature can land on
+      // another network.
+      await ensureMonadChain(wallet);
       const provider = await wallet.getEthereumProvider();
       const walletClient = createWalletClient({
         chain: monad,

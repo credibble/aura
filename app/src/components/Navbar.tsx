@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Compass, Droplets, Menu, Rss, Trophy, Wallet, Activity } from "lucide-react";
+import { ChainChip } from "@/components/aura/ChainChip";
 import { SearchPopover } from "@/components/SearchPopover";
 import { ConnectButton } from "@/components/ConnectButton";
 import { HowItWorks } from "@/components/HowItWorks";
@@ -54,6 +55,7 @@ export function Navbar() {
             </button>
           </HowItWorks>
           <ThemeToggle className="hidden md:flex" />
+          <ChainChip className="hidden sm:inline-flex" />
           <ConnectButton />
         </div>
       </div>

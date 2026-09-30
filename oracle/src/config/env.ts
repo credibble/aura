@@ -91,6 +91,9 @@ export const envSchema = z.object({
    *  graduated handle to open/settle its current slot. Keep it far below the
    *  handle window length (windowMinutes) so a slot is never missed. */
   WINDOW_EVERY_MS: z.coerce.number().int().positive().default(5_000),
+  /** Feed job cadence (ms) — how often the scheduler fans out to every handle
+   *  to draft a digest from new source data. */
+  FEED_EVERY_MS: z.coerce.number().int().positive().default(1_200_000),
   /** Economic AI gate — minimum ms between aura scoring calls per handle
    *  (bursts coalesce; 0 = every eligible tick may call). */
   AURA_AI_MIN_INTERVAL_MS: z.coerce.number().int().min(0).default(60_000),

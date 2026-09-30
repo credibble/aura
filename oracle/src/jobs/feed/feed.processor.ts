@@ -1,5 +1,6 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import type { Job, Queue } from "bullmq";
 import { QUEUE_FEED } from "../queue.constants";
@@ -18,11 +19,10 @@ interface FeedRunJob {
   now: number;
 }
 
-const FEED_EVERY_MS = 10 * 60 * 1000;
-
 /**
- * Feed worker (queue `feed`, every 10 min): fans out one job per handle and
- * drafts + broadcasts a feed post when the handle has new source data.
+ * Feed worker (queue `feed`, every FEED_EVERY_MS, default 20 min): fans out one
+ * job per handle and drafts + broadcasts a feed post when the handle has new
+ * source data.
  */
 @Processor(QUEUE_FEED, { concurrency: 1 })
 @Injectable()
@@ -32,6 +32,7 @@ export class FeedProcessor extends WorkerHost {
   constructor(
     private readonly engine: FeedEngineService,
     private readonly indexer: IndexerReader,
+    private readonly config: ConfigService,
     @InjectQueue(QUEUE_FEED) private readonly queue: Queue<FeedRunJob>,
   ) {
     super();
@@ -50,7 +51,7 @@ export class FeedProcessor extends WorkerHost {
 
   private async fanout(now: number): Promise<void> {
     const handles = await this.indexer.handles();
-    const bucket = bucketSec(now, FEED_EVERY_MS);
+    const bucket = bucketSec(now, this.config.get<number>("FEED_EVERY_MS") ?? 1_200_000);
     for (const handle of handles) {
       await this.queue.add(
         "feed",

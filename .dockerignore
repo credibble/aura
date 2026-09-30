@@ -1,0 +1,16 @@
+# Never send host node_modules / secrets / unrelated apps into the build context.
+**/node_modules
+**/dist
+**/coverage
+**/.git
+**/.turbo
+**/cache
+**/artifacts
+**/typechain-types
+app/
+smart-contracts/
+.env
+**/.env
+!**/.env.example
+oracle/.env
+*.log

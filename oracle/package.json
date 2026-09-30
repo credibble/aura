@@ -1,0 +1,49 @@
+{
+  "name": "@aura/oracle",
+  "version": "0.1.0",
+  "description": "Aura oracle â€” internet data ingestion + AI sentiment + window resolution authority.",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "db:search-index": "prisma db execute --file scripts/pg-trgm.sql --schema prisma/schema.prisma",
+    "test:e2e": "npm run build && vitest run --config vitest.e2e.config.ts"
+  },
+  "dependencies": {
+    "@aura/contracts": "*",
+    "@nestjs/bullmq": "^12.0.0",
+    "@nestjs/common": "^11.1.3",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.3",
+    "@nestjs/platform-express": "^11.1.3",
+    "@nestjs/platform-socket.io": "^11.2.6",
+    "@nestjs/websockets": "^11.2.6",
+    "@prisma/client": "^6.8.2",
+    "bullmq": "^6.3.9",
+    "cloudinary": "^2.11.0",
+    "ethers": "^6.13.4",
+    "fast-xml-parser": "^5.11.1",
+    "ioredis": "^6.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.4",
+    "viem": "^2.56.9",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.7",
+    "@types/express": "^5.0.2",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.16.5",
+    "prisma": "^6.8.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

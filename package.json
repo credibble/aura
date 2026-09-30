@@ -1,0 +1,11 @@
+{
+  "name": "aura",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["packages/*", "oracle"],
+  "scripts": {
+    "build:contracts": "npm run build -w @aura/contracts",
+    "test:contracts": "npm run test -w @aura/contracts",
+    "typecheck:contracts": "npm run typecheck -w @aura/contracts"
+  }
+}

@@ -1,0 +1,87 @@
+name: CI
+
+# Every gate the session established, run on push: the app's static checks, the
+# oracle's unit + black-box API tests, the contract suite (including the money
+# invariants) and a real subgraph build.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  app:
+    name: app · types + contract/write checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+        working-directory: .
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Every contract write encodes (ABI + arity)
+        run: node scripts/check-writes.mjs
+      - name: App queries vs the subgraph schema
+        run: node scripts/check-subgraph-fields.mjs
+      # check-routes.mjs needs the dev server plus a live subgraph; run it where
+      # those services exist (it is a no-op failure otherwise). Enable with:
+      #   RUN_ROUTE_SMOKE=1 and a SUBGRAPH_URL secret.
+
+  oracle:
+    name: oracle · types + unit + API e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+        working-directory: oracle
+      - name: Unit suite
+        run: npm test
+        working-directory: oracle
+      - name: API e2e (builds and spawns dist/main.js)
+        run: npm run test:e2e
+        working-directory: oracle
+        env:
+          # No database or Redis required: the suite asserts the degraded-but-up
+          # contract (DB_REQUIRED=false, JOBS_ENABLED=false).
+          JOBS_ENABLED: "false"
+          DB_REQUIRED: "false"
+
+  contracts:
+    name: contracts · compile + tests (money invariants)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: smart-contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx hardhat compile
+      - run: npx hardhat test
+
+  subgraph:
+    name: subgraph · codegen + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: smart-contracts/subgraph
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx graph codegen
+      - run: npx graph build

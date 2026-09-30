@@ -1,0 +1,27 @@
+{
+  "name": "@aura/subgraph-client",
+  "version": "0.1.0",
+  "description": "Typed GraphQL client for the Aura subgraph (handles, creators, windows, orders, pool events). Shared by the frontend and the oracle.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

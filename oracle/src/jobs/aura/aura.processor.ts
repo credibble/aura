@@ -1,0 +1,74 @@
+import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { Injectable, Logger } from "@nestjs/common";
+import type { Job } from "bullmq";
+import { QUEUE_AURA } from "../queue.constants";
+import { AuraEngineService } from "./aura-engine.service";
+import { SubgraphReader } from "../subgraph/subgraph-reader.service";
+import type { Queue } from "bullmq";
+import { InjectQueue } from "@nestjs/bullmq";
+import { auraJobId, SCHEDULER_AURA } from "../queue.constants";
+import type { AuraHandle } from "../jobs.types";
+import { bucketSec } from "../utils";
+
+interface AuraFanoutJob {
+  now: number;
+}
+
+interface AuraTickJob {
+  handle: AuraHandle;
+  now: number;
+}
+
+const AURA_EVERY_MS = 10_000;
+
+/**
+ * Aura worker (queue `aura`):
+ *  - `fanout` jobs (one per 10s bucket) resolve handles from the subgraph and
+ *    enqueue one tick per handle with a deterministic jobId
+ *    `aura:<handleId>:<bucket>` — deduped within the bucket, so restarts can
+ *    never double-process;
+ *  - `aura` jobs run the engine with a concurrency of 4 (many handles at once).
+ */
+@Processor(QUEUE_AURA, { concurrency: 4 })
+@Injectable()
+export class AuraProcessor extends WorkerHost {
+  private readonly logger = new Logger(AuraProcessor.name);
+
+  constructor(
+    private readonly engine: AuraEngineService,
+    private readonly subgraph: SubgraphReader,
+    @InjectQueue(QUEUE_AURA) private readonly queue: Queue<AuraTickJob>,
+  ) {
+    super();
+  }
+
+  async process(job: Job<AuraFanoutJob | AuraTickJob>): Promise<void> {
+    if (job.name === "fanout") {
+      // job.data.now is the scheduler template (frozen at registration) —
+      // always tick against the real wall-clock so buckets/slots stay fresh.
+      await this.fanout(Date.now());
+      return;
+    }
+    const tick = job.data as AuraTickJob;
+    await this.engine.compute(tick.handle, tick.now);
+  }
+
+  private async fanout(now: number): Promise<void> {
+    const handles = await this.subgraph.handles();
+    const bucket = bucketSec(now, AURA_EVERY_MS);
+    for (const handle of handles) {
+      await this.queue.add(
+        "aura",
+        { handle, now },
+        {
+          jobId: auraJobId(handle.id, bucket),
+          attempts: 2,
+          backoff: { type: "exponential", delay: 2000 },
+          removeOnComplete: 100,
+          removeOnFail: 100,
+        },
+      );
+    }
+    this.logger.debug(`aura fanout: ${handles.length} handles (bucket ${bucket})`);
+  }
+}

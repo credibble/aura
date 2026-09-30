@@ -1,0 +1,235 @@
+// Aura oracle persistence schema.
+//
+// Only APP-OWNED data lives in Postgres: the aura/metric time series, platform
+// connections (secrets, never on-chain) and social graph. On-chain entities
+// (handles, windows, trades, users, stakes, pool/feed data) are owned by the
+// SUBGRAPH — no conflicting copies here.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Adapter-extracted metric time series (keyed sourceId::metric) — the delta /
+/// chart data the frontend and the aura index read from. One row per bucket;
+/// re-inserting the same bucket overwrites the value (idempotent ticks).
+/// `delta` = value vs the previous entry in the series (computed on append).
+model MetricPoint {
+  id        String   @id // `${sourceId}::${metric}::${timestamp}`
+  sourceId  String
+  metric    String
+  value     Float
+  delta     Float?
+  timestamp DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([sourceId, metric, timestamp])
+  @@index([sourceId, metric])
+  @@map("metric_points")
+}
+
+/// Platform connections — the secrets adapters need (OAuth tokens / API keys),
+/// NEVER stored on-chain. accessToken/refreshToken/secrets are persisted
+/// encrypted; only the account + which platform it belongs to are public.
+model Connection {
+  id           String   @id // `${platform}::${account}`
+  platform     String
+  account      String
+  accessToken  String?
+  refreshToken String?
+  secrets      Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([platform, account])
+  @@map("connections")
+}
+
+/// A handle's active social connection — ONE source connection per handle
+/// (a user's profile page links their handle to a single platform account).
+/// Connect / reconnect swap the link; disconnect clears it (the underlying
+/// Connection credential may stay for reuse on another handle).
+model HandleConnection {
+  id          String   @id // handleId
+  handleId    String
+  platform    String
+  account     String
+  status      String   @default("connected") // "connected" | "reconnecting"
+  connectedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([handleId])
+  @@map("handle_connections")
+}
+
+// --- social: follows, likes, subscriptions, notifications, reposts ----------
+
+/// An app user — the wallet address. Owns posts, comments, likes, follows,
+/// subscriptions, notifications and reposts.
+model User {
+  id        String   @id // wallet address
+  metadata  Json? // profile metadata (display name, avatar, bio, links, ...)
+  createdAt DateTime @default(now())
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  followers     Follow[]       @relation("UserFollowers")
+  subscriptions Subscription[]
+  notifications Notification[]
+  reposts       Repost[]
+  bookmarks     Bookmark[]
+
+  @@map("users")
+}
+
+/// A social-media-style feed post — the FeedAiService's output OR a user post,
+/// shaped for the frontend timeline/detail pages. `sources` are the underlying
+/// source posts that fed the aggregate; `ai` flags AI-drafted posts.
+model Post {
+  id        String    @id // `feed:${handleId}:${ts}` or `user:${userId}:${ts}`
+  author    User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorId  String?
+  handleId  String // the handle/asset id (subgraph entity — no local table)
+  handle    String // "@ron"
+  name      String
+  category  String // market-style category code
+  kind      String // shock | velocity | trend | settle | new
+  marketId  String // the market/asset id the post trades
+  summary   String // timeline summary
+  body      Json // string[] full-text paragraphs
+  sources   Json // FeedSource[] — the like sources that fed this post
+  media     Json? // FeedMedia[]
+  replies   Int    @default(0) // denormalized counters (source: Comment / Like / Repost tables)
+  reposts   Int    @default(0)
+  likes     Int    @default(0)
+  views     Int    @default(0)
+  comments  Comment[]
+  reposted  Repost[]
+  bookmarked Bookmark[]
+  ai        Boolean @default(true) // AI-drafted feed post
+  ts        DateTime
+  createdAt DateTime @default(now())
+
+  @@index([handleId, ts])
+  @@map("posts")
+}
+
+/// A comment on a feed post (detail page replies). `media` holds an attached
+/// reaction GIF (a path under the app's /gifs, or an https URL).
+model Comment {
+  id        String   @id @default(cuid())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  author    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  handle    String
+  text      String
+  media     String?
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt])
+  @@map("comments")
+}
+
+/// A user following a handle.
+model Follow {
+  follower     String // userId (FK to User.followers)
+  followerUser User   @relation("UserFollowers", fields: [follower], references: [id], onDelete: Cascade)
+  following    String // handleId (subgraph entity — no local table)
+  createdAt    DateTime @default(now())
+
+  @@id([follower, following])
+  @@index([following])
+  @@map("follows")
+}
+
+/// A like on a feed event / window / handle (targetId is polymorphic).
+/// Intentionally NOT a Post FK: window/handle ids share the same column, so a
+/// conditional FK is impossible — `SocialService.deletePost` clears feed-likes
+/// manually alongside the Comment/Repost/Bookmark onDelete: Cascade rows.
+model Like {
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  targetId   String
+  targetType String // "feed" | "window" | "handle"
+  createdAt  DateTime @default(now())
+
+  @@id([userId, targetId, targetType])
+  @@index([targetId])
+  @@map("likes")
+}
+
+/// A user subscribing to a handle's notifications.
+model Subscription {
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  handleId  String // subgraph entity — no local table
+  createdAt DateTime @default(now())
+
+  @@id([userId, handleId])
+  @@index([handleId])
+  @@map("subscriptions")
+}
+
+/// A notification for a user (window resolution, shocks, follows, likes…).
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  kind      String // "resolution" | "shock" | "follow" | "like" | "repost"
+  title     String
+  body      String
+  meta      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read, createdAt])
+  @@map("notifications")
+}
+
+/// A user reposting a feed post.
+model Repost {
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  post      Post?  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String
+  createdAt DateTime @default(now())
+
+  @@id([userId, eventId])
+  @@index([eventId])
+  @@map("reposts")
+}
+
+/// Outbox for events that must reach the event stream (and therefore every WS
+/// gateway). Written in the same transaction as the row it announces, drained by
+/// OutboxService — so a crash between "row committed" and "event published" is
+/// retried instead of silently losing the push.
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+  attempts    Int       @default(0)
+  lastError   String?
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}
+
+model Bookmark {
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  post      Post?  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId])
+  @@index([postId])
+  @@map("bookmarks")
+}

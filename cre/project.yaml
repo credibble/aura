@@ -1,0 +1,13 @@
+# Chainlink CRE project config — global settings for the Aura stake-gifting workflow.
+# Targets bundle an environment (RPC + registry). The CLI resolves the target from
+# project.yaml + workflow.yaml and merges them (workflow.yaml wins).
+
+staging-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: "https://rpc.testnet.monad.xyz"
+
+production-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: "https://rpc.testnet.monad.xyz"

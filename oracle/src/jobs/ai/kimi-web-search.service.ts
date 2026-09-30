@@ -1,0 +1,73 @@
+﻿import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+
+export interface WebResult {
+  title: string;
+  url: string;
+  snippet: string;
+  score?: number;
+}
+
+/**
+ * Kimi web search — the aura AI's live-context tool, backed by the Moonshot
+ * standalone Web Search Basic API (`POST /v1/tools/search`). Replaces the old
+ * Tavily integration; the chat model stays on the Kimi endpoint (chat
+ * completions against Moonshot) while search runs against the Kimi
+ * platform (per-call billing).
+ */
+@Injectable()
+export class KimiWebSearchService {
+  private readonly logger = new Logger(KimiWebSearchService.name);
+  private readonly apiKey?: string;
+  private readonly baseUrl: string;
+  private readonly maxResults: number;
+
+  constructor(config: ConfigService) {
+    this.apiKey = config.get<string>("MOONSHOT_API_KEY") ?? undefined;
+    this.baseUrl = (
+      config.get<string>("MOONSHOT_BASE_URL") ?? "https://api.moonshot.ai/v1"
+    ).replace(/\/$/, "");
+    this.maxResults = config.get<number>("WEB_SEARCH_LIMIT") ?? 5;
+  }
+
+  get enabled(): boolean {
+    return Boolean(this.apiKey);
+  }
+
+  /** Search the web for live facts; returns [] on any failure (tool is optional). */
+  async search(query: string, maxResults = this.maxResults): Promise<WebResult[]> {
+    if (!this.apiKey) {
+      this.logger.warn("MOONSHOT_API_KEY not set — web search unavailable.");
+      return [];
+    }
+    try {
+      const res = await fetch(`${this.baseUrl}/tools/search`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          text_query: query,
+          limit: maxResults,
+          timeout_seconds: 30,
+        }),
+      });
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(`Kimi search HTTP ${res.status}: ${detail.slice(0, 200)}`);
+      }
+      const data = (await res.json()) as {
+        search_results?: { title?: string; url?: string; snippet?: string; date?: string }[];
+      };
+      return (data.search_results ?? []).map((r) => ({
+        title: r.title ?? "",
+        url: r.url ?? "",
+        snippet: (r.snippet ?? "").slice(0, 400),
+      }));
+    } catch (error) {
+      this.logger.error(`Kimi web search failed: ${(error as Error).message}`);
+      return [];
+    }
+  }
+}

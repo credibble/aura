@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aura
+      POSTGRES_PASSWORD: aura
+      POSTGRES_DB: aura
+    ports:
+      - "5432:5432"
+    volumes:
+      - aura_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aura -d aura"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - aura_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # API process (HTTP + WebSocket). Shares .env via env_file; the values
+  # below override host-local URLs with container-reachable ones.
+  # DB: the shared subgraph-postgres-1 (started by subgraph/docker-compose.yml)
+  # on the host — this compose's own postgres is intentionally left stopped.
+  oracle-api:
+    image: aura-oracle
+    build:
+      context: ..
+      dockerfile: oracle/Dockerfile
+    env_file: .env
+    environment: &oracle-env
+      DATABASE_URL: postgresql://aura:aura@host.docker.internal:5432/aura
+      REDIS_URL: redis://redis:6379
+      SUBGRAPH_URL: http://host.docker.internal:8000/subgraphs/name/aura/aura
+      NODE_ENV: production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "4000:4000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # BullMQ worker (ingestion, feed, aura scoring, chains tx).
+  oracle-worker:
+    image: aura-oracle
+    build:
+      context: ..
+      dockerfile: oracle/Dockerfile
+    env_file: .env
+    environment: *oracle-env
+    command: ["node", "dist/worker.js"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  aura_pg: {}
+  aura_redis: {}

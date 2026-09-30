@@ -1,0 +1,259 @@
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { Bookmark, Eye, Heart, MessageCircle, Repeat2, Sparkles } from "lucide-react";
+import { AssetAvatar } from "@/components/aura/AssetAvatar";
+import { AuraText } from "@/components/aura/AuraTerm";
+import { handleSlug } from "@/lib/handle-id";
+import { formatCompact } from "@/lib/format";
+import { CATEGORY_MAP } from "@/lib/aura-data";
+import { useSocial } from "@/lib/social-store";
+import type { FeedPost } from "@/lib/aura-feed";
+import { cn } from "@/lib/utils";
+
+/**
+ * THE feed item — one oracle digest, used by the feeds list, the handle page's
+ * Feeds tab and anywhere else a digest appears. The whole item opens
+ * `/feeds/:id`; the author, Trade and "read more" affordances sit above that
+ * overlay so they keep their own targets.
+ *
+ * `variant="row"` is the full width list entry (media, all sources, stats).
+ * `variant="compact"` is the tighter card used inside a handle's tab.
+ */
+export function FeedItem({
+  post,
+  variant = "row",
+  className,
+}: {
+  post: FeedPost;
+  variant?: "row" | "compact";
+  className?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { isLiked, toggleLike, isReposted, toggleRepost, isBookmarked, toggleBookmark } =
+    useSocial();
+  const liked = isLiked(post.id);
+  const reposted = isReposted(post.id);
+  const saved = isBookmarked(post.id);
+  const slug = handleSlug({ id: post.marketId || post.assetId || post.handle, name: post.name });
+  const cat = CATEGORY_MAP[post.category];
+  const compact = variant === "compact";
+
+  const body = compact ? post.body.slice(0, 1) : expanded ? post.body : post.body.slice(0, 1);
+  const more = !compact && (post.body.length > 1 || (post.body[0]?.length ?? 0) > 180);
+  const media = compact ? [] : (post.media ?? []).slice(0, 2);
+  const sources = post.sources.slice(0, compact ? 3 : 4);
+
+  return (
+    <article
+      className={cn(
+        "relative transition-colors hover:bg-secondary/20",
+        compact ? "px-4 py-4" : "px-4 py-5 sm:px-6",
+        className,
+      )}
+    >
+      {/* Whole item → the feed page */}
+      <Link
+        to="/feeds/$id"
+        params={{ id: post.id }}
+        aria-label={post.summary}
+        className="absolute inset-0 z-10"
+      />
+
+      <div className="flex items-center gap-3">
+        <AssetAvatar
+          asset={{
+            id: post.marketId || post.assetId || post.handle,
+            symbol: (post.name || post.handle).toUpperCase().slice(0, 4),
+            color: "hsl(var(--primary))",
+            name: post.name,
+          }}
+          size={compact ? 32 : 38}
+        />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="flex items-center gap-1.5">
+            <Link
+              to="/$id"
+              params={{ id: slug }}
+              className={cn(
+                "relative z-20 truncate font-semibold hover:underline",
+                compact ? "text-[13px]" : "text-sm",
+              )}
+            >
+              {post.name}
+            </Link>
+            <span className="truncate text-xs text-muted-foreground">{post.handle}</span>
+            {post.stats.likes + post.stats.reposts > 0 && (
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+            )}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            {cat?.label ?? "Market"} · {post.ts}
+            {compact ? post.sources.length > 0 && ` · ${post.sources.length} sources` : null}
+          </div>
+        </div>
+        {compact ? (
+          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">Read →</span>
+        ) : (
+          <Link
+            to="/$id"
+            params={{ id: slug }}
+            className="relative z-20 shrink-0 rounded-full border border-border/70 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            Trade
+          </Link>
+        )}
+      </div>
+
+      <h3
+        className={cn(
+          "mt-3 font-semibold leading-snug",
+          compact ? "mt-2 text-[14px]" : "text-[15px]",
+        )}
+      >
+        <AuraText text={post.summary} />
+      </h3>
+
+      {body.length > 0 && (
+        <div
+          className={cn(
+            "space-y-1.5 leading-relaxed text-muted-foreground",
+            compact ? "mt-1 text-[13px]" : "mt-1.5 text-[14px]",
+          )}
+        >
+          {body.map((line, i) => (
+            <p key={i} className={expanded ? undefined : "line-clamp-2"}>
+              {line}
+            </p>
+          ))}
+          {more && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setExpanded((v) => !v);
+              }}
+              className="relative z-20 text-[13px] font-medium text-primary transition-colors hover:underline"
+            >
+              {expanded ? "Show less" : "Read more"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {media.length > 0 && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {media.map((m, i) =>
+            m.kind === "video" ? (
+              <video
+                key={i}
+                src={m.src}
+                controls
+                className="relative z-20 aspect-video w-full overflow-hidden rounded-2xl bg-secondary object-cover"
+              />
+            ) : (
+              <img
+                key={i}
+                src={m.src}
+                alt={m.alt ?? ""}
+                loading="lazy"
+                className="aspect-video w-full overflow-hidden rounded-2xl object-cover"
+              />
+            ),
+          )}
+        </div>
+      )}
+
+      {sources.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {sources.map((s) => (
+            <span
+              key={s.id}
+              title={s.text}
+              className={cn(
+                "truncate rounded-full border border-border/70 text-[11px] text-muted-foreground",
+                compact ? "max-w-[180px] px-2 py-0.5 text-[10px]" : "max-w-[220px] px-2.5 py-1",
+              )}
+            >
+              {s.account || s.platform}
+            </span>
+          ))}
+          {post.sources.length > sources.length && (
+            <span className="rounded-full px-2.5 py-1 text-[11px] text-muted-foreground">
+              +{post.sources.length - sources.length}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Engagements — like / repost / save are real, comments are read-only */}
+      <div
+        className={cn(
+          "relative z-20 flex items-center gap-5 text-muted-foreground",
+          compact ? "mt-2 text-[11px]" : "mt-3 text-xs",
+        )}
+      >
+        <button
+          type="button"
+          aria-label="Like"
+          aria-pressed={liked}
+          onClick={() => toggleLike(post.id)}
+          className={cn(
+            "flex items-center gap-1.5 transition-colors hover:text-down",
+            liked && "text-down",
+          )}
+        >
+          <Heart className={cn("h-3.5 w-3.5", liked && "fill-current")} />
+          {formatCompact(post.stats.likes)}
+        </button>
+
+        <button
+          type="button"
+          aria-label="Repost"
+          aria-pressed={reposted}
+          onClick={() => toggleRepost(post.id)}
+          className={cn(
+            "flex items-center gap-1.5 transition-colors hover:text-up",
+            reposted && "text-up",
+          )}
+        >
+          <Repeat2 className="h-3.5 w-3.5" />
+          {formatCompact(post.stats.reposts)}
+        </button>
+
+        <span className="flex items-center gap-1.5" title="Comments">
+          <MessageCircle className="h-3.5 w-3.5" />
+          {formatCompact(post.stats.replies)}
+        </span>
+
+        <button
+          type="button"
+          aria-label="Save"
+          aria-pressed={saved}
+          onClick={() => toggleBookmark(post.id)}
+          className={cn(
+            "flex items-center gap-1.5 transition-colors hover:text-primary",
+            saved && "text-primary",
+          )}
+        >
+          <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} />
+        </button>
+
+        <span className="flex items-center gap-1.5" title="Impressions">
+          <Eye className="h-3.5 w-3.5" />
+          {formatCompact(post.stats.views)}
+        </span>
+
+        {!compact && (
+          <Link
+            to="/$id"
+            params={{ id: slug }}
+            className="ml-auto transition-colors hover:text-foreground"
+          >
+            Open market
+          </Link>
+        )}
+      </div>
+    </article>
+  );
+}

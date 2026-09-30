@@ -1,0 +1,58 @@
+version: "3.8"
+
+# graph-node stack for the Aura subgraph on Monad testnet.
+#   docker compose up -d
+#   npx graph create aura/aura --node http://localhost:8020
+#   npx graph deploy aura/aura --node http://localhost:8020 --ipfs http://localhost:5001
+#
+# The `ethereum` env maps graph-node's network name `monad-testnet` (used in
+# subgraph.yaml) to the testnet RPC. dataSources are pinned to the protocol's
+# deployment startBlocks (see deployments/start-blocks.json).
+
+services:
+  graph-node:
+    image: graphprotocol/graph-node:v0.36.1
+    ports:
+      - "8000:8000" # GraphQL
+      - "8001:8001" # GraphQL WebSocket
+      - "8020:8020" # admin (graph create / deploy)
+      - "8030:8030" # index-node status
+    environment:
+      postgres_host: postgres
+      postgres_port: 5432
+      postgres_user: graph
+      postgres_pass: let-me-in
+      postgres_db: graph
+      ipfs: "ipfs:5001"
+      ethereum: "monad-testnet:https://testnet-rpc.monad.xyz"
+      GRAPH_LOG: info
+      # Monad testnet RPC 413s on wide eth_getLogs — chunk into small ranges.
+      GRAPH_ETHEREUM_MAX_BLOCK_RANGE_SIZE: "100"
+      GRAPH_ALLOW_NON_DETERMINISTIC_FULLTEXT_SEARCH: "1"
+    depends_on:
+      - postgres
+      - ipfs
+    restart: unless-stopped
+
+  ipfs:
+    image: ipfs/kubo:latest
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: graph
+      POSTGRES_PASSWORD: let-me-in
+      POSTGRES_DB: graph
+      # graph-node requires a `C` collation database.
+      POSTGRES_INITDB_ARGS: "--locale=C -E UTF8"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:

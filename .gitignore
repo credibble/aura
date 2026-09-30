@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Aura monorepo — app/ (TanStack Start) · oracle/ (NestJS) · smart-contracts/ ·
+# packages/ (shared workspaces, e.g. @aura/contracts)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
+.pnp/
+.pnp.js
+.yarn/cache
+.yarn/install-state.gz
+
+# ── Secrets — NEVER commit ───────────────────────────────────────────────────
+# oracle/.env holds the relayer PRIVATE KEY + API keys; app/.env holds keys too.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.keystore
+secrets.json
+
+# ── Build output / caches ────────────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+.output/
+.vinxi/
+.nitro/
+.tanstack/
+.vite/
+.turbo/
+.vercel/
+.wrangler/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# ── Hardhat / Solidity ───────────────────────────────────────────────────────
+smart-contracts/artifacts/
+smart-contracts/cache/
+smart-contracts/typechain-types/
+smart-contracts/coverage/
+smart-contracts/coverage.json
+
+# ── Subgraph (thegraph codegen/build output) ─────────────────────────────────
+**/subgraph/generated/
+**/subgraph/build/
+**/subgraph/*.wasm
+
+# ── Prisma / local data ──────────────────────────────────────────────────────
+oracle/prisma/*.db
+oracle/prisma/*.db-journal
+oracle/prisma/dev.db*
+
+# ── Local tooling / editors / OS ─────────────────────────────────────────────
+# .opencode is the coding agent's local runtime (node_modules + scratch plans).
+.opencode/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-error.log*
+
+# ── Local throwaways ─────────────────────────────────────────────────────────
+smart-contracts/deployments/*.bak
+smart-contracts/deployments/*.tmp
+tmp/

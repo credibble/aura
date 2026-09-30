@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
@@ -803,7 +803,7 @@ function TradePage() {
               {tab === "trades" && viewed && (
                 <div className="overflow-x-auto">
                   <div className="min-w-[560px]">
-                    <div className="grid grid-cols-[1fr_84px_76px_92px] items-center gap-3 border-b border-border/70 px-4 pb-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[1fr_96px_80px_96px_96px_64px] sm:px-6">
+                    <div className="grid grid-cols-[1fr_84px_76px_92px] items-center gap-3 border-b border-border/70 px-4 pb-3 pt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[1fr_96px_80px_96px_96px_64px] sm:px-6">
                     <span>Trader</span>
                     <span>Side</span>
                     <span className="text-right">Price</span>

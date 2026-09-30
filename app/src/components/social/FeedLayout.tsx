@@ -18,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { HowItWorks } from "@/components/HowItWorks";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { HandleAccountChip } from "@/components/portfolio/HandleAccountChip";
 import { ConnectButton } from "@/components/ConnectButton";
 import { useLoadHandles } from "@/lib/handle-store";

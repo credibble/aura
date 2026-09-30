@@ -39,11 +39,6 @@ function shortHash(hash: Hash): string {
   return `${hash.slice(0, 10)}…${hash.slice(-8)}`;
 }
 
-function errMsg(e: unknown): string {
-  if (e instanceof Error && e.message) return e.message;
-  return "Transaction failed";
-}
-
 /**
  * Friendly revert copy lives in `lib/revert-copy` so both this executor and
  * `lib/notify` share one table without an import cycle; re-exported here so

@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
-  ArrowUpRight,
   ExternalLink,
   Eye,
   Heart,
@@ -12,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { FeedLayout } from "@/components/social/FeedLayout";
-import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
+import { FeedSearch } from "@/components/social/RightSidebar";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { AuraText } from "@/components/aura/AuraTerm";
 import { FeedComments } from "@/components/feeds/FeedComments";

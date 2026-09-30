@@ -6,7 +6,7 @@ import { AuraEngineService } from "./aura-engine.service";
 import { IndexerReader } from "../indexer/indexer-reader.service";
 import type { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
-import { auraJobId, SCHEDULER_AURA } from "../queue.constants";
+import { auraJobId } from "../queue.constants";
 import type { AuraHandle } from "../jobs.types";
 import { bucketSec } from "../utils";
 

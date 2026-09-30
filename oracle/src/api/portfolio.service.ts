@@ -1,6 +1,5 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Inject } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { IndexerHandleSync } from "../registry/indexer-handle-sync.service";
 import { PrismaService } from "../persistence/prisma.service";
 import { CONNECTION_STORE } from "../core/ports/tokens";
@@ -53,7 +52,6 @@ export class PortfolioService {
     private readonly sync: IndexerHandleSync,
     private readonly prisma: PrismaService,
     @Inject(CONNECTION_STORE) private readonly connections: IConnectionStore,
-    private readonly config: ConfigService,
     private readonly cleanverse: CleanverseService,
     private readonly chain: ChainGateway,
   ) {}

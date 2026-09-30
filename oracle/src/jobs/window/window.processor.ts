@@ -18,8 +18,6 @@ interface WindowTickJob {
   now: number;
 }
 
-const WINDOW_EVERY_MS = 5_000;
-
 /**
  * Market-maker window worker (queue `window`, every 5s): fans out one job per
  * GRADUATED handle, keyed by the current slot (`window:<handleId>:<startSec>`),

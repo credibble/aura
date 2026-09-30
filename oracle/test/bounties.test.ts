@@ -26,7 +26,6 @@ function portfolio(owner: string, onChain: boolean | null) {
     sync as never,
     {} as never,
     {} as never,
-    {} as never,
     svc("true"),
     chain as never,
   );

@@ -28,7 +28,7 @@ function makeService(options: { claimed?: string[]; credentials?: Record<string,
   } as never;
 
   const chain = { isVerified: async () => null, setVerified: async () => false } as never;
-  return new PortfolioService(sync, { handleConnection } as never, connections, { get: () => undefined } as never, { verify: async () => true } as never, chain);
+  return new PortfolioService(sync, { handleConnection } as never, connections, { verify: async () => true } as never, chain);
 }
 
 class FakeHandleConnection {

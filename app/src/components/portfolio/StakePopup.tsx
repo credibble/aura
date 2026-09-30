@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuraContracts } from "@/lib/contracts";
-import { CONTRACTS } from "@/lib/chain";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { depositFeeBps, type HandleLink } from "@/lib/portfolio";
 import { formatCompact } from "@/lib/format";

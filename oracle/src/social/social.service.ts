@@ -5,7 +5,6 @@ import { OutboxService } from "../orchestration/outbox.service";
 import type { OnChainHandleView } from "../core/domain/handle";
 import type { FeedEvent, SocialEventData } from "@aura/contracts";
 import { IndexerHandleSync } from "../registry/indexer-handle-sync.service";
-import { ChainGateway } from "../jobs/chain/chain-gateway.service";
 
 export type LikeTargetType = "feed" | "window" | "handle";
 
@@ -73,10 +72,6 @@ export class SocialService {
     @Optional()
     @Inject(IndexerHandleSync)
     private readonly indexer?: { handles(): Promise<OnChainHandleView[]> },
-    /** On-chain metadata writer (Handle.setMetadata) â€” the relayer/auraUpdater.
-     *  Optional so unit tests can omit the chain entirely. */
-    @Optional()
-    private readonly chain?: ChainGateway,
     /** Durable publish path (outbox â†’ bus â†’ stream). Optional for tests. */
     @Optional()
     private readonly outbox?: OutboxService,

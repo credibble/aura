@@ -1,7 +1,6 @@
 import { keccak256, toBytes } from "viem";
 import { Injectable, Inject, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { AdapterRegistry } from "../../adapters/adapter-registry.service";
 import { SourceFetcher } from "../../ingestion/source-fetcher.service";
 import { SourceCacheService } from "../source-cache/source-cache.service";
 import { ChainGateway } from "../chain/chain-gateway.service";
@@ -69,7 +68,6 @@ export class AuraEngineService {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly adapters: AdapterRegistry,
     private readonly fetcher: SourceFetcher,
     private readonly cache: SourceCacheService,
     private readonly chain: ChainGateway,

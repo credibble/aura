@@ -148,7 +148,7 @@ export function useToggleSubscribe(userId: string | null) {
         ? api(`/social/subscribe`, { method: "POST", json: { userId, handleId } })
         : api(`/social/subscribe`, { method: "DELETE", json: { userId, handleId } });
     },
-    onSuccess: (_d, v) => {
+    onSuccess: (_d) => {
       invalidate(qc, [qk.subscriptions(userId ?? ""), ["feed"]]);
     },
     onError: (e: Error) => notifyError(e),
@@ -265,7 +265,7 @@ export function useDeleteComment(userId: string | null) {
   const qc = useQueryClient();
   const ensureJwt = useEnsureJwt();
   return useMutation({
-    mutationFn: async ({ postId, commentId }: { postId: string; commentId: string }) => {
+    mutationFn: async ({ commentId }: { postId: string; commentId: string }) => {
       if (!userId) throw new Error("Sign in to delete comments");
       await ensureJwt();
       return api(`/social/comments/${encodeURIComponent(commentId)}`, { method: "DELETE" });

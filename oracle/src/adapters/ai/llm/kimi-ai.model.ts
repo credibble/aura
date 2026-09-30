@@ -111,8 +111,6 @@ const CURRENT_TIME_TOOL = {
   },
 };
 
-const DELTA_CLAMP = 5; // ±2dp display-scale per tick (a ±5.00 aura move is already extreme)
-
 /** Max tool-calling rounds per scoring call (search/time tools → final answer)
  *  — each round re-sends the full conversation, so low rounds = low tokens. */
 const MAX_TOOL_ROUNDS = 2;
@@ -373,13 +371,6 @@ function parseDelta(content: string): number {
   if (!match) return 0;
   const n = parseFloat(match[0]);
   return Number.isFinite(n) ? n : 0;
-}
-
-function clamp2dp(n: number): number {
-  return Math.min(
-    DELTA_CLAMP,
-    Math.max(-DELTA_CLAMP, Math.round(n * 100) / 100),
-  );
 }
 
 /** How the AI's tick answer is parsed: a signed PERCENT, clamped to ±5. */

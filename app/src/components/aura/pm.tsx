@@ -1,4 +1,3 @@
-import type { MouseEvent, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { AuraText } from "@/components/aura/AuraTerm";

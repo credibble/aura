@@ -8,10 +8,8 @@ import {
   ChevronDown,
   ChevronLeft,
   Clock,
-  Coins,
   History,
   Info,
-  LineChart,
   Link2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,10 +18,8 @@ import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { FeedItem } from "@/components/feeds/FeedItem";
 import { QueryError } from "@/components/QueryState";
 import { trendColor } from "@/lib/chart-domain";
-import { ActivityChart } from "@/components/aura/charts";
 import { ChartSkeleton, HandleHeaderSkeleton } from "@/components/ui/skeletons";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
-import { AuraText } from "@/components/aura/AuraTerm";
 import { MultiChart } from "@/components/aura/MultiChart";
 import { OrderBook } from "@/components/aura/OrderBook";
 import {
@@ -240,16 +236,6 @@ function TradePage() {
       .filter((m) => m.ts >= chart.from && m.ts <= chart.to)
       .map((m) => ({ ...m, frac: (m.ts - chart.from) / span }));
   }, [chart, h]);
-
-  /**
-   * The handle's aura series, oldest→newest — the value the market's question is
-   * about, so the strike line can be drawn against it. (The main chart plots
-   * outcome PRICES in cents; an aura level has no meaning on that axis.)
-   */
-  const auraSeries = useMemo(
-    () => [...(h?.auraHistory ?? [])].reverse().map((p) => Number(p.aura) / 100),
-    [h],
-  );
 
   /**
    * The aura series clipped to the chart's time range, as one MultiChart series —
@@ -692,7 +678,6 @@ function TradePage() {
             {/* Handle actions — icons only, named on hover */}
             <div className="px-4 sm:px-6">
               <HandleActions
-                handleId={h.id}
                 handle={`@${slug}`}
                 stake={stakeFrom(h, name, symbol, index)}
                 stakeStats={stakeStats}
@@ -857,13 +842,11 @@ function stakeFrom(h: IndexerHandle, name: string, symbol: string, aura: number)
 
 /** Follow · stake · notify · share — compact actions, stake named and animated. */
 function HandleActions({
-  handleId,
   handle,
   stake,
   stakeStats,
   myStake,
 }: {
-  handleId: string;
   handle: string;
   stake: StakeHandle;
   /** Total AURA staked on this handle (vault totalAssets). */

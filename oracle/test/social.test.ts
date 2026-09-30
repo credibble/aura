@@ -290,7 +290,7 @@ describe("SocialService — likes, following, subscribing, notifications, repost
   });
 
   it("likes/unlikes with counts", async () => {
-    const { social, fake } = make();
+    const { social } = make();
     await social.like("u1", "ev-1", "feed");
     await social.like("u2", "ev-1", "feed");
     expect(await social.likeCount("ev-1")).toBe(2);
@@ -300,7 +300,7 @@ describe("SocialService — likes, following, subscribing, notifications, repost
   });
 
   it("subscribes and fans resolution notifications to subscribers", async () => {
-    const { social, fake } = make();
+    const { social } = make();
     await social.subscribe("u1", "btc");
     await social.subscribe("u2", "btc");
 

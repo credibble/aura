@@ -122,7 +122,7 @@ async function main(): Promise<void> {
   };
 
   const ai = new KimiAiModel(cfg, globalThis.fetch.bind(globalThis), new KimiWebSearchService(cfg));
-  const engine = new AuraEngineService(cfg, adapters, fetcher, cache, chain as never, ws as never, ai, series);
+  const engine = new AuraEngineService(cfg, fetcher, cache, chain as never, ws as never, ai, series);
 
   const now = Date.now();
   log("engine", "fetching sources + building signals…");

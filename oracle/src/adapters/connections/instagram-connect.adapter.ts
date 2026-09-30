@@ -30,7 +30,7 @@ export class InstagramConnectAdapter extends BaseSource {
   }
 
   async fetch(
-    config: SourceConfig,
+    _config: SourceConfig,
     _since: number,
     now: number,
     credentials?: AdapterCredentials,

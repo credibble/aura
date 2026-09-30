@@ -20,9 +20,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createClient, type Client } from "graphql-ws";
 import { INDEXER_WS_URL } from "./graphql";
 
-/** Subscription payload shape (a single result, like a one-shot query). */
-type Payload<T> = { data?: T; errors?: { message: string }[] };
-
 let client: Client | null = null;
 let live = false;
 /** Query keys a live subscription currently covers (refcounted). */

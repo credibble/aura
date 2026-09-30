@@ -11,7 +11,7 @@ import type { AuthState } from "./privy";
  * EIP-712 signatures (order routing, resolution receipts).
  */
 export function usePrivyAuth(): AuraAuth {
-  const { ready, authenticated, user, login, logout: privyLogout, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, login, logout: privyLogout } = usePrivy();
   const { wallets } = useWallets();
 
   /**

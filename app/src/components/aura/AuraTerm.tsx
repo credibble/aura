@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 /**
  * Glossary term for the word "aura" inside market titles — subtle dashed

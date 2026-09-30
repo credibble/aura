@@ -15,7 +15,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { handleSlug } from "@/lib/handle-id";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
-import { Skeleton } from "@/components/ui/skeletons";
 import { formatIndex, formatPct } from "@/lib/format";
 import { CATEGORIES } from "@/lib/aura-data";
 import { handleSearchOptions, handlesQueryOptions, peopleSearchOptions } from "@/queries/handles";

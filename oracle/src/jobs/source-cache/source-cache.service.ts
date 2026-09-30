@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import type Redis from "ioredis";
 import { REDIS } from "../../queue/queue.constants";
 
@@ -24,8 +24,6 @@ export interface SourceCacheKey {
  */
 @Injectable()
 export class SourceCacheService {
-  private readonly logger = new Logger(SourceCacheService.name);
-
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
   /** Build the canonical key, e.g. `source:shopify:me:@devar`. */

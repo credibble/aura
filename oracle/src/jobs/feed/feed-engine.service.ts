@@ -4,7 +4,6 @@ import type Redis from "ioredis";
 import { REDIS } from "../../queue/queue.constants";
 import { SOURCE_REGISTRY } from "../../core/ports/tokens";
 import type { SourceRegistry } from "../../core/ports/source-registry";
-import { AdapterRegistry } from "../../adapters/adapter-registry.service";
 import { SourceFetcher } from "../../ingestion/source-fetcher.service";
 import { SourceCacheService } from "../source-cache/source-cache.service";
 import { WsBroadcastService } from "../ws/ws-broadcast.service";
@@ -117,7 +116,6 @@ export class FeedEngineService {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly adapters: AdapterRegistry,
     private readonly fetcher: SourceFetcher,
     private readonly cache: SourceCacheService,
     private readonly ws: WsBroadcastService,

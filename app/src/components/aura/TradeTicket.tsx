@@ -26,6 +26,8 @@ type Mode = "tap" | "market" | "limit";
 
 const QUICK = [1, 5, 10, 100];
 const TAP_STEPS = [5, 25, 100];
+/** 1-Tap sells exit the position — the unit is shares, so there is no dollar chip. */
+const TAP_SELL_LABEL = "Sell position";
 
 /** Dollars/shares text → 1e18 base units (≤6 decimals of precision). */
 function toE18Units(n: number): bigint {
@@ -62,7 +64,7 @@ export function TradeTicket({ market }: { market: Market }) {
   });
   const [minting, setMinting] = useState(false);
   const held = useMemo(() => {
-    if (!address) return 0;
+    if (!address) return 0n;
     let shares = 0n;
     for (const t of positions.data ?? []) {
       if (t.window.id !== win.id || t.outcome !== picked) continue;
@@ -141,6 +143,15 @@ export function TradeTicket({ market }: { market: Market }) {
     setPending(true);
     try {
       if (mode === "tap") {
+        // 1-Tap is one action either way. Buying takes a fixed dollar chip;
+        // selling exits the position, so the size is the held shares (1e18,
+        // exactly what `exec.sell` takes) — the tap branch previously bought
+        // even when the side was sell.
+        if (side === "sell") {
+          if (held <= 0n) return;
+          await exec.sell(target, picked, held);
+          return;
+        }
         const usd = Number(amount) || TAP_STEPS[0]!;
         await exec.buy(target, picked, usd);
         return;

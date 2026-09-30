@@ -147,7 +147,11 @@ export class KimiAiModel {
   ) {
     this.apiKey = config.get<string>("KIMI_API_KEY") ?? undefined;
     this.model = config.get<string>("KIMI_MODEL") ?? "kimi-k2.6";
-    this.temperature = Number(config.get<string>("KIMI_TEMPERATURE") ?? 1);
+    // `kimi-k2.*` rejects any temperature but 1 with a 400 ("invalid
+    // temperature: only 1 is allowed for this model"); the env override is only
+    // honoured for older moonshot-v1 models.
+    const configuredTemperature = Number(config.get<string>("KIMI_TEMPERATURE") ?? 1);
+    this.temperature = /^kimi-k2/i.test(this.model) ? 1 : configuredTemperature;
     // Reasoning-model budgets: the old 24/96/224 were consumed by thinking alone
     // (a 24-token call spent 23 reasoning tokens and returned no answer; a
     // 3000-token call spent 1165 and finally answered "+0.75").
@@ -340,6 +344,13 @@ export class KimiAiModel {
     if (data.error?.message) throw new Error(data.error.message);
     const message = data.choices?.[0]?.message;
     if (!message) throw new Error("Empty Kimi completion");
+    // A reasoning model can spend its whole budget thinking and return
+    // `content: ""` with no tool calls (`finish_reason: "length"`). That is a
+    // failed completion, not an answer — fail closed so the caller uses its
+    // fallback instead of propagating an empty string.
+    if (!message.content && !(message.tool_calls && message.tool_calls.length > 0)) {
+      throw new Error("Empty Kimi completion content");
+    }
     return message;
   }
 }

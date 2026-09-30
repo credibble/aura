@@ -1,5 +1,6 @@
 ﻿import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { kimiRequest } from "../../adapters/ai/llm/kimi-limiter";
 
 export interface WebResult {
   title: string;
@@ -41,22 +42,24 @@ export class KimiWebSearchService {
       return [];
     }
     try {
-      const res = await fetch(`${this.baseUrl}/tools/search`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          text_query: query,
-          limit: maxResults,
-          timeout_seconds: 30,
+      // `/tools/search` bills and rate-limits against the SAME organisation
+      // concurrency (1) as chat completions, so an un-serialised search here is
+      // exactly what made a concurrent chat call 429. Same single slot as every
+      // other Kimi call — `kimiRequest` owns retry + error text.
+      const res = await kimiRequest(() =>
+        fetch(`${this.baseUrl}/tools/search`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            text_query: query,
+            limit: maxResults,
+            timeout_seconds: 30,
+          }),
         }),
-      });
-      if (!res.ok) {
-        const detail = await res.text();
-        throw new Error(`Kimi search HTTP ${res.status}: ${detail.slice(0, 200)}`);
-      }
+      );
       const data = (await res.json()) as {
         search_results?: { title?: string; url?: string; snippet?: string; date?: string }[];
       };

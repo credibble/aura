@@ -51,7 +51,10 @@ export function FeedItem({
 
   const body = compact ? post.body.slice(0, 1) : expanded ? post.body : post.body.slice(0, 1);
   const more = !compact && (post.body.length > 1 || (post.body[0]?.length ?? 0) > 180);
-  const media = compact ? [] : (post.media ?? []).slice(0, 2);
+  // The compact variant (market pages) shows ONE image rather than none: a trade
+  // page should still show what the post is about, just not the full-width media
+  // strip the row variant uses, which would push the trading controls down.
+  const media = (post.media ?? []).slice(0, compact ? 1 : 2);
   const sources = post.sources.slice(0, compact ? 3 : 4);
 
   return (
@@ -153,14 +156,24 @@ export function FeedItem({
       )}
 
       {media.length > 0 && (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div
+          className={cn(
+            "gap-2",
+            compact ? "mt-2 flex flex-wrap" : "mt-3 grid sm:grid-cols-2",
+          )}
+        >
           {media.map((m, i) =>
             m.kind === "video" ? (
               <video
                 key={i}
                 src={m.src}
                 controls
-                className="relative z-20 aspect-video w-full overflow-hidden rounded-2xl bg-secondary object-cover"
+                className={cn(
+                  "relative z-20 overflow-hidden bg-secondary object-cover",
+                  compact
+                    ? "h-20 w-auto max-w-[160px] rounded-xl"
+                    : "aspect-video w-full rounded-2xl",
+                )}
               />
             ) : (
               <img
@@ -168,7 +181,12 @@ export function FeedItem({
                 src={m.src}
                 alt={m.alt ?? ""}
                 loading="lazy"
-                className="aspect-video w-full overflow-hidden rounded-2xl object-cover"
+                className={cn(
+                  "overflow-hidden object-cover",
+                  compact
+                    ? "h-20 w-auto max-w-[160px] rounded-xl"
+                    : "aspect-video w-full rounded-2xl",
+                )}
               />
             ),
           )}

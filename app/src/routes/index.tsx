@@ -87,10 +87,11 @@ function ExplorePage() {
   );
 
   return (
-    // No `sidebar`: the explore grid owns the full width (the shell only renders
-    // the right column when a `sidebar` is passed). Every other route keeps its
-    // sidebar; the left rail and centre column are unchanged.
-    <FeedLayout>
+    // No `sidebar` on purpose: the explore grid is the page. `contentWidth="wide"`
+    // spends the aside's 350px on the grid (centre cap 840 → 1190), so the block
+    // is exactly as wide as a sidebar page instead of 350px narrower. Every other
+    // route keeps its sidebar and the default 840px centre; the rail is unchanged.
+    <FeedLayout contentWidth="wide">
       {/* Hero — one line, one action, one search */}
       <div className="px-4 pt-10 pb-6 text-center sm:px-6">
         <h1 className="text-[28px] font-bold tracking-tight sm:text-4xl">
@@ -155,9 +156,13 @@ function ExplorePage() {
         </DropdownMenu>
       </div>
 
+      {/* 4 cols from xl: the wide centre gives 3 cols ~372px cards — ~46% wider
+          than any other page's grid. Four keeps the reading density (~276px,
+          near the 840px grid's 255px) and the chart's aspect close to before;
+          xl (1280) is the first width where 1190px actually fits beside the rail. */}
       <div
         ref={gate}
-        className="grid grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3"
+        className="grid grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 xl:grid-cols-4"
       >
         {isPending
           ? Array.from({ length: 8 }, (_, i) => <SparkCardSkeleton key={i} />)

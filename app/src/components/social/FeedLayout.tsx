@@ -33,11 +33,15 @@ import { cn } from "@/lib/utils";
 // is remembered in localStorage. Without a stored preference the rail follows
 // the original CSS breakpoints (labels from 2xl up).
 // The center column is capped at 840px and centred, so the shell reads at a
-// sane measure on wide screens instead of stretching edge to edge. The block
-// hugs its columns (rail + centre + aside) and is centred as a group, so
-// collapsing the rail visibly narrows it; when the viewport is narrower than
-// the block it fills the viewport instead. The grid still fits three cards at
-// lg, the tables clear their 620px min-width, and the feed stays readable.
+// sane measure on wide screens instead of stretching edge to edge. A page with
+// no `sidebar` can opt into `contentWidth="wide"`, which raises the centre cap
+// to 1190px (= 840 + the 350px aside) so the whole block — rail + centre — is
+// exactly as wide as a rail + centre + aside page. Dropping the aside then
+// spends its width on content instead of leaving a hole; it is not full-bleed
+// (the frame cap still holds). The block hugs its columns and is centred as a
+// group, so collapsing the rail visibly narrows it; when the viewport is
+// narrower than the block it fills the viewport instead. The tables clear
+// their 620px min-width, and the feed stays readable.
 // Mobile falls back to the standard top Navbar.
 // Users can't post — only @handles do.
 // ----------------------------------------------------------------------------
@@ -66,11 +70,19 @@ export function FeedLayout({
   children,
   sidebar,
   banner,
+  contentWidth = "default",
 }: {
   children: ReactNode;
   sidebar?: ReactNode;
   /** Optional full-width bar at the very top of the shell (above rail/feed). */
   banner?: ReactNode;
+  /**
+   * Width of the centre column. `"default"` caps it at 840px (the measure every
+   * sidebar page reads at). `"wide"` raises the cap to 1190px — 840 + the 350px
+   * aside — for a route that renders no `sidebar`, so the block stays the same
+   * overall width as a sidebar page while the reclaimed 350px goes to content.
+   */
+  contentWidth?: "default" | "wide";
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -93,14 +105,18 @@ export function FeedLayout({
           rail + centre + aside and narrows/widens as the rail collapses. `main`
           is deliberately NOT `flex-1`: a growing main absorbs the slack and
           keeps a fixed width, which is what hid the collapse. Its definite
-          `w-full max-w-[840px]` basis means it shrinks to fit a narrow viewport
-          instead, so small screens still fill and nothing overflows. */}
+          `w-full` + `max-w-[840px]` (or 1190px in `contentWidth="wide"`) basis
+          means it shrinks to fit a narrow viewport instead, so small screens
+          still fill and nothing overflows. */}
       <div className="mx-auto flex w-full max-w-[1440px] justify-center">
         <LeftRail />
         <main
           id="main-content"
           tabIndex={-1}
-          className="min-h-screen w-full min-w-0 max-w-[840px] shrink border-x border-border outline-none"
+          className={cn(
+            "min-h-screen w-full min-w-0 shrink border-x border-border outline-none",
+            contentWidth === "wide" ? "max-w-[1190px]" : "max-w-[840px]",
+          )}
         >
           {children}
         </main>

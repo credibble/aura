@@ -24,7 +24,7 @@ import { qk } from "@/queries/keys";
 export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
-  const [amount, setAmount] = useState("100");
+  const [amount, setAmount] = useState("");
   const [pending, setPending] = useState<"deposit" | "withdraw" | null>(null);
   /**
    * The EXACT 1e18 receipt amount behind a withdraw-Max click. Receipts are a

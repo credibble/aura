@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { BaseSource } from "./base-source";
 // public — no credentials: open feeds and open search APIs.
 import { RssFeedAdapter } from "./public/rss-feed.adapter";
@@ -34,7 +34,10 @@ import type { Source, SourceConfig } from "../core/domain/source";
  */
 @Injectable()
 export class AdapterRegistry {
+  private readonly logger = new Logger(AdapterRegistry.name);
   private readonly byKey = new Map<string, BaseSource>();
+  /** Platforms already reported as unmapped — one warning, not one per rebuild. */
+  private readonly warnedPlatforms = new Set<string>();
 
   constructor() {
     // Grouped by credential type, mirroring the folders.
@@ -55,7 +58,17 @@ export class AdapterRegistry {
       new LinkedInConnectAdapter(),
       new ShopifyConnectAdapter(),
     ];
-    for (const adapter of adapters) this.byKey.set(adapter.registryKey(), adapter);
+    for (const adapter of adapters) {
+      // The exact (platform + variant) key…
+      this.byKey.set(adapter.registryKey(), adapter);
+      // …AND the BARE platform. The on-chain contract is the `platform` string
+      // ("x"), not the adapter's internal variant ("x::search"); a config that
+      // omits the variant must still resolve. Without this, `XSearchAdapter`
+      // (the only adapter that sets a `variant`) registered solely as "x::search"
+      // and every `{ platform: "x" }` source resolved to null — so no X source
+      // was ever fetched. The variant key still wins for a config that names one.
+      if (!this.byKey.has(adapter.platform)) this.byKey.set(adapter.platform, adapter);
+    }
   }
 
   /** The adapter for a (platform, variant) key, or null. */
@@ -87,7 +100,20 @@ export class AdapterRegistry {
   /** Build a runtime Source for a config, or null if the platform is unknown. */
   buildSource(config: SourceConfig): Source | null {
     const adapter = this.resolve(config);
-    if (!adapter) return null;
+    if (!adapter) {
+      // A config whose platform matches no adapter is dropped BEFORE any fetch,
+      // so it never appears in the per-fetch log and is indistinguishable from a
+      // source that simply returns nothing. Name it once, loudly.
+      if (!this.warnedPlatforms.has(config.platform)) {
+        this.warnedPlatforms.add(config.platform);
+        this.logger.warn(
+          `On-chain source platform "${config.platform}" matches no adapter — ` +
+            `every such source is skipped before it is ever fetched. ` +
+            `Config: ${JSON.stringify(config).slice(0, 200)}`,
+        );
+      }
+      return null;
+    }
     return adapter.toSource(config);
   }
 
@@ -112,6 +138,8 @@ export class AdapterRegistry {
 
   /** Every registered adapter, for seeding/health. */
   all(): BaseSource[] {
-    return [...this.byKey.values()];
+    // A single adapter can be reachable under both its `platform::variant` and
+    // its bare `platform` key, so dedupe by instance (e.g. XSearchAdapter).
+    return [...new Set(this.byKey.values())];
   }
 }

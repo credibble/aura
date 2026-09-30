@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AdapterRegistry } from "../adapters/adapter-registry.service";
 import { TIME_SERIES_STORE, CONNECTION_STORE } from "../core/ports/tokens";
@@ -21,6 +21,8 @@ import { parseFeed } from "./rss-parser";
  */
 @Injectable()
 export class SourceFetcher {
+  private readonly logger = new Logger(SourceFetcher.name);
+
   constructor(
     private readonly config: ConfigService,
     private readonly adapters: AdapterRegistry,
@@ -28,10 +30,30 @@ export class SourceFetcher {
     @Inject(CONNECTION_STORE) private readonly connections: IConnectionStore,
   ) {}
 
+  /**
+   * Fetch one source. This is the ONE place every adapter's result passes
+   * through, so the result is logged here for all of them (there is no way to
+   * add an adapter that bypasses it): source id, platform, and the item count
+   * (or the failure). Before this, a source that had never once fetched looked
+   * exactly like one returning nothing — which is how "no X source ever fetched"
+   * stayed invisible for days.
+   */
   async fetch(source: Source, since: number, limit = 25): Promise<RawDatum[]> {
+    const platform = source.adapter?.platform ?? source.transport?.type ?? "unknown";
+    try {
+      const items = await this.dispatch(source, since, limit);
+      this.logger.log(`${source.id} [${platform}] → ${items.length} item(s)`);
+      return items;
+    } catch (error) {
+      this.logger.warn(`${source.id} [${platform}] → fetch failed: ${(error as Error).message}`);
+      return [];
+    }
+  }
+
+  private async dispatch(source: Source, since: number, limit: number): Promise<RawDatum[]> {
     if (source.adapter) {
       const adapter = this.adapters.resolve(source.adapter);
-      if (!adapter) return [];
+      if (!adapter) throw new Error(`no adapter for platform "${source.adapter.platform}"`);
       const account = typeof source.adapter.account === "string" ? source.adapter.account : undefined;
       // App-level credentials (an `api/` adapter reading OTHER people's public
       // data) live in the oracle's own env, not a per-account ConnectionStore

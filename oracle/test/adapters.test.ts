@@ -62,11 +62,25 @@ afterEach(() => vi.unstubAllGlobals());
 describe("AdapterRegistry — on-chain source JSON configs → real adapters", () => {
   const registry = new AdapterRegistry();
 
-  it("resolves the registered platforms (X is intentionally absent)", () => {
+  it("resolves a bare platform even when the adapter declares a variant", () => {
     expect(registry.get("spotify", "me")).not.toBeNull();
     expect(registry.get("shopify")).not.toBeNull();
     expect(registry.get("github")).not.toBeNull();
-    expect(registry.get("x", "timeline")).toBeNull(); // no free tier → removed
+    // XSearchAdapter sets `variant = "search"`, but the ON-CHAIN config only
+    // carries `platform: "x"` — the bare platform must resolve to it or the
+    // source is dropped before it is ever fetched (the X silence bug).
+    expect(registry.get("x")).not.toBeNull();
+    expect(registry.get("x")!.platform).toBe("x");
+    expect(registry.get("no-such-platform")).toBeNull();
+  });
+
+  it("builds an X source from { platform: 'x' } (no variant on-chain)", () => {
+    const src = registry.buildFromJsonStrings([
+      JSON.stringify({ platform: "x", outlet: "x-elon", query: "Elon Musk", minFollowers: 100_000, label: "X · Elon Musk", topic: "musk" }),
+    ]);
+    expect(src).toHaveLength(1);
+    expect(src[0]!.id).toBe("x-elon-musk");
+    expect(src[0]!.adapter?.platform).toBe("x");
   });
 
   it("builds a Spotify me source from { platform, variant, account }", () => {

@@ -12,24 +12,30 @@ const PLOT_W = W - GUTTER;
  *  HTML overlay (the aura memo markers) to this so markers sit on the series. */
 export const CHART_PLOT_RATIO = PLOT_W / W;
 
+/** Coincidence threshold, in viewBox units. The vertical scale is ~1:1, so 0.6
+ *  is well under a device pixel: only series visually on top of each other
+ *  qualify for the separation nudge below. */
+const COINCIDENT_EPS = 0.6;
+/** How far a coincident series point is nudged, per direction (viewBox units ≈
+ *  px). Small enough that a level market still reads level, large enough that
+ *  the two lines are unmistakably two. */
+const POINT_OFFSET = 1.5;
+/** End labels are fixed 10px HTML text — the SVG's non-uniform scale never
+ *  reaches them — so a point-sized nudge would still overlap. Labels move on
+ *  the same rule but by `LABEL_OFFSET`. */
+const LABEL_OFFSET = 8;
+
 export type MultiChartAxis = "percent" | "points";
 
 const xAt = (i: number, n: number) => (i / Math.max(1, n - 1)) * PLOT_W;
 
-/** Catmull-Rom-smoothed path. `start` lets the recent slice share the full
- *  series' x-axis instead of being stretched across the plot. */
-function pathFor(
-  data: number[],
-  h: number,
-  min: number,
-  max: number,
-  start = 0,
-): string {
-  const range = max - min || 1;
-  const n = data.length;
-  const yFor = (v: number) => h - ((v - min) / range) * (h - 8) - 4;
+/** Catmull-Rom-smoothed path over already-mapped (and coincidence-offset) y
+ *  values. `start` lets the recent slice share the full series' x-axis instead
+ *  of being stretched across the plot. */
+function pathFor(y: number[], start = 0): string {
+  const n = y.length;
   const pts: [number, number][] = [];
-  for (let i = start; i < n; i++) pts.push([xAt(i, n), yFor(data[i])]);
+  for (let i = start; i < n; i++) pts.push([xAt(i, n), y[i]]);
   if (pts.length < 2) return "";
   let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -99,7 +105,37 @@ export function MultiChart({
   const { min, max } = tightDomain(all);
 
   const yFor = (v: number) => h - ((v - min) / (max - min || 1)) * (h - 8) - 4;
-  const n = series[0]?.data.length ?? 0;
+
+  // --- Coincidence separation -----------------------------------------------
+  // Several binary outcomes can read the same value (they start 50/50 and can
+  // return to dead level at any time). Drawn truthfully, the two lines, dots
+  // and labels then sit exactly on top of each other. Nudge APART only where
+  // that happens; everywhere else the raw mapped y is used untouched.
+  //
+  // The direction is constant per series (even index up, odd index down) rather
+  // than recomputed per point. A per-point "which one is lower" test flips sign
+  // the instant the series cross, which re-introduces the flicker we are trying
+  // to kill; a fixed direction can never flip point-to-point.
+  const baseYs = series.map((s) => s.data.map((v) => yFor(v)));
+  const coincideAt = (i: number, si: number) =>
+    baseYs.some(
+      (row, sj) =>
+        sj !== si &&
+        typeof row[i] === "number" &&
+        Math.abs(baseYs[si]![i]! - row[i]!) < COINCIDENT_EPS,
+    );
+  const ys = baseYs.map((row, si) =>
+    row.map((y, i) => (coincideAt(i, si) ? y + (si % 2 === 0 ? -POINT_OFFSET : POINT_OFFSET) : y)),
+  );
+  // Same rule at the end point, but a wider displacement so two 10px labels
+  // reading the same value clear each other; clamped so neither is clipped.
+  const endLabelY = series.map((s, si) => {
+    if (s.data.length === 0) return null;
+    const i = s.data.length - 1;
+    const y = baseYs[si]![i]!;
+    const nudged = coincideAt(i, si) ? y + (si % 2 === 0 ? -1 : 1) * LABEL_OFFSET : y;
+    return Math.min(h - 7, Math.max(7, nudged));
+  });
 
   function label(v: number, decimals: number): string {
     const text = Number(v.toFixed(decimals)).toString();
@@ -166,7 +202,7 @@ export function MultiChart({
           />
         )}
         {mode === "candles"
-          ? series.map((s) => {
+          ? series.map((s, si) => {
               const step = Math.max(1, Math.ceil(s.data.length / 22));
               const barW = Math.max(2, (PLOT_W / s.data.length) * step * 0.55);
               const bars = [];
@@ -174,8 +210,8 @@ export function MultiChart({
                 const prev = s.data[i - step];
                 const cur = s.data[i];
                 const up = cur >= prev;
-                const y1 = yFor(prev);
-                const y2 = yFor(cur);
+                const y1 = ys[si]![i - step]!;
+                const y2 = ys[si]![i]!;
                 const x = xAt(i, s.data.length);
                 bars.push(
                   <g key={i}>
@@ -204,13 +240,13 @@ export function MultiChart({
               }
               return <g key={s.label + id}>{bars}</g>;
             })
-          : series.map((s) => {
+          : series.map((s, si) => {
               // Faded history, bright recent: the older 2/3 of the line is
               // dimmed, the slice nearest "now" is full opacity.
               const count = s.data.length;
               const split = count > 6 ? Math.max(1, Math.floor(count * 0.65)) : 0;
-              const faint = split > 0 ? pathFor(s.data, h, min, max, 0) : "";
-              const bright = pathFor(s.data, h, min, max, split);
+              const faint = split > 0 ? pathFor(ys[si]!, 0) : "";
+              const bright = pathFor(ys[si]!, split);
               return (
                 <g key={s.label + id}>
                   {faint && (
@@ -236,7 +272,7 @@ export function MultiChart({
               );
             })}
         {mode === "coin" &&
-          series.map((s) => {
+          series.map((s, si) => {
             const step = Math.max(1, Math.ceil(s.data.length / 14));
             return (
               <g key={s.label + id}>
@@ -245,7 +281,7 @@ export function MultiChart({
                     <circle
                       key={i}
                       cx={xAt(i, s.data.length)}
-                      cy={yFor(v)}
+                      cy={ys[si]![i]!}
                       r="3"
                       fill="hsl(var(--background))"
                       stroke={s.color}
@@ -256,7 +292,7 @@ export function MultiChart({
                 )}
                 <circle
                   cx={xAt(s.data.length - 1, s.data.length)}
-                  cy={yFor(s.data[s.data.length - 1])}
+                  cy={ys[si]![s.data.length - 1]!}
                   r="3.5"
                   fill={s.color}
                 />
@@ -265,10 +301,10 @@ export function MultiChart({
           })}
         {/* The live tail: EVERY line ends in a dot with the pulse on top, in both
             modes, so the newest value is unmistakable at a glance. */}
-        {series.map((s) => {
+        {series.map((s, si) => {
           if (s.data.length === 0) return null;
           const cx = xAt(s.data.length - 1, s.data.length);
-          const cy = yFor(s.data[s.data.length - 1]);
+          const cy = ys[si]![s.data.length - 1]!;
           return (
             <g key={`tail-${s.label}-${id}`}>
               <circle cx={cx} cy={cy} r="3.5" fill={s.color} />
@@ -292,10 +328,10 @@ export function MultiChart({
 
       {/* Each series' label + live value, in its own colour, anchored to the
           same last point the pulse dot is drawn at. */}
-      {series.map((s) => {
+      {series.map((s, si) => {
         if (s.data.length === 0) return null;
         const cx = xAt(s.data.length - 1, s.data.length);
-        const cy = yFor(s.data[s.data.length - 1]);
+        const cy = endLabelY[si] ?? yFor(s.data[s.data.length - 1]);
         return (
           <span
             key={`end-${s.label}-${id}`}

@@ -44,8 +44,10 @@ export class StructuredAiService {
             // k2.* accepts ONLY temperature 1 — 0 was rejected with a 400 on
             // every call, so this path always fell back to the caller's default.
             temperature: 1,
-            // Economic cap: this path only produces short raw completions.
-            max_tokens: 400,
+            // Economic cap, but a REASONING model spends thinking tokens from
+            // this budget first: at 400 every call was truncated to `content: ""`
+            // (finish_reason "length"). Only generated tokens are billed.
+            max_tokens: 4096,
             messages: [
               { role: "system", content: system },
               { role: "user", content: user },
@@ -83,8 +85,10 @@ export class StructuredAiService {
             model: this.model,
             // k2.* accepts ONLY temperature 1 (see complete()).
             temperature: 1,
-            // Economic cap: feed/aura JSON replies are two short fields.
-            max_tokens: 256,
+            // Economic cap, but thinking tokens are spent first: at 256 the
+            // reasoning budget alone consumed the reply and `content` came back
+            // empty every time (measured 255/256 reasoning tokens).
+            max_tokens: 4096,
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: system },

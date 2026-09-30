@@ -152,12 +152,15 @@ export class KimiAiModel {
     // honoured for older moonshot-v1 models.
     const configuredTemperature = Number(config.get<string>("KIMI_TEMPERATURE") ?? 1);
     this.temperature = /^kimi-k2/i.test(this.model) ? 1 : configuredTemperature;
-    // Reasoning-model budgets: the old 24/96/224 were consumed by thinking alone
-    // (a 24-token call spent 23 reasoning tokens and returned no answer; a
-    // 3000-token call spent 1165 and finally answered "+0.75").
-    this.maxTokensDelta = Number(config.get<string>("KIMI_MAX_TOKENS_DELTA") ?? 2048);
-    this.maxTokensTools = Number(config.get<string>("KIMI_MAX_TOKENS_TOOLS") ?? 2048);
-    this.maxTokensJson = Number(config.get<string>("KIMI_MAX_TOKENS_JSON") ?? 2048);
+    // Reasoning-model budgets: thinking tokens are spent BEFORE any answer and
+    // come out of max_tokens. Measured on kimi-k2.6: a 256-token call spent 255
+    // reasoning tokens and returned `content: ""` (finish_reason "length"), and
+    // even a short JSON answer needed ~985 tokens. 2048 fit the small probe but
+    // truncated the large aura prompt; budgets must leave real headroom for the
+    // answer, since only the tokens actually generated are billed.
+    this.maxTokensDelta = Number(config.get<string>("KIMI_MAX_TOKENS_DELTA") ?? 8192);
+    this.maxTokensTools = Number(config.get<string>("KIMI_MAX_TOKENS_TOOLS") ?? 8192);
+    this.maxTokensJson = Number(config.get<string>("KIMI_MAX_TOKENS_JSON") ?? 8192);
     this.fetchFn = fetchFn;
     this.baseUrl = (
       config.get<string>("KIMI_BASE_URL") ?? "https://api.moonshot.ai/v1"

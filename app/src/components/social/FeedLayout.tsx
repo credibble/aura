@@ -32,10 +32,10 @@ import { cn } from "@/lib/utils";
 // toggle (bottom of the rail) opens the labeled 264px rail, and the preference
 // is remembered in localStorage. Without a stored preference the rail follows
 // the original CSS breakpoints (labels from 2xl up).
-// The center column is capped at 840px and centred, so the shell reads at a
+// The center column is capped at 768px and centred, so the shell reads at a
 // sane measure on wide screens instead of stretching edge to edge. A page with
 // no `sidebar` can opt into `contentWidth="wide"`, which raises the centre cap
-// to 1190px (= 840 + the 350px aside) so the whole block — rail + centre — is
+// to 1128px (= 768 + the 360px aside) so the whole block — rail + centre — is
 // exactly as wide as a rail + centre + aside page. Dropping the aside then
 // spends its width on content instead of leaving a hole; it is not full-bleed
 // (the frame cap still holds). The block hugs its columns and is centred as a
@@ -77,10 +77,10 @@ export function FeedLayout({
   /** Optional full-width bar at the very top of the shell (above rail/feed). */
   banner?: ReactNode;
   /**
-   * Width of the centre column. `"default"` caps it at 840px (the measure every
-   * sidebar page reads at). `"wide"` raises the cap to 1190px — 840 + the 350px
+   * Width of the centre column. `"default"` caps it at 768px (the measure every
+   * sidebar page reads at). `"wide"` raises the cap to 1128px — 768 + the 360px
    * aside — for a route that renders no `sidebar`, so the block stays the same
-   * overall width as a sidebar page while the reclaimed 350px goes to content.
+   * overall width as a sidebar page while the reclaimed 360px goes to content.
    */
   contentWidth?: "default" | "wide";
 }) {
@@ -105,7 +105,7 @@ export function FeedLayout({
           rail + centre + aside and narrows/widens as the rail collapses. `main`
           is deliberately NOT `flex-1`: a growing main absorbs the slack and
           keeps a fixed width, which is what hid the collapse. Its definite
-          `w-full` + `max-w-[840px]` (or 1190px in `contentWidth="wide"`) basis
+          `w-full` + `max-w-[768px]` (or 1128px in `contentWidth="wide"`) basis
           means it shrinks to fit a narrow viewport instead, so small screens
           still fill and nothing overflows. */}
       <div className="mx-auto flex w-full max-w-[1440px] justify-center">
@@ -115,13 +115,13 @@ export function FeedLayout({
           tabIndex={-1}
           className={cn(
             "min-h-screen w-full min-w-0 shrink border-x border-border outline-none",
-            contentWidth === "wide" ? "max-w-[1190px]" : "max-w-[840px]",
+            contentWidth === "wide" ? "max-w-[1128px]" : "max-w-[768px]",
           )}
         >
           {children}
         </main>
         {sidebar && (
-          <aside className="hidden w-[350px] shrink-0 px-6 py-3 lg:block">
+          <aside className="hidden w-[360px] shrink-0 px-6 py-3 lg:block">
             <FadeBox className="sticky top-3 max-h-[calc(100vh-1.5rem)] space-y-4 pb-4">
               {sidebar}
             </FadeBox>

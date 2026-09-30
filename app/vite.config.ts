@@ -15,19 +15,20 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import tsConfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   // 5173, not 8080: the indexer's Hasura console and GraphQL API own 8080
   // (see indexer/README.md), and the two must not fight for it.
   server: { port: 5173, strictPort: true },
-  // One copy of React and the shared runtime libraries — a second copy (from a
-  // transitive dep) breaks hooks and context in ways that look like app bugs.
+  // Vite resolves tsconfig `paths` itself now (`@/*` → `./src/*`), so no
+  // vite-tsconfig-paths plugin is needed.
   resolve: {
+    tsconfigPaths: true,
+    // One copy of React and the shared runtime libraries — a second copy (from a
+    // transitive dep) breaks hooks and context in ways that look like app bugs.
     dedupe: ["react", "react-dom", "@tanstack/react-router", "@tanstack/react-query"],
   },
   plugins: [
-    tsConfigPaths({ projects: ["./tsconfig.json"] }),
     tailwindcss(),
     // `entry` is relative to src/, so `server` → src/server.ts.
     tanstackStart({ start: { entry: "server" } }),

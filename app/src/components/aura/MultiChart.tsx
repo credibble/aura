@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { percentDomain, tightDomain } from "@/lib/chart-domain";
+import { percentDomain, strikeCenteredDomain, tightDomain } from "@/lib/chart-domain";
 import { formatCents } from "@/lib/format";
 
 type Series = { data: number[]; color: string; label: string };
@@ -103,12 +103,21 @@ export function MultiChart({
   const id = useId();
   const h = height;
   const all = series.flatMap((s) => s.data);
+  const hasStrike = typeof strike === "number" && Number.isFinite(strike);
   // The axis unit picks the SCALE, not just the label suffix. Probabilities are
   // shares of a whole and must read against the fixed 0–100% space, so a 0.4%
   // move is 0.4% of the plot instead of being magnified by a data band that is
   // only ~0.7 points wide. Aura index points are a level, not a share, so they
-  // keep the tight band (`tightDomain`) and fill the chart with their movement.
-  const { min, max } = axis === "percent" ? percentDomain(all) : tightDomain(all);
+  // keep the tight band (`tightDomain`) and fill the chart with their movement —
+  // but when the lens carries a strike, the band is re-centred on it
+  // (`strikeCenteredDomain`) so the line splits the chart at mid-height, with
+  // the whole series still inside the frame.
+  const { min, max } =
+    axis === "percent"
+      ? percentDomain(all)
+      : hasStrike
+        ? strikeCenteredDomain(all, strike as number)
+        : tightDomain(all);
 
   const yFor = (v: number) => h - ((v - min) / (max - min || 1)) * (h - 8) - 4;
 
@@ -153,7 +162,6 @@ export function MultiChart({
 
   // The strike can sit outside the visible band (the domain follows the data):
   // pin it to the edge and say which side, rather than drawing nothing.
-  const hasStrike = typeof strike === "number" && Number.isFinite(strike);
   const clamped = hasStrike ? Math.min(max, Math.max(min, strike as number)) : 0;
   const last = series[0]?.data[series[0].data.length - 1];
   const above = hasStrike && typeof last === "number" ? last >= (strike as number) : false;

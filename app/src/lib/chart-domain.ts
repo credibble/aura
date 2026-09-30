@@ -38,6 +38,29 @@ export function tightDomain(data: number[]): { min: number; max: number } {
 }
 
 /**
+ * A domain CENTRED on `strike`, so the strike line renders at the exact middle
+ * of the plot. Used by the aura lens, whose question is "above or below the
+ * strike": a line at mid-height reads as the split, and a domain symmetric about
+ * it keeps the whole series inside the frame.
+ *
+ *   half = max(|max − strike|, |strike − min|) × 1.08
+ *   min  = strike − half,  max = strike + half
+ *
+ * The 1.08 mirrors `tightDomain`'s 8% headroom so the series' extremes don't
+ * touch the edge; the flat-series fallback (0.2% of the strike) mirrors its
+ * hairline. A domain symmetric about the strike is also exactly what makes the
+ * mapped strike land at half the plot height.
+ */
+export function strikeCenteredDomain(
+  data: number[],
+  strike: number,
+): { min: number; max: number } {
+  const halfRaw = data.length ? Math.max(...data.map((v) => Math.abs(v - strike))) : 0;
+  const half = halfRaw > 0 ? halfRaw * 1.08 : Math.abs(strike) * 0.002 || 1;
+  return { min: strike - half, max: strike + half };
+}
+
+/**
  * The domain for a probability axis: the whole 0–100% space, extended only if a
  * real value falls outside it.
  *

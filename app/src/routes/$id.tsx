@@ -41,6 +41,7 @@ import { useSocial } from "@/lib/social-store";
 import { useAuraContracts } from "@/lib/contracts";
 import { usePollGate } from "@/lib/poll-registry";
 import {
+  auraHistoryOptions,
   handleWindowsOptions,
   useHandleWindowsLive,
   useWindowPointsLive,
@@ -66,6 +67,11 @@ const RANGES = [
   { id: "1D", spanMs: 24 * 3_600_000 },
   { id: "ALL", spanMs: Number.POSITIVE_INFINITY },
 ] as const;
+
+/** Upper bound on the aura memo markers drawn for one chart: the aura lens can
+ *  hold a full day of ticks, and a marker <button> per tick would flood the DOM.
+ *  Matches the 64-row budget the shallow handle list used to cap memos at. */
+const MAX_MEMOS = 64;
 
 const ICON_BTN =
   "grid h-9 w-9 place-items-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
@@ -149,6 +155,18 @@ function TradePage() {
   const gate = usePollGate<HTMLDivElement>(qk.handleWindows(handleId));
   const pointsQuery = useQuery(windowPricePointsOptions(viewed?.id));
   const tradesQuery = useInfiniteQuery(windowTradesOptions(viewed?.id));
+  // The aura lens' own source — up to 24h of `AuraHistory` (bounded by a
+  // lookback AND a limit), not the shallow 64-row list embedded in `handles`.
+  // Normalised to oldest-first so both the line and the memo markers share one
+  // ordering.
+  const auraHistoryQuery = useQuery(auraHistoryOptions(handleId));
+  const auraHistory = useMemo(
+    () =>
+      [...(auraHistoryQuery.data ?? [])].sort(
+        (a, b) => Number(a.timestamp) - Number(b.timestamp),
+      ),
+    [auraHistoryQuery.data],
+  );
 
   // The market detail is indexer-streamed: the handle's windows, the chart's
   // price points and the trade tape each keep their query fresh over the socket.
@@ -248,43 +266,59 @@ function TradePage() {
     return { series, from, to };
   }, [market, viewed, pointsQuery.data, range]);
 
-  // Aura snapshots mapped onto the chart's x axis — hover shows the memo.
-  const memos = useMemo(() => {
-    if (!chart || !h) return [];
-    const span = chart.to - chart.from || 1;
-    return (h.auraHistory ?? [])
-      .map((p) => ({
-        ts: Number(p.timestamp) * 1000,
-        summary: p.summary ?? "Aura index updated from the handle's live sources.",
-        aura: Number(p.aura) / 100,
-      }))
-      .filter((m) => m.ts >= chart.from && m.ts <= chart.to)
-      .map((m) => ({ ...m, frac: (m.ts - chart.from) / span }));
-  }, [chart, h]);
-
   /**
-   * The aura series clipped to the chart's time range, as one MultiChart series —
-   * so the Aura lens lines up with the price lens (same x axis, same memos).
+   * The AURA lens' own time base. The price series only exists inside the
+   * selected window, but the index is continuous: the query already pulled up
+   * to 24h of `AuraHistory`, and the range chips pick a span WITHIN that day
+   * (1H / 6H / 1D / ALL). The view is anchored at the newest point, not at
+   * wall-clock now, so the line ends at the data instead of trailing into empty
+   * time.
    */
-  const auraLine = useMemo(() => {
-    if (!chart || !h) return [] as { label: string; color: string; data: number[] }[];
-    const pts = (h.auraHistory ?? [])
-      .map((p) => ({ ts: Number(p.timestamp) * 1000, v: Number(p.aura) / 100 }))
-      .filter((p) => p.ts >= chart.from && p.ts <= chart.to)
-      .sort((a, b) => a.ts - b.ts)
-      .map((p) => p.v);
-    if (pts.length === 0) return [];
-    const data = pts.length === 1 ? [pts[0]!, pts[0]!] : pts;
-    // The Aura lens is green while the index is rising over the visible range —
-    // same rule as every other chart, so the line agrees with the % beside it.
-    return [{ label: "Aura", color: trendColor(data), data }];
-  }, [chart, h]);
+  const auraChart = useMemo(() => {
+    const all = auraHistory.map((p) => ({
+      ts: Number(p.timestamp) * 1000,
+      v: Number(p.aura) / 100,
+    }));
+    if (all.length === 0) return null;
+    const dataStart = all[0]!.ts;
+    const dataEnd = all[all.length - 1]!.ts;
+    const cfg = RANGES.find((r) => r.id === range)!;
+    const to = dataEnd;
+    const from = Number.isFinite(cfg.spanMs) ? Math.max(dataStart, to - cfg.spanMs) : dataStart;
+    const visible = all.filter((p) => p.ts >= from).map((p) => p.v);
+    if (visible.length === 0) return null;
+    const data = visible.length === 1 ? [visible[0]!, visible[0]!] : visible;
+    // Green while the index rises over the visible span — the same rule every
+    // other chart uses, so the line agrees with the % beside it.
+    return { series: [{ label: "Aura", color: trendColor(data), data }], from, to };
+  }, [auraHistory, range]);
 
   // The strike is an AURA level: only draw it when the Aura series is what's
   // plotted. (If aura history is empty we fall back to the price series, which
   // is in whole percent — the strike belongs to a different space there and
   // would sit at the wrong height.)
-  const auraShown = chartMode === "aura" && auraLine.length > 0;
+  const auraShown = chartMode === "aura" && !!auraChart;
+
+  // Aura snapshots mapped onto the chart's x axis — hover shows the memo. They
+  // follow whichever lens is on screen, because the two lenses now have
+  // different x-ranges. Capped with a stride so a day of ticks can't flood the
+  // DOM with marker buttons.
+  const memos = useMemo(() => {
+    const view = auraShown ? auraChart : chart;
+    if (!view) return [];
+    const span = view.to - view.from || 1;
+    const inView = auraHistory
+      .map((p) => ({
+        ts: Number(p.timestamp) * 1000,
+        summary: p.summary ?? "Aura index updated from the handle's live sources.",
+        aura: Number(p.aura) / 100,
+      }))
+      .filter((m) => m.ts >= view.from && m.ts <= view.to);
+    const step = Math.max(1, Math.ceil(inView.length / MAX_MEMOS));
+    return inView
+      .filter((_, i) => i % step === 0 || i === inView.length - 1)
+      .map((m) => ({ ...m, frac: (m.ts - view.from) / span }));
+  }, [auraShown, auraChart, chart, auraHistory]);
 
   const [hover, setHover] = useState<number | null>(null);
 
@@ -652,7 +686,7 @@ function TradePage() {
                   onMouseLeave={() => setHover(null)}
                 >
                   <MultiChart
-                    series={auraShown ? auraLine : (chart?.series ?? [])}
+                    series={auraShown ? auraChart!.series : (chart?.series ?? [])}
                     height={280}
                     strike={auraShown ? market.strike : undefined}
                     axis={auraShown ? "points" : "percent"}

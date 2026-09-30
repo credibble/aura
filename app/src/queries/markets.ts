@@ -194,6 +194,51 @@ export function useWindowPointsLive(windowId: string | undefined): boolean {
   });
 }
 
+/** Up to 24h of the handle's aura index — see `auraHistoryOptions`. */
+export const AURA_HISTORY_LOOKBACK_MS = 24 * 3_600_000;
+/**
+ * Hard cap on the rows the aura lens may carry. The lookback alone is not a
+ * bound (a fast cadence can emit thousands of `AuraHistory` rows a day), so the
+ * query is ALSO limited — the same discipline as `PricePoint`/`Trade`. 2000
+ * covers a full 24h at the engine's default 60s cadence (~1440 rows) with
+ * headroom, and the rows kept are the MOST RECENT within the lookback.
+ */
+export const AURA_HISTORY_LIMIT = 2000;
+
+export type IndexerAuraPoint = { aura: string; summary: string | null; timestamp: string };
+
+/**
+ * The aura lens' own source: up to 24h of `AuraHistory` for one handle, newest
+ * first. The prices lens stays inside its window (PricePoint rows only exist
+ * there), but the index is continuous — a 1H/6H/1D chip is a view over this day,
+ * not the window's sliver. Bounded by BOTH a `timestamp` lookback and a `limit`,
+ * so it can never grow without limit; the `aura` push invalidates this key live
+ * (and a WS reconnect resyncs it via the `["aura-history"]` prefix).
+ */
+export function auraHistoryOptions(handleId: string | undefined) {
+  return queryOptions({
+    queryKey: qk.auraHistory(handleId ?? ""),
+    queryFn: async () => {
+      const since = Math.floor((Date.now() - AURA_HISTORY_LOOKBACK_MS) / 1000);
+      return (
+        await gql<{ AuraHistory: IndexerAuraPoint[] }>(
+          `query($id: String!, $since: numeric!) {
+            AuraHistory(
+              where: { handle_id: { _eq: $id }, timestamp: { _gte: $since } }
+              order_by: { timestamp: desc }
+              limit: ${AURA_HISTORY_LIMIT}
+            ) { aura summary timestamp }
+          }`,
+          { id: handleId, since: String(since) },
+        )
+      ).AuraHistory;
+    },
+    enabled: !!handleId,
+    staleTime: 10_000,
+    // No poll: the `aura` push invalidates this key (reconnect resyncs it).
+  });
+}
+
 /**
  * Trades on one window — the live tape. Filtered and ordered by the indexer
  * (`window_id`, `order_by: { ts: desc }`) and PAGED: each page asks for

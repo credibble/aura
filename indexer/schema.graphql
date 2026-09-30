@@ -204,7 +204,7 @@ type Trade {
   window: Window!
   user: User!
   outcome: Int! # the outcome index traded (0 = YES)
-  kind: String! # BUY | SELL | CLAIM | TRANSFER_OUT | TRANSFER_IN
+  kind: String! # BUY | SELL | CLAIM | VOID | TRANSFER_OUT | TRANSFER_IN
   premium: BigInt! # collateral in (buy)
   proceeds: BigInt! # collateral out (sell/claim)
   shares: BigInt!

@@ -266,3 +266,36 @@ indexer.onEvent({ contract: "MarketMaker", event: "Claimed" }, async ({ event, c
 
   context.User.set({ ...user, totalProceeds: user.totalProceeds + event.params.payout });
 });
+
+/**
+ * A VOIDED window refunds its traders (`redeemVoid`) — the refund belongs in the
+ * trade history beside claims, or a voided position disappears from the record
+ * with no trace of the money coming back.
+ *
+ * The event carries the payout but neither the outcome nor the shares burned, so
+ * the row records the money (proceeds) and leaves the share columns at zero:
+ * the position arithmetic subtracts shares on a non-BUY kind, and inventing a
+ * number here would corrupt it. Everything else mirrors `Claimed` — the window's
+ * cash leaves, and the trader's proceeds go up.
+ */
+indexer.onEvent({ contract: "MarketMaker", event: "VoidRedeemed" }, async ({ event, context }) => {
+  const win = await loadWindowByOracle(context, event.params.oracle);
+  if (!win) return;
+  const user = await loadOrCreateUser(context, event.params.trader);
+
+  context.Trade.set({
+    id: eventId(event),
+    window_id: win.id,
+    user_id: user.id,
+    outcome: 0,
+    kind: "VOID",
+    premium: 0n,
+    proceeds: event.params.payout,
+    shares: 0n,
+    price: 0n,
+    ts: BigInt(event.block.timestamp),
+  });
+
+  context.Window.set({ ...win, cash: floor0(win.cash - event.params.payout) });
+  context.User.set({ ...user, totalProceeds: user.totalProceeds + event.params.payout });
+});

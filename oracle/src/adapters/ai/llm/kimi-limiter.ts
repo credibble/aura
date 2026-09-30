@@ -9,7 +9,8 @@ import Redis from "ioredis";
  * those queues, so locking inside either class (or even a single process) was
  * never enough. Everything funnels through `kimiRequest`:
  *   - ordered inside a process by `chain`;
- *   - serialised ACROSS processes by a Redis lock both containers share.
+ *   - serialised ACROSS processes by a Redis lock both containers share;
+ *   - spaced by KIMI_MIN_GAP_MS, since the org also rate-limits per minute.
  * It is retried with backoff, since the API itself says "try again after 1
  * seconds". Without Redis the lock degrades to the in-process chain.
  */
@@ -28,6 +29,40 @@ const LOCK_POLL_MS = 150;
 /** Release only the lock we own, so a TTL-expired lock can't be deleted by its old owner. */
 const RELEASE_LUA =
   'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) end return 0';
+
+/**
+ * Minimum spacing between consecutive Kimi calls (KIMI_MIN_GAP_MS). The org
+ * allows ONE in-flight request *and* rate-limits per minute, so sequencing alone
+ * still trips "max organization max RPM"; this cushion keeps the engine under it
+ * instead of retrying through 429s. Tracked in Redis so it spaces BOTH
+ * containers, with a per-process fallback when Redis is absent. 0 disables it.
+ */
+const GAP_MS = Math.max(0, Number(process.env.KIMI_MIN_GAP_MS ?? 0) || 0);
+const GAP_KEY = "aura:kimi:last-call";
+let lastLocalCallAt = 0;
+
+/** Wait out the inter-call cushion; the caller must already hold the slot. */
+async function applyGap(client: Redis | null): Promise<void> {
+  if (GAP_MS <= 0) return;
+  let last = lastLocalCallAt;
+  if (client) {
+    try {
+      last = Math.max(last, Number((await client.get(GAP_KEY)) ?? 0) || 0);
+    } catch {
+      /* Redis hiccup — fall back to the process-local timestamp */
+    }
+  }
+  const wait = last + GAP_MS - Date.now();
+  if (wait > 0) await sleep(wait);
+  lastLocalCallAt = Date.now();
+  if (client) {
+    try {
+      await client.set(GAP_KEY, String(lastLocalCallAt), "PX", Math.max(60_000, GAP_MS * 4));
+    } catch {
+      /* the timestamp is best-effort */
+    }
+  }
+}
 
 let redisInit: Promise<Redis | null> | null = null;
 
@@ -79,7 +114,10 @@ function lockClient(): Promise<Redis | null> {
 /** Acquire the cross-process lock, run `call`, release it. Degrades to a local run. */
 async function inSingleSlot<T>(call: () => Promise<T>): Promise<T> {
   const client = await lockClient();
-  if (!client) return call();
+  if (!client) {
+    await applyGap(null);
+    return call();
+  }
 
   const token = `${process.pid}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const deadline = Date.now() + LOCK_WAIT_MAX_MS;
@@ -108,6 +146,7 @@ async function inSingleSlot<T>(call: () => Promise<T>): Promise<T> {
   }
 
   try {
+    await applyGap(client);
     return await call();
   } finally {
     try {

@@ -171,7 +171,7 @@ export function FeedItem({
                 className={cn(
                   "relative z-20 overflow-hidden bg-secondary object-cover",
                   compact
-                    ? "h-20 w-auto max-w-[160px] rounded-xl"
+                    ? "h-14 w-auto max-w-[112px] rounded-xl"
                     : "aspect-video w-full rounded-2xl",
                 )}
               />
@@ -184,7 +184,7 @@ export function FeedItem({
                 className={cn(
                   "overflow-hidden object-cover",
                   compact
-                    ? "h-20 w-auto max-w-[160px] rounded-xl"
+                    ? "h-14 w-auto max-w-[112px] rounded-xl"
                     : "aspect-video w-full rounded-2xl",
                 )}
               />

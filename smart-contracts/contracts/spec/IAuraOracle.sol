@@ -4,29 +4,10 @@ pragma solidity ^0.8.24;
 /// @title Aura Oracle interface
 /// @notice The single trusted resolution authority for ONE (handleId,
 ///         windowStart) market window. Every window has its own oracle contract
-///         (Sui per-window oracle style) carrying its own handleId/windowStart.
+///         carrying its own handleId/windowStart.
 ///         Mirrors the shared spec in `packages/contracts/src/receipt.ts`
 ///         (EIP-712 typed data).
 interface IAuraOracle {
-    event WindowOpened(bytes32 indexed handleId, uint256 windowStart, uint256 windowEnd);
-    event WindowFrozen(bytes32 indexed handleId, uint256 windowStart);
-    event WindowResolved(bytes32 indexed handleId, uint256 windowStart, bool direction, uint256 indexClose, bytes32 resolutionHash);
-    event WindowVoided(bytes32 indexed handleId, uint256 windowStart, string reason);
-
-    function resolutionOf()
-        external
-        view
-        returns (bool direction, uint256 indexClose, bytes32 resolutionHash, uint256 resolvedAt);
-    event WindowConfirmed(uint256 windowEnd, string metadata);
-
-    /// The on-chain lifecycle of a (handleId, windowStart) market window.
-    enum WindowStatus {
-        OPEN, // trading allowed
-        FROZEN, // trading locked; awaiting resolution
-        RESOLVED, // settled from a signed receipt
-        VOIDED // no resolution — market voided and refunded
-    }
-
     /// The signed payload the relayer submits. All fractional numbers are
     /// fixed-point scaled by PRICE_SCALE (10_000).
     struct ResolutionReceipt {
@@ -44,19 +25,26 @@ interface IAuraOracle {
         uint256 resolvedAt;
     }
 
-    /// Verify the oracle signature and settle the window once.
-    function submitResolution(ResolutionReceipt calldata receipt, bytes calldata signature) external;
+    /// The on-chain lifecycle of a (handleId, windowStart) market window.
+    enum WindowStatus {
+        OPEN, // trading allowed
+        FROZEN, // trading locked; awaiting resolution
+        RESOLVED, // settled from a signed receipt
+        VOIDED // no resolution — market voided and refunded
+    }
 
-    /// Confirm the window's real end + canonical metadata (the MarketMaker relays
-    /// it at open). One-shot; also overwrites squatter-set metadata.
-    function confirmWindow(uint256 windowEnd, string calldata metadata) external;
+    // --- events ---------------------------------------------------------------
+    event WindowOpened(bytes32 indexed handleId, uint256 windowStart, uint256 windowEnd);
 
-    /// The window's confirmed end (0 = never confirmed).
-    function windowEnd() external view returns (uint256);
+    event WindowConfirmed(uint256 windowEnd, string metadata);
 
-    /// Void a window (no resolution) — refunds traders.
-    function voidWindow(string calldata reason) external;
+    event WindowFrozen(bytes32 indexed handleId, uint256 windowStart);
 
+    event WindowResolved(bytes32 indexed handleId, uint256 windowStart, bool direction, uint256 indexClose, bytes32 resolutionHash);
+
+    event WindowVoided(bytes32 indexed handleId, uint256 windowStart, string reason);
+
+    // --- views ----------------------------------------------------------------
     /// The handle and window this oracle is bound to (immutable identity).
     function handleId() external view returns (bytes32);
 
@@ -65,7 +53,26 @@ interface IAuraOracle {
     /// The oracle IS the window — no (handleId, windowStart) params needed.
     function windowStatus() external view returns (WindowStatus);
 
-    function freezeWindow() external;
+    /// The window's confirmed end (0 = never confirmed).
+    function windowEnd() external view returns (uint256);
+
+    function resolutionOf()
+        external
+        view
+        returns (bool direction, uint256 indexClose, bytes32 resolutionHash, uint256 resolvedAt);
 
     function receiptDigest(ResolutionReceipt calldata receipt) external view returns (bytes32);
+
+    // --- actions --------------------------------------------------------------
+    /// Confirm the window's real end + canonical metadata (the MarketMaker relays
+    /// it at open). One-shot; also overwrites squatter-set metadata.
+    function confirmWindow(uint256 windowEnd, string calldata metadata) external;
+
+    function freezeWindow() external;
+
+    /// Verify the oracle signature and settle the window once.
+    function submitResolution(ResolutionReceipt calldata receipt, bytes calldata signature) external;
+
+    /// Void a window (no resolution) — refunds traders.
+    function voidWindow(string calldata reason) external;
 }

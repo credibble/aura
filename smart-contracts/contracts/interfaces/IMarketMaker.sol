@@ -7,6 +7,7 @@ import { OutcomeToken } from "../tokens/OutcomeToken.sol";
 /// @title IMarketMaker
 /// @notice The binary LMSR prediction market (YES/NO windows on the aura index).
 interface IMarketMaker {
+    // --- events ---------------------------------------------------------------
     event WindowOpened(
         bytes32 indexed handleId,
         address indexed oracle,
@@ -22,6 +23,7 @@ interface IMarketMaker {
     /// state change — open, buy, sell — so the indexer's price chart reads the
     /// exact numbers traders pay instead of re-deriving the LMSR off-chain.
     event PricesUpdated(bytes32 indexed handleId, address indexed oracle, uint256[] prices);
+
     event Bought(
         bytes32 indexed handleId,
         address indexed oracle,
@@ -31,6 +33,7 @@ interface IMarketMaker {
         uint256 sharesMinted,
         uint256 price
     );
+
     event Sold(
         bytes32 indexed handleId,
         address indexed oracle,
@@ -39,32 +42,16 @@ interface IMarketMaker {
         uint256 sharesBurned,
         uint256 proceeds
     );
-    event Settled(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        uint256 winningOutcome
-    );
-    event Claimed(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        address indexed trader,
-        uint256 outcome,
-        uint256 sharesBurned,
-        uint256 payout
-    );
+
+    event OutcomeTokenDeployed(address indexed oracle, uint256 outcome, address token);
+
     event Approved(
         address indexed owner,
         address indexed oracle,
         uint256 outcome,
         uint256 amount
     );
-    event OutcomeTokenDeployed(address indexed oracle, uint256 outcome, address token);
-    event VoidRedeemed(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        address indexed trader,
-        uint256 payout
-    );
+
     event Transferred(
         address indexed from,
         address indexed to,
@@ -73,6 +60,40 @@ interface IMarketMaker {
         uint256 amount
     );
 
+    event Settled(
+        bytes32 indexed handleId,
+        address indexed oracle,
+        uint256 winningOutcome
+    );
+
+    event Claimed(
+        bytes32 indexed handleId,
+        address indexed oracle,
+        address indexed trader,
+        uint256 outcome,
+        uint256 sharesBurned,
+        uint256 payout
+    );
+
+    event VoidRedeemed(
+        bytes32 indexed handleId,
+        address indexed oracle,
+        address indexed trader,
+        uint256 payout
+    );
+
+    // --- views ----------------------------------------------------------------
+    function isOpen(IAuraOracle oracle) external view returns (bool);
+
+    function priceOf(IAuraOracle oracle, uint256 outcome) external view returns (uint256);
+
+    function buyCost(IAuraOracle oracle, uint256 outcome, uint256 delta) external view returns (uint256);
+
+    function sellProceeds(IAuraOracle oracle, uint256 outcome, uint256 delta) external view returns (uint256);
+
+    function outcomeTokenOf(IAuraOracle oracle, uint256 outcome) external view returns (OutcomeToken);
+
+    // --- actions --------------------------------------------------------------
     function openWindow(
         bytes32 handleId,
         uint256 windowStart,
@@ -84,31 +105,21 @@ interface IMarketMaker {
         uint256 funding
     ) external;
 
-    function settle(IAuraOracle oracle, uint256 winningOutcome) external;
-
     function buy(IAuraOracle oracle, uint256 outcome, uint256 amountIn, uint256 minShares) external;
 
     function sell(IAuraOracle oracle, uint256 outcome, uint256 delta, uint256 minProceeds) external;
 
+    function settle(IAuraOracle oracle, uint256 winningOutcome) external;
+
     function claim(IAuraOracle oracle, uint256 outcome) external;
 
-    function priceOf(IAuraOracle oracle, uint256 outcome) external view returns (uint256);
+    function redeemVoid(IAuraOracle oracle) external;
 
-    function isOpen(IAuraOracle oracle) external view returns (bool);
+    function finalize(IAuraOracle oracle) external;
 
     function approve(IAuraOracle oracle, uint256 outcome, uint256 amount) external;
 
     function transfer(address to, IAuraOracle oracle, uint256 outcome, uint256 q) external;
-
-    function finalize(IAuraOracle oracle) external;
-
-    function redeemVoid(IAuraOracle oracle) external;
-
-    function outcomeTokenOf(IAuraOracle oracle, uint256 outcome) external view returns (OutcomeToken);
-
-    function buyCost(IAuraOracle oracle, uint256 outcome, uint256 delta) external view returns (uint256);
-
-    function sellProceeds(IAuraOracle oracle, uint256 outcome, uint256 delta) external view returns (uint256);
 
     function transferFrom(address from, address to, IAuraOracle oracle, uint256 outcome, uint256 q) external;
 }

@@ -82,8 +82,9 @@ contract Handle is IHandle, Ownable2Step, ReentrancyGuard {
     address public curator;
     /// Trading-prediction graduation: only graduated handles can open windows.
     bool public graduated;
-    /// Content categories — each a market-style code encoded
-    /// `{cat}_{sub}_{format}` (e.g. 100_001_001 = sport/football/binary YES-NO).
+    /// Content categories - each a plain small integer the UI maps to a family:
+    /// 1 people · 2 crypto · 3 sports · 4 ai · 5 tech · 6 brands · 7 music ·
+    /// 8 memes · 9 culture.
     /// A handle may carry more than one (e.g. a person who is also a football
     /// handle). Set by the protocol (backend). `categoriesCount()` exists
     /// because the public getter only exposes one index at a time.
@@ -227,7 +228,7 @@ contract Handle is IHandle, Ownable2Step, ReentrancyGuard {
         emit CuratorSet(_curator);
     }
 
-    /// Backend sets the handle's content categories (market-style codes).
+    /// Backend sets the handle's category codes (1-9).
     /// Replaces the whole set; empty is rejected so a handle always carries one.
     function setCategories(uint256[] calldata _categories) external onlyCurator {
         if (_categories.length == 0) revert Errors.ZeroAmount();

@@ -8,7 +8,7 @@ import {Errors} from "./libraries/Errors.sol";
 
 /// @title Oracle
 /// @notice A dedicated resolution authority for ONE (handleId, windowStart)
-///         window — the Sui-style "every window is an oracle" model. It holds
+///         window — every window is its own oracle. It holds
 ///         its own OPEN -> FROZEN -> RESOLVED | VOIDED state machine, its own
 ///         trusted EIP-712 signer, and its own resolution, so every window
 ///         settles fully independently. Deployed by the OracleFactory.

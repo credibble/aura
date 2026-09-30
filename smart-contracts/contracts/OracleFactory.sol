@@ -7,7 +7,7 @@ import {IOracleFactory} from "./interfaces/IOracleFactory.sol";
 
 /// @title OracleFactory
 /// @notice Deploys and tracks one Oracle per (handleId, windowStart) —
-///         the Sui-style "every window is an oracle" model. All oracles share a
+///         one oracle per window. All oracles share a
 ///         single trusted signer, but each holds independent state, so windows
 ///         resolve and settle fully independently.
 contract OracleFactory is IOracleFactory {

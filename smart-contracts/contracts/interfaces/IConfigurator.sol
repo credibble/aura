@@ -7,13 +7,20 @@ pragma solidity ^0.8.24;
 ///         protocol can tune them without redeploying. Read-only getters are
 ///         consumed by the contracts; the owner mutates them.
 interface IConfigurator {
+    // --- events ---------------------------------------------------------------
     event DepositFeeRangeSet(uint64 minBps, uint64 maxBps);
+
     event MaxFeeAuraSet(uint256 maxFeeAura);
+
     event MarketFeeBpsSet(uint64 bps);
+
     event MinWindowSecondsSet(uint256 minWindowSeconds);
+
     event WindowPaddingSet(uint256 windowPadding);
+
     event SettlementGraceSet(uint256 seconds_);
 
+    // --- views ----------------------------------------------------------------
     /// Floor deposit fee (bps) — applied to any handle with aura > 0.
     function depositFeeMinBps() external view returns (uint64);
 
@@ -23,15 +30,15 @@ interface IConfigurator {
     /// The max aura value (999999) — the top of the fee curve (the max fee
     function maxFeeAura() external view returns (uint256);
 
+    /// Trading fee (bps) charged by the market on buys/sells.
+    function marketFeeBps() external view returns (uint64);
+
     /// Minimum window duration (epoch seconds) — windows shorter than this revert.
     function minWindowSeconds() external view returns (uint256);
 
     /// Close padding (seconds): buy/sell is rejected when the window is within
     /// this many seconds of ending (prevents last-second gaming of the close).
     function windowPadding() external view returns (uint256);
-
-    /// Trading fee (bps) charged by the market on buys/sells.
-    function marketFeeBps() external view returns (uint64);
 
     /// Grace period (seconds) a settled window waits before its leftover
     /// liquidity reserve can be released — claims need time to land first.
@@ -41,15 +48,16 @@ interface IConfigurator {
     /// min (0.25%) and max (2.5%) config as aura scales linearly to maxFeeAura.
     function depositFeeBps(uint256 aura) external view returns (uint64);
 
+    // --- actions --------------------------------------------------------------
     function setDepositFeeRange(uint64 minBps, uint64 maxBps) external;
 
     function setMaxFeeAura(uint256 maxFeeAura) external;
+
+    function setMarketFeeBps(uint64 bps) external;
 
     function setMinWindowSeconds(uint256 _seconds) external;
 
     function setWindowPadding(uint256 _seconds) external;
 
     function setSettlementGraceSeconds(uint256 seconds_) external;
-    
-    function setMarketFeeBps(uint64 bps) external;
 }

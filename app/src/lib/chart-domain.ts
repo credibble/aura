@@ -36,3 +36,22 @@ export function tightDomain(data: number[]): { min: number; max: number } {
   const pad = (hi - lo) * 0.08;
   return { min: lo - pad, max: hi + pad };
 }
+
+/**
+ * The domain for a probability axis: the whole 0–100% space, extended only if a
+ * real value falls outside it.
+ *
+ * Outcome prices are shares of a whole, so they must be read against the fixed
+ * percentage scale — a 0.4-point move is 0.4% of the plot. `tightDomain` is
+ * deliberately the WRONG tool here: on a binary market the two outcomes are
+ * complements, so a 50/50 window's data band is ~0.7 points and the band
+ * magnifies that 0.4-point move to nearly the full height, while a lopsided
+ * window's band spans the legs. The band is always arbitrary; the percent space
+ * is not.
+ */
+export function percentDomain(data: number[]): { min: number; max: number } {
+  if (data.length === 0) return { min: 0, max: 100 };
+  const lo = Math.min(...data);
+  const hi = Math.max(...data);
+  return { min: Math.min(0, lo), max: Math.max(100, hi) };
+}

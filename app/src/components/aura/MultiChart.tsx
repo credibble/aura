@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { tightDomain } from "@/lib/chart-domain";
+import { percentDomain, tightDomain } from "@/lib/chart-domain";
 
 type Series = { data: number[]; color: string; label: string };
 
@@ -53,9 +53,10 @@ function pathFor(y: number[], start = 0): string {
 }
 
 /**
- * A handful of round tick values inside [min, max]. The band is already tight
- * (see `tightDomain`), so ticks follow the data — a market trading 47–53%
- * reads 47/49/51/53, not 0/25/50/75/100.
+ * A handful of round tick values inside [min, max]. On the percent axis the
+ * domain is the fixed 0–100% space, so a market at 50/50 reads 0/50/100 — a
+ * 0.4-point gap stays tiny. On the points axis the band is tight (see
+ * `tightDomain`) and the ticks follow the data instead.
  */
 function niceTicks(min: number, max: number, count = 4): number[] {
   const span = max - min;
@@ -100,9 +101,12 @@ export function MultiChart({
   const id = useId();
   const h = height;
   const all = series.flatMap((s) => s.data);
-  // Tight domain: tiny moves fill the chart, flat series centre instead of
-  // dropping to the floor.
-  const { min, max } = tightDomain(all);
+  // The axis unit picks the SCALE, not just the label suffix. Probabilities are
+  // shares of a whole and must read against the fixed 0–100% space, so a 0.4%
+  // move is 0.4% of the plot instead of being magnified by a data band that is
+  // only ~0.7 points wide. Aura index points are a level, not a share, so they
+  // keep the tight band (`tightDomain`) and fill the chart with their movement.
+  const { min, max } = axis === "percent" ? percentDomain(all) : tightDomain(all);
 
   const yFor = (v: number) => h - ((v - min) / (max - min || 1)) * (h - 8) - 4;
 

@@ -213,8 +213,24 @@ function TradePage() {
     const pts = pointsQuery.data ?? [];
     const startMs = Number(viewed.windowStart) * 1000;
     const endMs = Number(viewed.windowEnd) * 1000;
-    const seed = { ts: Number(viewed.windowStart), prices: viewed.initialProbabilities };
-    const arr = pts.length === 0 || Number(pts[0]!.ts) * 1000 > startMs ? [seed, ...pts] : pts;
+    // The window's first print is the seeded on-chain vector emitted at open
+    // (`WindowOpened` probabilities, mirrored by the first `PricesUpdated` /
+    // PricePoint). Its block timestamp can land a few seconds BEFORE
+    // `windowStart`, so it would otherwise be dropped by the range filter below
+    // — and the seed was only added when the first point was AFTER start, so
+    // such a window drew nothing. Seed at `windowStart` unless a point already
+    // sits exactly there, and fall back to the window's live `prices` vector if
+    // the seeded one is missing. Both are real on-chain values.
+    const seedPrices = viewed.initialProbabilities?.length
+      ? viewed.initialProbabilities
+      : viewed.prices;
+    const seed = seedPrices?.length
+      ? { ts: Number(viewed.windowStart), prices: seedPrices }
+      : null;
+    const arr =
+      seed && (pts.length === 0 || Number(pts[0]!.ts) * 1000 !== startMs)
+        ? [seed, ...pts]
+        : pts;
     const cfg = RANGES.find((r) => r.id === range)!;
     const from = Number.isFinite(cfg.spanMs) ? Math.max(startMs, endMs - cfg.spanMs) : startMs;
     const to = Number.isFinite(cfg.spanMs) ? endMs : Math.max(endMs, startMs + 1);
@@ -224,6 +240,9 @@ function TradePage() {
       return {
         label: o.label,
         color: o.color,
+        // A lone point can't form a path on its own; duplicate it so the
+        // window draws its true level immediately as a flat line (the x axis is
+        // point-indexed, so this spans the plot exactly like the other series).
         data: data.length === 1 ? [data[0]!, data[0]!] : data,
       };
     });

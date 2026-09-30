@@ -14,6 +14,7 @@ import {
 } from "../src/jobs/feed/feed-engine.service";
 import type { RawDatum } from "../src/core/domain/source-item";
 import type { AuraHandle } from "../src/jobs/jobs.types";
+import { UNREPORTED_ENGAGEMENT } from "../src/social/engagement";
 
 describe("job utils", () => {
   it("padToN right-pads a fresh series with its first value (new-source rule)", () => {
@@ -332,10 +333,10 @@ describe("feed digest engagement (reported, never fabricated)", () => {
     return rows[0]!;
   }
 
-  it("persists NO counter keys for an RSS digest — nothing was reported", async () => {
+  it("marks an RSS digest's counters unreported — never a fabricated 0", async () => {
     const row = await persist([{ sourceName: "rss", text: "Tesla robotaxi launches", publishedAt: 9_000 }]);
     for (const key of ["replies", "reposts", "likes", "views"]) {
-      expect(row).not.toHaveProperty(key);
+      expect(row[key]).toBe(UNREPORTED_ENGAGEMENT);
     }
   });
 
@@ -350,7 +351,7 @@ describe("feed digest engagement (reported, never fabricated)", () => {
     ]);
     expect(row.likes).toBe(0); // a measured zero survives
     expect(row.reposts).toBe(5);
-    expect(row).not.toHaveProperty("replies");
-    expect(row).not.toHaveProperty("views");
+    expect(row.replies).toBe(UNREPORTED_ENGAGEMENT);
+    expect(row.views).toBe(UNREPORTED_ENGAGEMENT);
   });
 });

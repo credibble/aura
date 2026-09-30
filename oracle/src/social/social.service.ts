@@ -5,6 +5,7 @@ import { OutboxService } from "../orchestration/outbox.service";
 import type { OnChainHandleView } from "../core/domain/handle";
 import type { FeedEvent, SocialEventData } from "@aura/contracts";
 import { IndexerHandleSync } from "../registry/indexer-handle-sync.service";
+import { reportedStats, type PostStats } from "./engagement";
 
 export type LikeTargetType = "feed" | "window" | "handle";
 
@@ -21,8 +22,10 @@ export interface PostEvent extends FeedEvent {
   media: { kind: "image" | "video"; src: string; alt?: string }[];
   /** FeedSource[] â€” the underlying source posts that fed the aggregate. */
   sources: { id: string; platform: string; account: string; text: string; ts: number; aura: number; stats?: string }[];
-  /** Denormalized counters (Comment / Like / Repost tables). */
-  stats: { replies: number; reposts: number; likes: number; views: number };
+  /** Denormalized counters (Comment / Like / Repost tables). A key is present
+   *  only when the platform actually reported that counter — an unreported one
+   *  is absent, not 0. */
+  stats: PostStats;
   /** Viewer flags â€” only set when the request carries `?currentUser=0xâ€¦`. */
   likedByMe?: boolean;
   repostedByMe?: boolean;
@@ -132,17 +135,33 @@ export class SocialService {
     by: 1 | -1,
   ): Promise<void> {
     try {
+      const before = await this.prisma.post.findUnique({ where: { id } });
+      if (!before) return;
+      const current =
+        field === "likes" ? before.likes : field === "reposts" ? before.reposts : before.replies;
+      // A digest counter the platform never reported holds the sentinel; the
+      // app's own engagement is real, so its first bump resolves the sentinel
+      // to that count (0 → 1) instead of leaving a bogus low number.
+      const unreported = current < 0;
       const data =
         field === "likes"
-          ? { likes: { increment: by } }
+          ? unreported
+            ? { likes: Math.max(0, by) }
+            : { likes: { increment: by } }
           : field === "reposts"
-            ? { reposts: { increment: by } }
-            : { replies: { increment: by } };
+            ? unreported
+              ? { reposts: Math.max(0, by) }
+              : { reposts: { increment: by } }
+            : unreported
+              ? { replies: Math.max(0, by) }
+              : { replies: { increment: by } };
       const row = await this.prisma.post.update({ where: { id }, data });
       this.publishSocial({
         op: "engagement",
         postId: id,
-        stats: { likes: row.likes, reposts: row.reposts, replies: row.replies },
+        // Only the counters that were reported ride the event — a sentinel
+        // must never surface as a live -1.
+        stats: reportedStats(row),
       });
     } catch {
       /* not a Post row (or Postgres down) â€” no live counter to push */
@@ -167,7 +186,7 @@ export class SocialService {
       createdAt: p.createdAt.getTime(),
       media: (p.media as PostEvent["media"]) ?? [],
       sources: (p.sources as PostEvent["sources"]) ?? [],
-      stats: { replies: p.replies, reposts: p.reposts, likes: p.likes, views: p.views },
+      stats: reportedStats(p),
     };
   }
 
@@ -382,9 +401,13 @@ export class SocialService {
    *  the new count, or null when the post is missing / Postgres is down. */
   async incrementViews(id: string): Promise<number | null> {
     try {
+      const before = await this.prisma.post.findUnique({ where: { id } });
+      if (!before) return null;
       const row = await this.prisma.post.update({
         where: { id },
-        data: { views: { increment: 1 } },
+        // A digest view count the platform never reported holds the sentinel;
+        // the first real view starts it at 1, not at the sentinel + 1.
+        data: before.views < 0 ? { views: 1 } : { views: { increment: 1 } },
       });
       return row.views;
     } catch (error) {

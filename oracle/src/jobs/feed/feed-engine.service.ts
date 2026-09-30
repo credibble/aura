@@ -10,6 +10,7 @@ import { WsBroadcastService } from "../ws/ws-broadcast.service";
 import { countLine } from "../aura/aura-engine.service";
 import { FeedAiService, type FeedDraft, type FeedInput } from "./feed-ai.service";
 import { PrismaService } from "../../persistence/prisma.service";
+import { POST_COUNTERS, UNREPORTED_ENGAGEMENT, type PostCounter } from "../../social/engagement";
 import type { AuraHandle } from "../jobs.types";
 import type { Source } from "../../core/domain/source";
 import type { RawDatum } from "../../core/domain/source-item";
@@ -158,8 +159,8 @@ function reach(item: RawDatum): number {
 }
 
 /** The four platform counters the feed card renders — a subset of `RawDatum.stats`. */
-const COUNTER_FIELDS = ["replies", "reposts", "likes", "views"] as const;
-type FeedCounterField = (typeof COUNTER_FIELDS)[number];
+const COUNTER_FIELDS = POST_COUNTERS;
+type FeedCounterField = PostCounter;
 
 /**
  * The platform's reported engagement for a digest, pooled over its stories and
@@ -391,8 +392,9 @@ export class FeedEngineService {
     await this.writeMarker(handle.label, newestTs || now);
 
     // The platform's reported counters for the digest, pooled over its stories.
-    // Only the counters a source actually returned are written: an unreported
-    // counter stays absent (the card renders nothing) instead of a fabricated 0.
+    // The `Post` columns are `Int @default(0)`, so an omitted counter would be
+    // read back as a genuine-looking 0; the sentinel records "never reported",
+    // which `SocialService.toPost` drops from the API response.
     const counters = digestCounters(stories);
 
     // Persist the AI feed post for the frontend timeline/detail pages.
@@ -408,9 +410,12 @@ export class FeedEngineService {
           marketId: handle.id,
           summary: draft.title,
           body: [draft.body],
-          // Platform-reported engagement only; absent means the platform did
-          // not report it, NOT a measured zero.
-          ...counters,
+          // Platform-reported engagement only; a counter the platform did not
+          // report is the sentinel, NOT a measured zero.
+          replies: counters.replies ?? UNREPORTED_ENGAGEMENT,
+          reposts: counters.reposts ?? UNREPORTED_ENGAGEMENT,
+          likes: counters.likes ?? UNREPORTED_ENGAGEMENT,
+          views: counters.views ?? UNREPORTED_ENGAGEMENT,
           sources: postSources,
           // Media extracted from the source items (RSS enclosures / media:content
           // / inline <img>). It was collected and then dropped here, so every

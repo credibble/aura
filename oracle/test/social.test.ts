@@ -188,12 +188,13 @@ class FakeSocial {
     },
     count: async (a: { where?: PostWhere }) => this.filterPosts(a.where).length,
     findUnique: async (a: { where: { id: string } }) => this.posts.find((r) => r.id === a.where.id) ?? null,
-    update: async (a: { where: { id: string }; data: Record<string, { increment: number }> }) => {
+    update: async (a: { where: { id: string }; data: Record<string, { increment: number } | number> }) => {
       const row = this.posts.find((r) => r.id === a.where.id);
       if (!row) throw new Error(`missing post ${a.where.id}`);
       for (const [field, op] of Object.entries(a.data)) {
         const rec = row as unknown as Record<string, number>;
-        rec[field] = (rec[field] ?? 0) + (op?.increment ?? 0);
+        rec[field] =
+          typeof op === "number" ? op : (rec[field] ?? 0) + (op?.increment ?? 0);
       }
       return row;
     },
@@ -421,6 +422,45 @@ describe("SocialService — likes, following, subscribing, notifications, repost
     expect(await social.incrementViews("ev-1")).toBe(1);
     expect(await social.incrementViews("ev-1")).toBe(2);
     expect(await social.incrementViews("nope")).toBeNull();
+  });
+
+  it("omits digest counters the platform never reported, keeping a reported 0", async () => {
+    const { social, fake } = make();
+    fake.posts = [
+      // An RSS digest: no platform reported any engagement at all.
+      { ...postRow("feed:rss:1", "btc", 300), replies: -1, reposts: -1, likes: -1, views: -1 },
+      // An X digest that reported exactly 0 likes and nothing else.
+      { ...postRow("feed:x:2", "btc", 200), replies: -1, reposts: -1, likes: 0, views: -1 },
+      // A human post: its own counters legitimately start at 0.
+      postRow("user:u1:3", "btc", 100, "u1", false),
+    ];
+
+    // Unreported counters are ABSENT from the API response, not 0.
+    expect((await social.post("feed:rss:1"))!.stats).toEqual({});
+    // A genuinely reported 0 still shows as 0.
+    expect((await social.post("feed:x:2"))!.stats).toEqual({ likes: 0 });
+    expect((await social.post("user:u1:3"))!.stats).toEqual({
+      replies: 0,
+      reposts: 0,
+      likes: 0,
+      views: 0,
+    });
+  });
+
+  it("resolves an unreported counter to a real count on the first engagement", async () => {
+    const { social, fake } = make();
+    fake.posts = [
+      { ...postRow("feed:x:1", "btc", 300), likes: -1 },
+      { ...postRow("feed:v:2", "btc", 200), views: -1 },
+    ];
+
+    await social.like("u1", "feed:x:1", "feed");
+    // The sentinel means "no platform count"; the viewer's own like is 1,
+    // never the sentinel stepped to 0.
+    expect(fake.posts.find((p) => p.id === "feed:x:1")!.likes).toBe(1);
+    expect((await social.post("feed:x:1"))!.stats.likes).toBe(1);
+
+    expect(await social.incrementViews("feed:v:2")).toBe(1);
   });
 
   it("bookmarks/saves posts with flags, paging and removal", async () => {

@@ -7,6 +7,11 @@ import { cn } from "@/lib/utils";
  * Page chrome for every non-feed page: left rail + center column +
  * right sidebar (the standard home rail by default). Keeps short pages from
  * looking stubby without per-route hacks.
+ *
+ * This is the same shell as the feed, not a parallel one: it renders
+ * `FeedLayout`, so the centre column's 840px cap (and its `mx-auto` centring)
+ * applies here too. The leaderboard/portfolio tables sit inside that measure —
+ * their 620px min-width clears it, so none of them scroll sideways.
  */
 export function PageShell({
   children,
@@ -22,7 +27,7 @@ export function PageShell({
   mainClassName?: string;
 }) {
   return (
-    <FeedLayout wide sidebar={sidebar ?? <HomeSidebar />}>
+    <FeedLayout sidebar={sidebar ?? <HomeSidebar />}>
       {header}
       <div className={cn("px-4 py-5 sm:px-6", mainClassName)}>{children}</div>
     </FeedLayout>

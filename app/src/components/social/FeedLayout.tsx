@@ -32,9 +32,12 @@ import { cn } from "@/lib/utils";
 // toggle (bottom of the rail) opens the labeled 264px rail, and the preference
 // is remembered in localStorage. Without a stored preference the rail follows
 // the original CSS breakpoints (labels from 2xl up).
-// `wide` widens the center column (840px) for market/list pages; the timeline
-// and post pages stay at X's 600px. Mobile falls back to the standard top
-// Navbar. Users can't post — only @handles do.
+// The center column is capped at 840px and centred, so the shell reads at a
+// sane measure on wide screens instead of stretching edge to edge. `wide` is
+// kept for call-site compatibility but every page shares that one width; the
+// grid still fits three cards at lg, the tables clear their 620px min-width,
+// and the feed stays readable. Mobile falls back to the standard top Navbar.
+// Users can't post — only @handles do.
 // ----------------------------------------------------------------------------
 
 const RAIL_KEY = "aura:rail";
@@ -86,13 +89,15 @@ export function FeedLayout({
       <div className="lg:hidden">
         <Navbar />
       </div>
-      {/* One shell width for every page — only the sidebar's presence differs. */}
-      <div className="mx-auto flex w-full max-w-[1600px] justify-center">
+      {/* One shell width for every page. The outer frame only needs to hold the
+          max rail (264) + centre (840) + aside (350) ≈ 1454px, so 1440 removes
+          the dead gutters the old 1600 left on 1440p/4K screens. */}
+      <div className="mx-auto flex w-full max-w-[1440px] justify-center">
         <LeftRail />
         <main
           id="main-content"
           tabIndex={-1}
-          className="min-h-screen w-full min-w-0 flex-1 border-x border-border outline-none"
+          className="mx-auto min-h-screen w-full min-w-0 max-w-[840px] flex-1 border-x border-border outline-none"
         >
           {children}
         </main>

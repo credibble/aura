@@ -27,7 +27,6 @@ function NotFoundComponent() {
     <AuraProvider>
       <SocialProvider>
         <FeedLayout
-          wide
           sidebar={
             <>
               <FeedSearch />
@@ -71,7 +70,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <AuraProvider>
       <SocialProvider>
         <FeedLayout
-          wide
           sidebar={
             <>
               <FeedSearch />

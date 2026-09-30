@@ -20,7 +20,6 @@ export function LegalPage({
 }) {
   return (
     <FeedLayout
-      wide
       sidebar={
         <>
           <FeedSearch />

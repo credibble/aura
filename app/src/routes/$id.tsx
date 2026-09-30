@@ -272,7 +272,7 @@ function TradePage() {
 
   if (handlesPending || windowsQuery.isPending) {
     return (
-      <FeedLayout wide>
+      <FeedLayout>
         <HandleHeaderSkeleton />
         <div className="space-y-4 px-4 pt-4 sm:px-6">
           <ChartSkeleton />
@@ -285,7 +285,7 @@ function TradePage() {
   // outage told the user the handle doesn't exist.
   if (handlesError || windowsQuery.isError) {
     return (
-      <FeedLayout wide>
+      <FeedLayout>
         <div className="px-4 pt-6 sm:px-6">
           <QueryError
             what="this market"
@@ -301,7 +301,7 @@ function TradePage() {
 
   if (!h) {
     return (
-      <FeedLayout wide>
+      <FeedLayout>
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
           <h1 className="text-2xl font-bold">Market not found</h1>
           <p className="text-sm text-muted-foreground">
@@ -348,7 +348,6 @@ function TradePage() {
 
   return (
     <FeedLayout
-      wide
       sidebar={
         !tradable ? (
           <div className="rounded-2xl border border-border/70 bg-card p-4 text-[13px] leading-relaxed">

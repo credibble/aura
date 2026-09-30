@@ -33,10 +33,12 @@ import { cn } from "@/lib/utils";
 // is remembered in localStorage. Without a stored preference the rail follows
 // the original CSS breakpoints (labels from 2xl up).
 // The center column is capped at 840px and centred, so the shell reads at a
-// sane measure on wide screens instead of stretching edge to edge. `wide` is
-// kept for call-site compatibility but every page shares that one width; the
-// grid still fits three cards at lg, the tables clear their 620px min-width,
-// and the feed stays readable. Mobile falls back to the standard top Navbar.
+// sane measure on wide screens instead of stretching edge to edge. The block
+// hugs its columns (rail + centre + aside) and is centred as a group, so
+// collapsing the rail visibly narrows it; when the viewport is narrower than
+// the block it fills the viewport instead. The grid still fits three cards at
+// lg, the tables clear their 620px min-width, and the feed stays readable.
+// Mobile falls back to the standard top Navbar.
 // Users can't post — only @handles do.
 // ----------------------------------------------------------------------------
 
@@ -67,9 +69,6 @@ export function FeedLayout({
 }: {
   children: ReactNode;
   sidebar?: ReactNode;
-  /** Kept for call-site compatibility — every page shares one width now. */
-  wide?: boolean;
-  fluid?: boolean;
   /** Optional full-width bar at the very top of the shell (above rail/feed). */
   banner?: ReactNode;
 }) {
@@ -89,15 +88,19 @@ export function FeedLayout({
       <div className="lg:hidden">
         <Navbar />
       </div>
-      {/* One shell width for every page. The outer frame only needs to hold the
-          max rail (264) + centre (840) + aside (350) ≈ 1454px, so 1440 removes
-          the dead gutters the old 1600 left on 1440p/4K screens. */}
+      {/* One shell width for every page. The frame is capped at 1440 and the
+          columns are centred as a group (`justify-center`), so the block hugs
+          rail + centre + aside and narrows/widens as the rail collapses. `main`
+          is deliberately NOT `flex-1`: a growing main absorbs the slack and
+          keeps a fixed width, which is what hid the collapse. Its definite
+          `w-full max-w-[840px]` basis means it shrinks to fit a narrow viewport
+          instead, so small screens still fill and nothing overflows. */}
       <div className="mx-auto flex w-full max-w-[1440px] justify-center">
         <LeftRail />
         <main
           id="main-content"
           tabIndex={-1}
-          className="mx-auto min-h-screen w-full min-w-0 max-w-[840px] flex-1 border-x border-border outline-none"
+          className="min-h-screen w-full min-w-0 max-w-[840px] shrink border-x border-border outline-none"
         >
           {children}
         </main>

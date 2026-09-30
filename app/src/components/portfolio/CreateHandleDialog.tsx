@@ -50,8 +50,24 @@ const WINDOW_OPTIONS = [15, 30, 60, 120, 240, 480, 1440];
  * /v1/handles` → the oracle signs `HandleFactory.createHandle` with the
  * owner key (503 until HANDLE_OWNER_PRIVATE_KEY is configured).
  */
-export function CreateHandleDialog({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+export function CreateHandleDialog({
+  children,
+  open: openProp,
+  onOpenChange,
+}: {
+  children?: ReactNode;
+  /** Controlled open state — omit to keep the dialog self-managed (the
+   *  default, triggered by `children`). The handle switcher controls it so the
+   *  dialog outlives the popover it was opened from. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = (next: boolean) => {
+    if (openProp === undefined) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
   // A handle can belong to several families (a footballer is sport AND people);
@@ -118,7 +134,7 @@ export function CreateHandleDialog({ children }: { children: ReactNode }) {
         if (!next) create.reset();
       }}
     >
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {children != null ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create a handle</DialogTitle>

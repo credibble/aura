@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GUEST_SEED } from "@/components/Avatar";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
+import { HandleSwitcher } from "@/components/portfolio/HandleSwitcher";
 import { handleSlug } from "@/lib/handle-id";
 import { cn } from "@/lib/utils";
 import { GRADUATION_AURA } from "@/lib/portfolio";
@@ -68,6 +69,9 @@ export function HandleAccountChip({
           </span>
         </span>
       </Link>
+      <HandleSwitcher
+        className={cn("h-8 w-8 shrink-0 rounded-full hover:bg-secondary", toggleClassName)}
+      />
       <ThemeToggle
         className={cn("h-8 w-8 shrink-0 rounded-full hover:bg-secondary", toggleClassName)}
       />

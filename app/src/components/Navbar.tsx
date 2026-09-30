@@ -6,6 +6,7 @@ import { SearchPopover } from "@/components/SearchPopover";
 import { ConnectButton } from "@/components/ConnectButton";
 import { HowItWorks } from "@/components/HowItWorks";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { HandleSwitcher } from "@/components/portfolio/HandleSwitcher";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollRow } from "@/components/ScrollRow";
 import { CATEGORIES } from "@/lib/aura-data";
@@ -54,6 +55,7 @@ export function Navbar() {
               How it works
             </button>
           </HowItWorks>
+          <HandleSwitcher className="hidden md:flex" />
           <ThemeToggle className="hidden md:flex" />
           <ChainChip className="hidden sm:inline-flex" />
           <ConnectButton />

@@ -90,7 +90,7 @@ function ExplorePage() {
     // No `sidebar`: the explore grid owns the full width (the shell only renders
     // the right column when a `sidebar` is passed). Every other route keeps its
     // sidebar; the left rail and centre column are unchanged.
-    <FeedLayout fluid>
+    <FeedLayout>
       {/* Hero — one line, one action, one search */}
       <div className="px-4 pt-10 pb-6 text-center sm:px-6">
         <h1 className="text-[28px] font-bold tracking-tight sm:text-4xl">

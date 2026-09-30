@@ -2,7 +2,7 @@
 
 Every piece of on-chain state the app and the oracle read: handles, windows,
 trades, price points, orders + fills, the auraLP vault and staking. It replaces
-the old graph-node subgraph — same entities and field names, so consumers only
+the old graph-node indexer - same entities and field names, so consumers only
 changed their query syntax.
 
 ## Layout

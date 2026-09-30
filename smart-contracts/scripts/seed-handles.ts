@@ -95,7 +95,7 @@ type Seed = {
   label: string;
   name: string;
   symbol: string;
-  /** One or more `{cat}_{sub}_{format}` codes (a footballer is also a person). */
+  /** One or more category codes (a footballer is also a person). */
   /** On-chain category codes. */
   categories: number[];
   /** On-chain aura, 1e2 scale (3040 = 30.40). Capped at 10_000 by Handle. */

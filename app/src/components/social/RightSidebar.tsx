@@ -17,7 +17,7 @@ import { flatPages } from "@/queries/page";
 import { statsQueryOptions, useStatsLive } from "@/queries/markets";
 
 // ----------------------------------------------------------------------------
-// X-style right sidebar: search pill, Earn (liquidity) card, Today's News,
+// The right sidebar: search pill, Earn (liquidity) card, Today's News,
 // What's happening, Who to follow, footer links. Used by feed and post pages.
 // ----------------------------------------------------------------------------
 

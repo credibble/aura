@@ -1,5 +1,5 @@
 # CRE workflow config �?" per-target settings for the Aura handle-graduation
-# workflow. The workflow code lives in ./main.ts; params (schedule, subgraph
+# workflow. The workflow code lives in ./main.ts; params (schedule, indexer
 # endpoint, aura floor) are injected from the target's config JSON at runtime
 # via `runtime.config`.
 

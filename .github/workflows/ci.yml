@@ -2,7 +2,7 @@ name: CI
 
 # Every gate the session established, run on push: the app's static checks, the
 # oracle's unit + black-box API tests, the contract suite (including the money
-# invariants) and a real subgraph build.
+# invariants) and the indexer's config + schema codegen.
 on:
   push:
     branches: [main, master]

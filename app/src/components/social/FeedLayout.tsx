@@ -27,7 +27,7 @@ import { FadeBox } from "@/components/ScrollRow";
 import { cn } from "@/lib/utils";
 
 // ----------------------------------------------------------------------------
-// X-style app shell used by every page: left icon rail + center column + right
+// The app shell used by every page: left icon rail + center column + right
 // sidebar on lg+. The rail is expandable — collapsed shows icons only, the
 // toggle (bottom of the rail) opens the labeled 264px rail, and the preference
 // is remembered in localStorage. Without a stored preference the rail follows

@@ -39,7 +39,7 @@ type CreateHandleResult = { handleId: string; label: string; address: string; tx
 const CATEGORY_OPTIONS: { id: string; label: string; code: number }[] = [
   { id: "crypto", label: "Crypto", code: 1_000_001 },
   { id: "ai", label: "AI", code: 2_000_001 },
-  { id: "sports", label: "Sports", code: 100_001_001 },
+  { id: "sports", label: "Sports", code: 3 },
   { id: "culture", label: "Culture", code: 1 },
 ];
 

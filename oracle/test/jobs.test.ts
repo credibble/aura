@@ -75,7 +75,7 @@ describe("SourceCacheService", () => {
   });
 });
 
-describe("market-style category taxonomy", () => {
+describe("market style from the category code", () => {
   it("carries the primary category code into the binary market style", () => {
     expect(marketStyle(3)).toEqual({ category: 3, style: "binary" });
     expect(marketStyle(9).category).toEqual(9);

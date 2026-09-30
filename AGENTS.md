@@ -18,7 +18,7 @@ Two deployables in this repo:
 - `Stake` / `StakeSnapshot` → staking (`queries/stake.ts`)
 
 Paging, sorting and filtering happen **in the query** via `lib/indexer-page.ts`
-(`indexerInfiniteOptions`) — Envio's dialect: `where` (Hasura-style
+(`indexerInfiniteOptions`) — Envio's own dialect: `where` with
 `{ field: { _eq: … } }`), `order_by: { field: dir }`, `limit`, `offset`;
 `hasMore = page.length >= limit`. Sort/filter fields are `@index`-ed in
 `schema.graphql`. Charts are the exception: they request the whole series in one shot.

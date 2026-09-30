@@ -4,7 +4,7 @@ import { HomeSidebar } from "@/components/social/RightSidebar";
 import { cn } from "@/lib/utils";
 
 /**
- * X-style page chrome for every non-feed page: left rail + center column +
+ * Page chrome for every non-feed page: left rail + center column +
  * right sidebar (the standard home rail by default). Keeps short pages from
  * looking stubby without per-route hacks.
  */

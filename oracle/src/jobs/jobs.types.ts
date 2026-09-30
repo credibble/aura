@@ -11,7 +11,7 @@ export interface AuraHandle {
   aura: number;
   graduated: boolean;
   /**
-   * Market-style category codes (`{cat}_{sub}_{format}`). A handle can belong to
+   * The handle's category codes (plain small integers, 1..9). A handle can belong to
    * more than one family — e.g. @ronaldo is sport/football AND people. The FIRST
    * entry is the primary one that decides the window's market style.
    */

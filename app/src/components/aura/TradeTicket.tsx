@@ -292,7 +292,7 @@ export function TradeTicket({ market }: { market: Market }) {
             </DropdownMenu>
           </div>
 
-          {/* One-tap buy — chip-style steps */}
+          {/* One-tap buy - chip steps */}
           {mode === "tap" ? (
             <div className="mt-3 grid grid-cols-3 gap-2">
               {TAP_STEPS.map((step) => {

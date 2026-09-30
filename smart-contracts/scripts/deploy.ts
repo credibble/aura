@@ -8,7 +8,7 @@ import type { Contract } from "ethers";
  * Deploys the whole protocol in one pass (MockUSDC on testnets, real USDC on
  * mainnet via USDC_ADDRESS), wires the AddressesProvider/RevenueSharing/Pool,
  * then seeds ONE easy binary handle: @ronaldo (sport/football binary,
- * category 100_001_001, aura 30.40, graduated) with its first YES/NO window
+ * category 3 (sports), aura 30.40, graduated) with its first YES/NO window
  * opened at 50/50.
  *
  *   npx hardhat run scripts/deploy.ts --network localhost      (local node)
@@ -170,7 +170,7 @@ async function main(): Promise<void> {
 
   // --- write deployments.json --------------------------------------------
 
-  // Creation block per contract — the subgraph's startBlocks (index from the
+  // Creation block per contract - the indexer's startBlocks (index from the
   // first block that can contain each contract's events).
   const blockOf = async (c: Contract): Promise<number> => {
     const tx = c.deploymentTransaction();
@@ -230,7 +230,7 @@ async function main(): Promise<void> {
   console.log("Oracle env mapping:");
   console.log(`  MARKET_MAKER_ADDRESS=${deployments.marketMaker}`);
   console.log(`  ORACLE_FACTORY_ADDRESS=${deployments.oracleFactory}`);
-  console.log(`  SUBGRAPH_URL=<your subgraph>`);
+  console.log(`  INDEXER_URL=http://localhost:8080/v1/graphql (the Envio indexer)`);
   console.log(`  RPC_URL=<rpc>`);
   console.log(`  ORACLE_PRIVATE_KEY=<relayer key>`);
 }

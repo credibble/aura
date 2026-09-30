@@ -2,9 +2,8 @@
  * The market style of a window.
  *
  * Every window is a binary YES/NO on the handle's own aura ("will @x aura rise
- * above L?"). The old `{cat}_{sub}_{format}` taxonomy is gone: a category is now
- * a plain small integer (1 people · 2 crypto · 3 sports · 4 ai · 5 tech ·
- * 6 brands · 7 music · 8 memes · 9 culture) that the UI maps to a family — the
+ * above L?"). A category is a plain small integer (1 people · 2 crypto ·
+ * 3 sports · 4 ai · 5 tech · 6 brands · 7 music · 8 memes · 9 culture): the UI
  * oracle only carries it through into the window metadata for display.
  */
 

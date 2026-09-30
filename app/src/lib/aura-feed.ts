@@ -3,7 +3,7 @@ import type { CategoryId } from "./aura-data";
 // ----------------------------------------------------------------------------
 // The social feed.
 //
-// The landing page is an X-style timeline: every market is a @handle and every
+// The landing page is a timeline: every market is a @handle and every
 // post is an *aggregate* internet-feed summary for that handle — a handcrafted
 // digest rolled up from several underlying sources (X, Reddit, YouTube, news),
 // each source carrying its own ±aura contribution. Opening a post shows the

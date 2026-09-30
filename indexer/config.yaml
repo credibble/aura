@@ -2,7 +2,7 @@
 #
 # Every piece of on-chain state the app and the oracle read: handles, windows,
 # trades, price points, orders + fills, the auraLP vault and staking. Replaces
-# the old graph-node subgraph; the flaky public-RPC + graph-node pair is gone.
+# the old graph-node indexer; the flaky public-RPC + graph-node pair is gone.
 #
 # Dynamic contracts (Handle, Stake) are registered by the factory's
 # `HandleCreated` through `indexer.contractRegister` — they carry no address.

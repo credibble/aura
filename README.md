@@ -1,6 +1,6 @@
 # aura
 
-**The Internet Aura Market** — Polymarket-style prediction markets where every
+**The Internet Aura Market** — binary prediction markets where every
 market is one *handle* and one time window. Each handle's index ("aura") is
 scored by AI from real source activity (RSS, APIs, web search) and every window
 asks a single question about where that aura goes next.

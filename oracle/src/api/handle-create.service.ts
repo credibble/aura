@@ -59,7 +59,7 @@ function normaliseCategories(input: unknown): number[] {
 export interface HandleCreateInput {
   name: string;
   symbol: string;
-  /** One or more market-style codes — e.g. a footballer is sport AND people. */
+  /** One or more category codes - e.g. a footballer is sport AND people. */
   categories: number[];
   windowMinutes: number;
   metadata?: string;

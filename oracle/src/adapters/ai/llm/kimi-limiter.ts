@@ -135,18 +135,20 @@ export async function withAiSlot<T>(call: () => Promise<T>): Promise<T> {
 /**
  * One chat-completions request, serialised behind every other AI call and
  * retried on 429/5xx (1.5s, 3s, 6s). Throws the last failure otherwise.
+ *
+ * The slot is taken per HTTP attempt, not across the backoff sleep: a request
+ * can run to the 180s AI_FETCH timeout, and holding the Redis lock through a
+ * multi-attempt retry would outlive its TTL and let a second process in.
  */
 export async function kimiRequest(send: () => Promise<Response>): Promise<Response> {
-  return withAiSlot(async () => {
-    let lastError = "Kimi request failed";
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const res = await send();
-      if (res.ok) return res;
-      const detail = await res.text();
-      lastError = `Kimi HTTP ${res.status}: ${detail.slice(0, 200)}`;
-      if (res.status !== 429 && res.status < 500) break;
-      if (attempt < 3) await sleep(1500 * 2 ** attempt);
-    }
-    throw new Error(lastError);
-  });
+  let lastError = "Kimi request failed";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const res = await withAiSlot(() => send());
+    if (res.ok) return res;
+    const detail = await res.text();
+    lastError = `Kimi HTTP ${res.status}: ${detail.slice(0, 200)}`;
+    if (res.status !== 429 && res.status < 500) break;
+    if (attempt < 3) await sleep(1500 * 2 ** attempt);
+  }
+  throw new Error(lastError);
 }

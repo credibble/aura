@@ -58,6 +58,9 @@ export class KimiWebSearchService {
             limit: maxResults,
             timeout_seconds: 30,
           }),
+          // Bound the request: it is held inside the shared slot, so a hung
+          // search must not outlive the lock's TTL and let a second call in.
+          signal: AbortSignal.timeout(90_000),
         }),
       );
       const data = (await res.json()) as {

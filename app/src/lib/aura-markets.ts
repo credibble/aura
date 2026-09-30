@@ -15,7 +15,9 @@ import type { IndexerWindow } from "@/queries/markets";
 export type MarketOutcome = {
   id: string;
   label: string;
-  /** Live price in whole % (LMSR 1e18 → display, sums to 100). */
+  /** Live price in % to one decimal (LMSR 1e18 → display, sums to 100).
+   *  A binary market's % and its cent price are the same number, so this is
+   *  also the cent price — `formatCents(pct / 100)`. */
   pct: number;
   /** Real move since the window opened (price − initial probability, pts). */
   delta: number;
@@ -106,14 +108,17 @@ function outcomeColor(i: number): string {
   return OUTCOME_COLORS[i % OUTCOME_COLORS.length]!;
 }
 
-/** 1e18 price → whole %, rounded so the row still sums to 100. */
+/** 1e18 price → % to one decimal, kept summing to 100. A whole-cent price
+ *  would collapse 50.2/49.8 to 50/50, so a binary market would read identical
+ *  on both sides; the tenth is the price. */
 function pcts(prices: string[]): number[] {
-  const pct = prices.map((p) => Math.round(Number(p) / 1e16));
-  const total = pct.reduce((s, n) => s + n, 0);
+  const round1 = (n: number) => Number(n.toFixed(1));
+  const pct = prices.map((p) => round1(Number(p) / 1e16));
+  const total = round1(pct.reduce((s, n) => s + n, 0));
   if (pct.length > 0 && total !== 100) {
     let max = 0;
     for (let i = 1; i < pct.length; i++) if (pct[i]! > pct[max]!) max = i;
-    pct[max] = Math.max(0, pct[max]! + (100 - total));
+    pct[max] = Math.max(0, round1(pct[max]! + (100 - total)));
   }
   return pct;
 }

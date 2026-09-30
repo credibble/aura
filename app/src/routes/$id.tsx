@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
@@ -32,11 +32,10 @@ import { TradeTicket } from "@/components/aura/TradeTicket";
 import { StakePopup } from "@/components/portfolio/StakePopup";
 import { StakeButton } from "@/components/aura/StakeButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cents } from "@/components/aura/pm";
 import { toMarket } from "@/lib/aura-markets";
 import { CATEGORY_MAP, indexLabel, type CategoryId } from "@/lib/aura-data";
 import { findHandle, handleSlug, labelOf } from "@/lib/handle-id";
-import { formatCompact, formatIndex, formatPct, formatUsd } from "@/lib/format";
+import { formatCents, formatCompact, formatIndex, formatPct, formatUsd } from "@/lib/format";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
 import { useSocial } from "@/lib/social-store";
 import { useAuraContracts } from "@/lib/contracts";
@@ -57,7 +56,7 @@ import { qk } from "@/queries/keys";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/$id")({
-  head: () => ({ meta: [{ title: "Trade — Aura" }] }),
+  head: () => ({ meta: [{ title: "Trade ΓÇö Aura" }] }),
   component: TradePage,
 });
 
@@ -73,13 +72,13 @@ const ICON_BTN =
 
 type TabId = "feeds" | "trades" | "orderbook";
 
-/** One-line label for a window: "17 Jul, 3:44 PM–4:14 PM". */
+/** One-line label for a window: "17 Jul, 3:44 PMΓÇô4:14 PM". */
 function windowLabel(w: { windowStart: string; windowEnd: string }): string {
   const start = new Date(Number(w.windowStart) * 1000);
   const end = new Date(Number(w.windowEnd) * 1000);
   const day = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const t = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  return `${day}, ${t(start)}–${t(end)}`;
+  return `${day}, ${t(start)}ΓÇô${t(end)}`;
 }
 
 function ago(ms: number): string {
@@ -93,11 +92,11 @@ function ago(ms: number): string {
 }
 
 function shortUser(id: string): string {
-  return /^0x[0-9a-f]{40}$/i.test(id) ? `${id.slice(0, 6)}…${id.slice(-4)}` : id;
+  return /^0x[0-9a-f]{40}$/i.test(id) ? `${id.slice(0, 6)}ΓÇª${id.slice(-4)}` : id;
 }
 
 /**
- * One trade page for every handle — `/:slug`, where the slug is a name (never
+ * One trade page for every handle ΓÇö `/:slug`, where the slug is a name (never
  * bytes32, never `@`). Identity + live index in a header that tightens as you
  * scroll, price history as the hero, and feeds / tape / rules in tabs. Follow,
  * stake and share are icon actions named by tooltip.
@@ -121,7 +120,7 @@ function TradePage() {
   const [range, setRange] = useState<(typeof RANGES)[number]["id"]>("1D");
   /**
    * What the single chart plots: the outcome PRICES (the odds) or the handle's
-   * AURA — the value the market's question is about, which is where the strike
+   * AURA ΓÇö the value the market's question is about, which is where the strike
    * line belongs. One chart, two lenses.
    */
   const [chartMode, setChartMode] = useState<"aura" | "prices">("prices");
@@ -180,7 +179,7 @@ function TradePage() {
     queryFn: () => api.readStakeEarned(vault!, address ?? undefined),
     enabled: !!vault && !!address,
   });
-  // The market's trading fee (bps) is a contract constant — read once. Shown in
+  // The market's trading fee (bps) is a contract constant ΓÇö read once. Shown in
   // the chart's footer stat row.
   const feeQuery = useQuery({
     queryKey: ["market-fee"],
@@ -217,7 +216,7 @@ function TradePage() {
     // (`WindowOpened` probabilities, mirrored by the first `PricesUpdated` /
     // PricePoint). Its block timestamp can land a few seconds BEFORE
     // `windowStart`, so it would otherwise be dropped by the range filter below
-    // — and the seed was only added when the first point was AFTER start, so
+    // ΓÇö and the seed was only added when the first point was AFTER start, so
     // such a window drew nothing. Seed at `windowStart` unless a point already
     // sits exactly there, and fall back to the window's live `prices` vector if
     // the seeded one is missing. Both are real on-chain values.
@@ -249,7 +248,7 @@ function TradePage() {
     return { series, from, to };
   }, [market, viewed, pointsQuery.data, range]);
 
-  // Aura snapshots mapped onto the chart's x axis — hover shows the memo.
+  // Aura snapshots mapped onto the chart's x axis ΓÇö hover shows the memo.
   const memos = useMemo(() => {
     if (!chart || !h) return [];
     const span = chart.to - chart.from || 1;
@@ -264,7 +263,7 @@ function TradePage() {
   }, [chart, h]);
 
   /**
-   * The aura series clipped to the chart's time range, as one MultiChart series —
+   * The aura series clipped to the chart's time range, as one MultiChart series ΓÇö
    * so the Aura lens lines up with the price lens (same x axis, same memos).
    */
   const auraLine = useMemo(() => {
@@ -276,14 +275,14 @@ function TradePage() {
       .map((p) => p.v);
     if (pts.length === 0) return [];
     const data = pts.length === 1 ? [pts[0]!, pts[0]!] : pts;
-    // The Aura lens is green while the index is rising over the visible range —
+    // The Aura lens is green while the index is rising over the visible range ΓÇö
     // same rule as every other chart, so the line agrees with the % beside it.
     return [{ label: "Aura", color: trendColor(data), data }];
   }, [chart, h]);
 
   // The strike is an AURA level: only draw it when the Aura series is what's
   // plotted. (If aura history is empty we fall back to the price series, which
-  // is in whole percent — the strike belongs to a different space there and
+  // is in whole percent ΓÇö the strike belongs to a different space there and
   // would sit at the wrong height.)
   const auraShown = chartMode === "aura" && auraLine.length > 0;
 
@@ -300,7 +299,7 @@ function TradePage() {
     );
   }
 
-  // A failed load is NOT "market not found" — without this branch an indexer
+  // A failed load is NOT "market not found" ΓÇö without this branch an indexer
   // outage told the user the handle doesn't exist.
   if (handlesError || windowsQuery.isError) {
     return (
@@ -324,7 +323,7 @@ function TradePage() {
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
           <h1 className="text-2xl font-bold">Market not found</h1>
           <p className="text-sm text-muted-foreground">
-            No handle answers to “{labelOf(param)}”. It may have been renamed or never existed.
+            No handle answers to ΓÇ£{labelOf(param)}ΓÇ¥. It may have been renamed or never existed.
           </p>
           <Link
             to="/"
@@ -356,9 +355,9 @@ function TradePage() {
         hour: "numeric",
         minute: "2-digit",
       })
-    : "—";
+    : "ΓÇö";
   const feeBps = feeQuery.data !== undefined ? Number(feeQuery.data) : null;
-  const feeLabel = feeBps !== null ? `${(feeBps / 100).toFixed(2)}%` : "—";
+  const feeLabel = feeBps !== null ? `${(feeBps / 100).toFixed(2)}%` : "ΓÇö";
 
   const copyLink = () => {
     navigator.clipboard?.writeText(`${window.location.origin}/${slug}`).catch(() => {});
@@ -393,7 +392,7 @@ function TradePage() {
                 </Row>
               </dl>
 
-              {/* Staking — the handle's own vault, right under its market */}
+              {/* Staking ΓÇö the handle's own vault, right under its market */}
               {vault && (
                 <div className="mt-4 border-t border-border/70 pt-4">
                   <div className="flex items-baseline justify-between">
@@ -403,7 +402,7 @@ function TradePage() {
                     <span className="num text-sm font-bold">
                       {stakeStats
                         ? `${formatCompact(stakeStats.totalAssets)}`
-                        : "—"}
+                        : "ΓÇö"}
                       <span className="ml-1 text-[11px] font-medium text-muted-foreground">
                         AURA
                       </span>
@@ -430,7 +429,7 @@ function TradePage() {
               <h2 className="text-sm font-semibold text-foreground">Rules</h2>
               <p className="mt-1.5">
                 This market resolves on the handle&apos;s aura index at the end of its{" "}
-                {market.deadline} window. Exactly one outcome pays 100¢. Aura is not ownership.
+                {market.deadline} window. Exactly one outcome pays 100┬ó. Aura is not ownership.
               </p>
             </div>
           </>
@@ -444,7 +443,7 @@ function TradePage() {
     >
       <TooltipProvider delayDuration={200}>
         <div ref={gate}>
-          {/* Header — avatar shrinks as the page scrolls */}
+          {/* Header ΓÇö avatar shrinks as the page scrolls */}
           <div
             className={cn(
               "static z-30 border-b border-border/70 bg-background/85 backdrop-blur-md transition-all lg:sticky lg:top-0",
@@ -480,7 +479,7 @@ function TradePage() {
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span className="truncate">@{slug}</span>
-                  <span>·</span>
+                  <span>┬╖</span>
                   <span className="truncate">{cat?.label ?? "Market"}</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -552,7 +551,7 @@ function TradePage() {
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    {/* Previous windows — pick another interval, or jump back to live */}
+                    {/* Previous windows ΓÇö pick another interval, or jump back to live */}
                     {!isLiveView && (
                       <button
                         type="button"
@@ -573,7 +572,7 @@ function TradePage() {
                           {isLiveView
                             ? "Live window"
                             : viewed
-                              ? `${windowLabel(viewed)} · settled`
+                              ? `${windowLabel(viewed)} ┬╖ settled`
                               : "Window"}
                           <ChevronDown className="h-3 w-3" />
                         </button>
@@ -659,7 +658,7 @@ function TradePage() {
                     axis={auraShown ? "points" : "percent"}
                   />
 
-                  {/* Aura snapshot markers — the memo behind each point */}
+                  {/* Aura snapshot markers ΓÇö the memo behind each point */}
                   {memos.map((m, i) => (
                     <button
                       key={`${m.ts}-${i}`}
@@ -710,13 +709,13 @@ function TradePage() {
                     <span key={o.id} className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full" style={{ background: o.color }} />
                       <span className="text-muted-foreground">{o.label}</span>
-                      <span className="num font-semibold">{o.pct}%</span>
-                      <span className="num text-muted-foreground">{cents(o.pct)}</span>
+                      {/* A price, so it reads in cents ΓÇö the `%` duplicate is gone. */}
+                      <span className="num font-semibold">{formatCents(o.pct / 100)}</span>
                     </span>
                   ))}
                   {!market.settled && (
                     <span className="ml-auto text-xs text-muted-foreground">
-                      {market.deadline} window · two-sided
+                      {market.deadline} window ┬╖ two-sided
                     </span>
                   )}
                 </div>
@@ -726,16 +725,16 @@ function TradePage() {
                 <Clock className="h-5 w-5 text-muted-foreground" />
                 <p className="text-[15px] font-semibold">No trading window open</p>
                 <p className="max-w-sm text-[13px] text-muted-foreground">
-                  @{slug} publishes on its own interval — the next window opens automatically and
+                  @{slug} publishes on its own interval ΓÇö the next window opens automatically and
                   this page becomes tradable.
                 </p>
               </section>
             )}
           </div>
 
-          {/* Tabs own the full width of the column — no side margins */}
+          {/* Tabs own the full width of the column ΓÇö no side margins */}
           <div className="mt-4">
-            {/* Handle actions — icons only, named on hover */}
+            {/* Handle actions ΓÇö icons only, named on hover */}
             <div className="px-4 sm:px-6">
               <HandleActions
                 handle={`@${slug}`}
@@ -789,7 +788,7 @@ function TradePage() {
                   ))}
                   {!feeds.isPending && feedsPosts.length === 0 && (
                     <p className="px-4 py-6 text-[13px] text-muted-foreground">
-                      No feeds published for @{slug} yet — they appear as its sources report.
+                      No feeds published for @{slug} yet ΓÇö they appear as its sources report.
                     </p>
                   )}
                   {feeds.hasNextPage && (
@@ -839,7 +838,7 @@ function TradePage() {
                           {isBuy ? "buy" : "sell"} {label}
                         </span>
                         <span className="num text-right text-muted-foreground">
-                          {cents(Number(t.price) / 1e16)}
+                          {formatCents(Number(t.price) / 1e18)}
                         </span>
                         <span className="num hidden text-right sm:block">
                           {(Number(t.shares) / 1e18).toFixed(2)}
@@ -900,7 +899,7 @@ function stakeFrom(h: IndexerHandle, name: string, symbol: string, aura: number)
   };
 }
 
-/** Follow · stake · notify · share — compact actions, stake named and animated. */
+/** Follow ┬╖ stake ┬╖ notify ┬╖ share ΓÇö compact actions, stake named and animated. */
 function HandleActions({
   handle,
   stake,
@@ -936,7 +935,7 @@ function HandleActions({
         <Tooltip>
           <StakePopup handle={stake} trigger={<StakeButton />} />
           <TooltipContent>
-            Stake AURA on @{handle.replace("@", "")} — earn from its deposit fees and rewards
+            Stake AURA on @{handle.replace("@", "")} ΓÇö earn from its deposit fees and rewards
           </TooltipContent>
         </Tooltip>
       )}
@@ -957,7 +956,7 @@ function HandleActions({
         <TooltipContent>Notify me</TooltipContent>
       </Tooltip>
 
-      {/* Staking is a core signal — say how much AURA is behind this handle. */}
+      {/* Staking is a core signal ΓÇö say how much AURA is behind this handle. */}
       {hasVault && (
         <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px]">
           <div className="flex items-baseline gap-1.5">
@@ -965,7 +964,7 @@ function HandleActions({
             <dd className="num font-semibold text-foreground">
               {stakeStats
                 ? formatCompact(stakeStats.totalAssets)
-                : "—"}
+                : "ΓÇö"}
               <span className="ml-1 text-[11px] font-medium text-muted-foreground">AURA</span>
             </dd>
           </div>

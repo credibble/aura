@@ -9,7 +9,7 @@ import { useAuraContracts } from "@/lib/contracts";
 import { useTradeExecutor } from "@/lib/trade";
 import { cn } from "@/lib/utils";
 import { handleSlug } from "@/lib/handle-id";
-import { formatCompact, formatUsd } from "@/lib/format";
+import { formatCents, formatCompact, formatUsd } from "@/lib/format";
 import { QueryError } from "@/components/QueryState";
 import { useHandleArtwork } from "@/queries/handles";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
@@ -268,7 +268,7 @@ function PortfolioPage() {
                     </span>
                     <span className="hidden truncate text-muted-foreground sm:block">
                       {p.outcomeLabel}
-                      {p.entry > 0 && <span className="num"> @ {p.entry.toFixed(2)}</span>}
+                      {p.entry > 0 && <span className="num"> @ {formatCents(p.entry)}</span>}
                     </span>
                     <span className="num hidden text-right text-muted-foreground sm:block">
                       {formatCompact(p.shares)}
@@ -373,7 +373,7 @@ function PortfolioPage() {
                   </span>
                   <span className="num text-right text-muted-foreground">
                     {formatCompact(Number(o.size) / 1e18)}{" "}
-                    @ {(Number(o.price) / 1e16).toFixed(1)}¢
+                    @ {formatCents(Number(o.price) / 1e18)}
                   </span>
                   <span className="flex justify-end">
                     <button

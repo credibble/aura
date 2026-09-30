@@ -4,9 +4,9 @@ import { ChevronDown, Loader2 } from "lucide-react";
 import { AuraText } from "@/components/aura/AuraTerm";
 import { Countdown } from "@/components/aura/Countdown";
 import { Avatar } from "@/components/Avatar";
-import { cents, pctLabel } from "@/components/aura/pm";
 import { AmountInput } from "@/components/aura/AmountInput";
 import { UsdcIcon } from "@/components/aura/UsdcIcon";
+import { formatCents } from "@/lib/format";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -402,10 +402,10 @@ export function TradeTicket({ market }: { market: Market }) {
             <AuraText text={market.question} />
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">
-            {outcome.label} · {pctLabel(priceCents)}
+            {outcome.label} · {formatCents(priceUsd)}
           </div>
         </div>
-        <div className="num shrink-0 text-right text-lg font-bold">{cents(priceCents)}</div>
+        <div className="num shrink-0 text-right text-lg font-bold">{formatCents(priceUsd)}</div>
       </div>
 
       {market.settled ? (
@@ -465,7 +465,7 @@ export function TradeTicket({ market }: { market: Market }) {
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {o.label} <span className="num opacity-70">{cents(o.pct)}</span>
+                  {o.label} <span className="num opacity-70">{formatCents(o.pct / 100)}</span>
                 </button>
               );
             })}
@@ -566,7 +566,7 @@ export function TradeTicket({ market }: { market: Market }) {
                 />
               </div>
               <div className="num mt-1 text-center text-[11px] text-muted-foreground">
-                ≈ {estimatedShares.toFixed(2)} shares @ {cents(priceCents)}
+                ≈ {estimatedShares.toFixed(2)} shares @ {formatCents(priceUsd)}
               </div>
               <div className="mt-3 flex justify-center gap-1.5">
                 {QUICK.map((q) => (

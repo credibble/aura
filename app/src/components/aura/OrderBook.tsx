@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Info } from "lucide-react";
 import { orderbookOptions, useOrderbookLive, type IndexerWindow } from "@/queries/markets";
 import { UsdcIcon } from "@/components/aura/UsdcIcon";
-import { formatCompact } from "@/lib/format";
+import { formatCents, formatCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Level = { priceCents: number; shares: number };
@@ -27,7 +27,9 @@ export function OrderBook({
   useOrderbookLive(win.id);
 
   const book = bookQuery.data?.books.find((b) => b.outcome === outcome);
-  const lastCents = Math.round(Number(win.prices[outcome] ?? 0) / 1e16);
+  // A price is a fraction of a dollar on-chain (1e18); the level keeps the
+  // cent price (0–100, one decimal) so the row's own arithmetic stays in cents.
+  const lastPrice = Number(win.prices[outcome] ?? 0) / 1e18;
 
   const { asks, bids, spreadCents } = useMemo(() => {
     const toLevels = (
@@ -36,7 +38,7 @@ export function OrderBook({
     ): Level[] =>
       (rows ?? [])
         .map((l) => ({
-          priceCents: Math.round(Number(l.price) / 1e16),
+          priceCents: Number(l.price) / 1e16,
           shares: Number(l.size) / 1e18,
         }))
         .filter((l) => l.shares > 0)
@@ -70,7 +72,7 @@ export function OrderBook({
           dir === "up" ? "text-down" : "text-up",
         )}
       >
-        {l.priceCents}¢
+        {formatCents(l.priceCents / 100)}
       </span>
       <span className="num relative text-right text-foreground">{l.shares.toFixed(2)}</span>
       <span className="num relative text-right text-foreground">
@@ -112,7 +114,7 @@ export function OrderBook({
               </button>
             ))}
           </div>
-          <div className="num shrink-0 text-xs text-muted-foreground">Last: {lastCents}¢</div>
+          <div className="num shrink-0 text-xs text-muted-foreground">Last: {formatCents(lastPrice)}</div>
         </div>
 
         <div className="mt-2 grid grid-cols-[1fr_72px_84px_92px] px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -139,9 +141,9 @@ export function OrderBook({
                 Asks
               </span>
               <div className="flex items-center justify-between py-1.5 text-xs text-muted-foreground">
-                <span className="num">Last: {lastCents}¢</span>
+                <span className="num">Last: {formatCents(lastPrice)}</span>
                 <span className="num">
-                  {spreadCents != null ? `Spread: ${spreadCents}¢` : "Spread: —"}
+                  {spreadCents != null ? `Spread: ${formatCents(spreadCents / 100)}` : "Spread: —"}
                 </span>
               </div>
               <span className="absolute -bottom-2.5 left-0 z-10 rounded bg-up px-1.5 py-px text-[10px] font-bold text-white">

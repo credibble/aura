@@ -6,13 +6,8 @@ import { CATEGORY_MAP, type CategoryId } from "@/lib/aura-data";
 import { marketChange, type Market } from "@/lib/aura-markets";
 import { handleSlug } from "@/lib/handle-id";
 import { windowLabels } from "@/queries/handles";
-import { formatCompact } from "@/lib/format";
+import { formatCents, formatCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-export function cents(p: number): string {
-  if (p < 1) return "<1¢";
-  return `${Math.round(p)}¢`;
-}
 
 export function pctLabel(v: number): string {
   if (v < 1) return "<1%";
@@ -123,10 +118,10 @@ export function MarketCard({ market }: { market: Market }) {
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <span className="rounded-lg bg-up py-2 text-center text-sm font-semibold text-up-foreground transition-all group-hover:brightness-110">
-          Buy Yes {cents(yes)}
+          Buy Yes {formatCents(yes / 100)}
         </span>
         <span className="rounded-lg bg-down py-2 text-center text-sm font-semibold text-down-foreground transition-all group-hover:brightness-110">
-          Buy No {cents(no)}
+          Buy No {formatCents(no / 100)}
         </span>
       </div>
       <Vol market={market} />
@@ -166,10 +161,10 @@ export function ChanceCard({ market }: { market: Market }) {
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <span className="rounded-lg bg-up py-2.5 text-center text-sm font-semibold text-up-foreground transition-all group-hover:brightness-110">
-          Yes {cents(yes)}
+          Yes {formatCents(yes / 100)}
         </span>
         <span className="rounded-lg bg-down py-2.5 text-center text-sm font-semibold text-down-foreground transition-all group-hover:brightness-110">
-          No {cents(no)}
+          No {formatCents(no / 100)}
         </span>
       </div>
       <Vol market={market} />

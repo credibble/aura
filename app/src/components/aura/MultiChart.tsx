@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { percentDomain, tightDomain } from "@/lib/chart-domain";
+import { formatCents } from "@/lib/format";
 
 type Series = { data: number[]; color: string; label: string };
 
@@ -81,8 +82,9 @@ export type MultiChartMode = "line" | "coin" | "candles";
  * tinted by which side of it the latest value sits on.
  *
  * The right-hand axis labels the series' own space: LMSR prices arrive as
- * probabilities (whole %), so it reads in % by default; the `points` axis is for
- * the aura lens, whose values are index points.
+ * probabilities, which on a binary market are the price in cents — so it reads
+ * in cents (one decimal, via `formatCents`); the `points` axis is for the aura
+ * lens, whose values are index points.
  */
 export function MultiChart({
   series,
@@ -141,9 +143,10 @@ export function MultiChart({
     return Math.min(h - 7, Math.max(7, nudged));
   });
 
-  function label(v: number, decimals: number): string {
-    const text = Number(v.toFixed(decimals)).toString();
-    return axis === "percent" ? `${text}%` : text;
+  function label(v: number): string {
+    // A price is shown in cents (one decimal, via the shared formatter); the
+    // aura lens is a level in index points and keeps a plain 1dp number.
+    return axis === "percent" ? formatCents(v / 100) : Number(v.toFixed(1)).toString();
   }
 
   const ticks = niceTicks(min, max);
@@ -326,7 +329,7 @@ export function MultiChart({
           className="num pointer-events-none absolute -translate-y-1/2 pl-1.5 text-[10px] text-muted-foreground"
           style={{ left: `${CHART_PLOT_RATIO * 100}%`, top: `${(yFor(t) / h) * 100}%` }}
         >
-          {label(t, 1)}
+          {label(t)}
         </span>
       ))}
 
@@ -348,7 +351,7 @@ export function MultiChart({
               transform: "translate(calc(-100% - 4px), -50%)",
             }}
           >
-            {s.label} {label(s.data[s.data.length - 1], 1)}
+            {s.label} {label(s.data[s.data.length - 1])}
           </span>
         );
       })}

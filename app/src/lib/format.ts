@@ -18,6 +18,30 @@ export function formatPct(n: number, opts?: { decimals?: number }): string {
   return `${n > 0 ? "+" : ""}${v}%`;
 }
 
+/**
+ * A market PRICE in cents, to ONE decimal place, from a fraction of a dollar
+ * (the space on-chain prices live in: `1e18` = $1, the same one `priceUsd` and
+ * `wholeCentPrice` use). This is the ONE price formatter — chart end labels,
+ * market cards, the trade ticket, the order book and positions all route here,
+ * so a price cannot read "50¢" on one surface and "50.2¢" on another.
+ *
+ * A binary market's price and its probability are the same number (50¢ = 50%),
+ * so a price is always shown in cents; `%` is reserved for genuine
+ * probability/chance readouts that are not a price.
+ *
+ * One decimal, trailing zero dropped so it reads well:
+ *   0.502 → "50.2¢" · 0.5 → "50¢" · 0.015 → "1.5¢" · 0.999 → "99.9¢" · 1 → "100¢"
+ * A tiny positive price never collapses to a misleading "0¢" — below half a
+ * tenth of a cent it reads "<0.1¢".
+ */
+export function formatCents(price: number): string {
+  if (!Number.isFinite(price)) return "—";
+  const cents = price * 100;
+  const rounded = Math.round(cents * 10) / 10;
+  if (rounded === 0 && cents > 0) return "<0.1¢";
+  return `${rounded}¢`;
+}
+
 export function formatSigned(n: number, decimals = 2): string {
   return `${n >= 0 ? "+" : ""}${n.toFixed(decimals)}`;
 }

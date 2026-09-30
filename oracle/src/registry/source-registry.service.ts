@@ -7,7 +7,7 @@ import { SOURCE_REGISTRY } from "../core/ports/tokens";
 import type { SourceRegistry } from "../core/ports/source-registry";
 import type { Source } from "../core/domain/source";
 import { SOURCES, handleAllowedSources, categoryFamily } from "./source-seed";
-import { SubgraphHandleSync } from "./subgraph-handle-sync.service";
+import { IndexerHandleSync } from "./indexer-handle-sync.service";
 import { AdapterRegistry } from "../adapters/adapter-registry.service";
 import { bytes32ToId } from "../core/domain/handle";
 
@@ -29,13 +29,13 @@ export class SourceRegistryService implements SourceRegistry, OnModuleInit {
   constructor(
     private readonly config: ConfigService,
     @Inject(REDIS) private readonly redis: Redis,
-    private readonly sync: SubgraphHandleSync,
+    private readonly sync: IndexerHandleSync,
     private readonly adapters: AdapterRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
     await this.rebuildFromChain();
-    const intervalMs = this.config.get<number>("SUBGRAPH_CACHE_TTL_MS") ?? 60_000;
+    const intervalMs = this.config.get<number>("INDEXER_CACHE_TTL_MS") ?? 60_000;
     setInterval(() => void this.rebuildFromChain(), intervalMs);
   }
 
@@ -46,7 +46,7 @@ export class SourceRegistryService implements SourceRegistry, OnModuleInit {
     const byHandle = new Map<string, string[]>();
 
     // Adapter sources come ONLY from on-chain Handle `sources[]` JSON configs —
-    // no seeded fallback when the subgraph is empty (there are no fake handles).
+    // no seeded fallback when the indexer is empty (there are no fake handles).
     const configJsons = views.flatMap((v) => v.sources);
 
     for (const json of configJsons) {

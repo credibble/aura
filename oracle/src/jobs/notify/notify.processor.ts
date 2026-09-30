@@ -4,7 +4,7 @@ import type { Job } from "bullmq";
 import type Redis from "ioredis";
 import { QUEUE_NOTIFY } from "../queue.constants";
 import { REDIS } from "../../queue/queue.constants";
-import { SubgraphReader } from "../subgraph/subgraph-reader.service";
+import { IndexerReader } from "../indexer/indexer-reader.service";
 import { SocialService } from "../../social/social.service";
 import { PrismaService } from "../../persistence/prisma.service";
 import type { AuraHandle } from "../jobs.types";
@@ -29,7 +29,7 @@ export class NotifyProcessor extends WorkerHost {
   private readonly logger = new Logger(NotifyProcessor.name);
 
   constructor(
-    private readonly subgraph: SubgraphReader,
+    private readonly indexer: IndexerReader,
     private readonly social: SocialService,
     private readonly prisma: PrismaService,
     @Inject(REDIS) private readonly redis: Redis,
@@ -39,7 +39,7 @@ export class NotifyProcessor extends WorkerHost {
 
   async process(_job: Job<NotifyJob>): Promise<void> {
     const now = Date.now();
-    const handles = await this.subgraph.handles();
+    const handles = await this.indexer.handles();
     for (const handle of handles) {
       try {
         await this.notifyHandle(handle, now);

@@ -101,7 +101,7 @@ export function buildHandleConfigs(): HandleConfig[] {
  * Presentation metadata DEFAULTS for a handle id — the on-chain Handle only
  * carries identity (name/symbol/windowMinutes/sources), so the oracle merges
  * display fields (category, kind, color, image, volatility) from this table.
- * This is NOT seeding: handles still come from the subgraph; this only fills
+ * This is NOT seeding: handles still come from the indexer; this only fills
  * cosmetic/behavioral fields the chain does not store.
  */
 export function handleDefaultMeta(id: string): {

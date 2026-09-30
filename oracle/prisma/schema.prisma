@@ -3,7 +3,7 @@
 // Only APP-OWNED data lives in Postgres: the aura/metric time series, platform
 // connections (secrets, never on-chain) and social graph. On-chain entities
 // (handles, windows, trades, users, stakes, pool/feed data) are owned by the
-// SUBGRAPH — no conflicting copies here.
+// INDEXER — no conflicting copies here.
 
 generator client {
   provider = "prisma-client-js"
@@ -93,7 +93,7 @@ model Post {
   id        String    @id // `feed:${handleId}:${ts}` or `user:${userId}:${ts}`
   author    User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
   authorId  String?
-  handleId  String // the handle/asset id (subgraph entity — no local table)
+  handleId  String // the handle/asset id (indexer entity — no local table)
   handle    String // "@ron"
   name      String
   category  String // market-style category code
@@ -140,7 +140,7 @@ model Comment {
 model Follow {
   follower     String // userId (FK to User.followers)
   followerUser User   @relation("UserFollowers", fields: [follower], references: [id], onDelete: Cascade)
-  following    String // handleId (subgraph entity — no local table)
+  following    String // handleId (indexer entity — no local table)
   createdAt    DateTime @default(now())
 
   @@id([follower, following])
@@ -168,7 +168,7 @@ model Like {
 model Subscription {
   user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
-  handleId  String // subgraph entity — no local table
+  handleId  String // indexer entity — no local table
   createdAt DateTime @default(now())
 
   @@id([userId, handleId])

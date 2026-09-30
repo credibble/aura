@@ -4,7 +4,7 @@ import Redis from "ioredis";
 
 const STREAM = "events:ws";
 const GROUP = "aura-ws";
-/** Bounded stream: the live tail is all a browser needs; history is the subgraph. */
+/** Bounded stream: the live tail is all a browser needs; history is the indexer. */
 const MAXLEN = 10_000;
 
 /**

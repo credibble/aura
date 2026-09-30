@@ -5,7 +5,7 @@ import type { Job } from "bullmq";
 import type Redis from "ioredis";
 import { QUEUE_FILLS } from "../queue.constants";
 import { REDIS } from "../../queue/queue.constants";
-import { SubgraphReader } from "../subgraph/subgraph-reader.service";
+import { IndexerReader } from "../indexer/indexer-reader.service";
 
 interface FillsJob {
   now: number;
@@ -16,10 +16,10 @@ const DEFAULT_LOOKBACK_MS = 30_000;
 
 /**
  * Fills webhook watcher (queue `fills`, every 10s): reads new `OrderFill`
- * entities DIRECTLY from the subgraph GraphQL for every open window and POSTs
+ * entities DIRECTLY from the indexer GraphQL for every open window and POSTs
  * them to `WEBHOOK_URL` (`event: "order.fill"`). Nothing is mirrored into the
  * backend — the only state is a per-window Redis ts marker (TTL'd). The
- * orderbook itself is read by the frontend straight from the subgraph.
+ * orderbook itself is read by the frontend straight from the indexer.
  */
 @Processor(QUEUE_FILLS, { concurrency: 1 })
 @Injectable()
@@ -29,7 +29,7 @@ export class FillWatchProcessor extends WorkerHost {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly subgraph: SubgraphReader,
+    private readonly indexer: IndexerReader,
     @Inject(REDIS) private readonly redis: Redis,
   ) {
     super();
@@ -48,7 +48,7 @@ export class FillWatchProcessor extends WorkerHost {
       }
       return;
     }
-    const windows = await this.subgraph.openWindows();
+    const windows = await this.indexer.openWindows();
     for (const win of windows) {
       try {
         await this.watchWindow(win.id, url);
@@ -71,7 +71,7 @@ export class FillWatchProcessor extends WorkerHost {
       /* redis down — default lookback */
     }
 
-    const fills = await this.subgraph.fillsSince(windowId, since);
+    const fills = await this.indexer.fillsSince(windowId, since);
     if (fills.length === 0) return;
 
     for (const fill of fills) {

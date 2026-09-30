@@ -5,7 +5,7 @@ import type { Job, Queue } from "bullmq";
 import { QUEUE_FEED } from "../queue.constants";
 import { feedJobId } from "../queue.constants";
 import { FeedEngineService } from "./feed-engine.service";
-import { SubgraphReader } from "../subgraph/subgraph-reader.service";
+import { IndexerReader } from "../indexer/indexer-reader.service";
 import type { AuraHandle } from "../jobs.types";
 import { bucketSec } from "../utils";
 
@@ -31,7 +31,7 @@ export class FeedProcessor extends WorkerHost {
 
   constructor(
     private readonly engine: FeedEngineService,
-    private readonly subgraph: SubgraphReader,
+    private readonly indexer: IndexerReader,
     @InjectQueue(QUEUE_FEED) private readonly queue: Queue<FeedRunJob>,
   ) {
     super();
@@ -49,7 +49,7 @@ export class FeedProcessor extends WorkerHost {
   }
 
   private async fanout(now: number): Promise<void> {
-    const handles = await this.subgraph.handles();
+    const handles = await this.indexer.handles();
     const bucket = bucketSec(now, FEED_EVERY_MS);
     for (const handle of handles) {
       await this.queue.add(

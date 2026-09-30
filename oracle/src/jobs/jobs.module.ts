@@ -12,7 +12,7 @@ import { WindowProcessor } from "./window/window.processor";
 import { WindowEngineService } from "./window/window-engine.service";
 import { NotifyProcessor } from "./notify/notify.processor";
 import { FillWatchProcessor } from "./fills/fill-watch.processor";
-import { SubgraphReader } from "./subgraph/subgraph-reader.service";
+import { IndexerReader } from "./indexer/indexer-reader.service";
 import { SourceCacheService } from "./source-cache/source-cache.service";
 import { ChainGateway } from "./chain/chain-gateway.service";
 import { WsBroadcastService } from "./ws/ws-broadcast.service";
@@ -27,7 +27,7 @@ import { SocialModule } from "../social/social.module";
  * The job-oriented oracle core: four BullMQ queues (`aura`, `feed`, `window`,
  * `notify`) with repeatable schedulers + concurrent workers, a Redis source
  * cache with TTL shared across departments, the viem chain gateway
- * (subgraph-backed) and WS fan-out through the existing OracleEventBus →
+ * (indexer-backed) and WS fan-out through the existing OracleEventBus →
  * MarketGateway (notifications route to per-user sockets).
  */
 @Module({
@@ -51,14 +51,14 @@ OrchestrationModule,
     WindowEngineService,
 NotifyProcessor,
     FillWatchProcessor,
-    SubgraphReader,
+    IndexerReader,
     SourceCacheService,
     ChainGateway,
     WsBroadcastService,
     StructuredAiService,
   ],
   exports: [
-    SubgraphReader,
+    IndexerReader,
     SourceCacheService,
     ChainGateway,
     WsBroadcastService,

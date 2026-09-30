@@ -3,8 +3,8 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import multer from "multer";
 import type { Request } from "express";
 import type { HandleSnapshot } from "@aura/contracts";
-import { SubgraphReader } from "../jobs/subgraph/subgraph-reader.service";
-import { handleSnapshot } from "../jobs/subgraph/handle-snapshot";
+import { IndexerReader } from "../jobs/indexer/indexer-reader.service";
+import { handleSnapshot } from "../jobs/indexer/handle-snapshot";
 import {
   PortfolioService,
   type HandleAvailability,
@@ -30,13 +30,13 @@ function actorOf(req: AuthedRequest): string {
 
 /**
  * Frontend-shaped handle endpoints — `GET /v1/handles...`.
- * On-chain handles come from the SUBGRAPH (the single source of truth), not a
+ * On-chain handles come from the INDEXER (the single source of truth), not a
  * Postgres mirror.
  */
 @Controller("v1/handles")
 export class HandlesController {
   constructor(
-    private readonly subgraph: SubgraphReader,
+    private readonly indexer: IndexerReader,
     private readonly portfolio: PortfolioService,
     private readonly cleanverse: CleanverseService,
     private readonly handleCreate: HandleCreateService,
@@ -45,7 +45,7 @@ export class HandlesController {
 
   @Get()
   async all(): Promise<HandleSnapshot[]> {
-    const handles = await this.subgraph.handles();
+    const handles = await this.indexer.handles();
     return handles.map((h) => handleSnapshot(h));
   }
 
@@ -132,8 +132,8 @@ export class HandlesController {
       photo = media.src;
     }
 
-    // Merge source: the handle's current metadata as indexed by the subgraph.
-    const existing = (await this.subgraph.handles()).find(
+    // Merge source: the handle's current metadata as indexed by the indexer.
+    const existing = (await this.indexer.handles()).find(
       (h) => h.label?.toLowerCase() === label || h.id.toLowerCase() === label,
     );
 
@@ -172,7 +172,7 @@ export class HandlesController {
 
   @Get(":id")
   async one(@Param("id") id: string): Promise<HandleSnapshot> {
-    const handles = await this.subgraph.handles();
+    const handles = await this.indexer.handles();
     const handle = handles.find((h) => h.label === id.toLowerCase());
     if (!handle) throw new NotFoundException(`No handle ${id}`);
     return handleSnapshot(handle);

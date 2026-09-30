@@ -4,7 +4,7 @@ import type { AuraHandle } from "../src/jobs/jobs.types";
 
 /**
  * The window job's load-bearing guarantees. It decides from the CHAIN
- * (`oracleOf` + `isOpen`) — the subgraph lags and can wedge, and depending on it
+ * (`oracleOf` + `isOpen`) — the indexer lags and can wedge, and depending on it
  * meant a stale "still open" window blocked the next open while hiding the
  * window that needed settling.
  */
@@ -62,7 +62,7 @@ function build(opts: {
       return true;
     },
   };
-  const subgraph = {
+  const indexer = {
     openWindows: async () =>
       (opts.windows ?? []) as { oracle: string; windowStart: number; windowEnd: number; outcomes: string[] }[],
     handlesByCategory: async () => [],
@@ -71,7 +71,7 @@ function build(opts: {
   };
   const engine = new WindowEngineService(
     chain as never,
-    subgraph as never,
+    indexer as never,
     { publishWindowOpened: () => {}, publishWindowResolved: () => {} } as never,
     { points: async () => [{ value: 30 }, { value: 31 }] } as never,
     redis as never,

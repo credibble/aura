@@ -11,7 +11,7 @@ type Check = { ok: boolean; detail?: string };
  * Split probes:
  *  - `/health/live`  — the process is up (never touches dependencies).
  *  - `/health/ready` — every dependency this node needs answers: Postgres (when
- *    required), Redis, the subgraph, and the job queues. 503 with per-check
+ *    required), Redis, the indexer, and the job queues. 503 with per-check
  *    detail so a load balancer stops routing and an operator sees *what* broke.
  */
 @Controller("health")
@@ -33,13 +33,13 @@ export class HealthController {
     ts: number;
     checks: Record<string, Check>;
   }> {
-    const [db, redis, subgraph, queues] = await Promise.all([
+    const [db, redis, indexer, queues] = await Promise.all([
       this.checkDb(),
       this.checkRedis(),
-      this.checkSubgraph(),
+      this.checkIndexer(),
       this.checkQueues(),
     ]);
-    const checks = { db, redis, subgraph, queues };
+    const checks = { db, redis, indexer, queues };
     const ok = Object.values(checks).every((c) => c.ok);
     const body = { status: ok ? ("ok" as const) : ("degraded" as const), ts: Date.now(), checks };
     if (!ok) throw new HttpException(body, HttpStatus.SERVICE_UNAVAILABLE);
@@ -65,14 +65,14 @@ export class HealthController {
     }
   }
 
-  private async checkSubgraph(): Promise<Check> {
+  private async checkIndexer(): Promise<Check> {
     const url =
-      this.config.get<string>("SUBGRAPH_URL") ?? "http://localhost:8000/subgraphs/name/aura/aura";
+      this.config.get<string>("INDEXER_URL") ?? "http://localhost:8080/v1/graphql";
     try {
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query: "{ stats(id: \"stats\") { id } }" }),
+        body: JSON.stringify({ query: "{ Stats_by_pk(id: \"stats\") { id } }" }),
         signal: AbortSignal.timeout(2000),
       });
       if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` };

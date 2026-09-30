@@ -5,7 +5,7 @@ import type { HandleSpec } from "@aura/contracts";
  * and interval-driven; the AI worker scores relevance per handle.
  *
  * Handles are created ON-CHAIN (HandleFactory.createHandle) — the oracle does
- * NOT seed them; it reads them from the subgraph (GraphQL) and caches them in
+ * NOT seed them; it reads them from the indexer (GraphQL) and caches them in
  * Redis. Each handle carries its `sources[]` as JSON object strings the
  * platform adapters parse, e.g. `{"platform":"spotify","username":"devar"}`.
  */
@@ -15,7 +15,7 @@ export type HandleConfig = HandleSpec & {
 };
 
 /**
- * The on-chain Handle as indexed by the subgraph (one row per HandleCreated).
+ * The on-chain Handle as indexed by the indexer (one row per HandleCreated).
  * A creator may own many handles; `sources` are the adapter config JSONs.
  */
 export interface OnChainHandleView {
@@ -36,8 +36,9 @@ export interface OnChainHandleView {
   stake: string;
   /** Trading-prediction graduation (backend-granted via Handle.setGraduated). */
   graduated: boolean;
-  /** On-chain content category (uint8, set by the protocol). */
-  category: number;
+  /** On-chain category CODES (1 people · 2 crypto · … · 9 culture). A handle
+   *  may carry several; the UI maps each code to a family. */
+  categories: number[];
 }
 
 /** Decode a left-aligned bytes32 ASCII handleId → readable label ("btc"). */

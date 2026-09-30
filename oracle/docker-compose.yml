@@ -29,8 +29,8 @@ services:
 
   # API process (HTTP + WebSocket). Shares .env via env_file; the values
   # below override host-local URLs with container-reachable ones.
-  # DB: the shared subgraph-postgres-1 (started by subgraph/docker-compose.yml)
-  # on the host — this compose's own postgres is intentionally left stopped.
+  # DB: the oracle's own postgres (5432, DB aura) — graph-node is gone; the
+  # Envio indexer runs its own Postgres on 5433 so the two never collide.
   oracle-api:
     image: aura-oracle
     build:
@@ -38,15 +38,17 @@ services:
       dockerfile: oracle/Dockerfile
     env_file: .env
     environment: &oracle-env
-      DATABASE_URL: postgresql://aura:aura@host.docker.internal:5432/aura
+      DATABASE_URL: postgresql://aura:aura@postgres:5432/aura
       REDIS_URL: redis://redis:6379
-      SUBGRAPH_URL: http://host.docker.internal:8000/subgraphs/name/aura/aura
+      INDEXER_URL: http://host.docker.internal:8080/v1/graphql
       NODE_ENV: production
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
       - "4000:4000"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
@@ -63,6 +65,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped

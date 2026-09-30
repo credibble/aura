@@ -65,7 +65,7 @@ describe("oracle api (e2e)", () => {
     const res = await fetch(`${BASE}/health/ready`);
     expect([200, 503]).toContain(res.status);
     const body = (await res.json()) as { checks: Record<string, { ok: boolean }> };
-    expect(Object.keys(body.checks).sort()).toEqual(["db", "queues", "redis", "subgraph"]);
+    expect(Object.keys(body.checks).sort()).toEqual(["db", "indexer", "queues", "redis"]);
     expect(typeof body.checks.db!.ok).toBe("boolean");
   });
 

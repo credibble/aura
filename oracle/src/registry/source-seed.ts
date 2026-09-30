@@ -110,20 +110,31 @@ export function handleAllowedSources(category: CategoryId, handleId: string): re
 }
 
 /**
- * Numeric handle category code → the family id used by the rules above.
- * Mirrors the subgraph's `categoryIdOf` (`cat = floor(code / 1e6) % 1000`) so the
- * oracle and the app agree on which family a handle belongs to.
+ * On-chain category code → the family id used by the rules above.
+ *
+ * A code is a plain small integer — 1 people · 2 crypto · 3 sports · 4 ai ·
+ * 5 tech · 6 brands · 7 music · 8 memes · 9 culture. The same list lives in the
+ * app (`CATEGORY_BY_CODE`, the UI's own mapping) and in the contract seed.
  */
 export function categoryFamily(code: number): CategoryId {
-  if (!Number.isFinite(code)) return "culture";
-  const cat = Math.floor(code / 1_000_000) % 1_000;
-  if (cat === 100) return "sports";
-  if (cat === 1) return "crypto";
-  if (cat === 2) return "ai";
-  if (cat === 3) return "people";
-  if (cat === 4) return "brands";
-  if (cat === 5) return "memes";
-  if (cat === 6) return "music";
-  if (cat === 7) return "tech";
-  return "culture";
+  switch (code) {
+    case 1:
+      return "people";
+    case 2:
+      return "crypto";
+    case 3:
+      return "sports";
+    case 4:
+      return "ai";
+    case 5:
+      return "tech";
+    case 6:
+      return "brands";
+    case 7:
+      return "music";
+    case 8:
+      return "memes";
+    default:
+      return "culture";
+  }
 }

@@ -17,7 +17,7 @@ function makeService(
   return new HandleCreateService(config, portfolio);
 }
 
-const input = { name: "bitcoin", symbol: "BTC", categories: [1_000_001], windowMinutes: 15 };
+const input = { name: "bitcoin", symbol: "BTC", categories: [2], windowMinutes: 15 };
 
 describe("HandleCreateService", () => {
   it("503s until HANDLE_OWNER_PRIVATE_KEY and HANDLE_FACTORY_ADDRESS are set", async () => {

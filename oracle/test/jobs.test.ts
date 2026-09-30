@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { padToN, clampInt, bucketSec } from "../src/jobs/utils";
 import { auraJobId, feedJobId, windowJobId } from "../src/jobs/queue.constants";
 import { SourceCacheService } from "../src/jobs/source-cache/source-cache.service";
-import { parseMarketStyle, windowMetadata, gainBetween, CATEGORY_BASE } from "../src/jobs/window/market-style";
+import { marketStyle, windowMetadata, gainBetween } from "../src/jobs/window/market-style";
 
 describe("job utils", () => {
   it("padToN right-pads a fresh series with its first value (new-source rule)", () => {
@@ -76,53 +76,25 @@ describe("SourceCacheService", () => {
 });
 
 describe("market-style category taxonomy", () => {
-  it("decodes {cat}_{sub}_{format} codes into the market style", () => {
-    const sport = parseMarketStyle(100_000_000)!;
-    expect(sport.base).toEqual("sport");
-    expect(sport.style).toEqual("binary");
-
-    // football binary — 100_001_001
-    const arsenal = parseMarketStyle(100_001_001)!;
-    expect(arsenal.cat).toEqual(CATEGORY_BASE);
-    expect(arsenal.sub).toEqual(100_001_000);
-    expect(arsenal.format).toEqual(1);
-    expect(arsenal.style).toEqual("binary");
-    expect(arsenal.subLabel).toEqual("football");
-
-    // football multi-outcome — 100_001_002
-    const league = parseMarketStyle(100_001_002)!;
-    expect(league.format).toEqual(2);
-    expect(league.style).toEqual("multi");
-
-    // basket_ball binary — 100_002_001
-    expect(parseMarketStyle(100_002_001)!.subLabel).toEqual("basket_ball");
+  it("carries the primary category code into the binary market style", () => {
+    expect(marketStyle(3)).toEqual({ category: 3, style: "binary" });
+    expect(marketStyle(9).category).toEqual(9);
   });
 
-  it("rejects malformed codes", () => {
-    expect(parseMarketStyle(0)).toBeNull();
-    expect(parseMarketStyle(100_001_003)).toBeNull(); // bad format
-    expect(parseMarketStyle(1_000)).toBeNull();
+  it("leaves unknown/zero codes at 0 rather than inventing a family", () => {
+    expect(marketStyle(0)).toEqual({ category: 0, style: "binary" });
+    expect(marketStyle(-1).category).toEqual(0);
+    expect(marketStyle(Number.NaN).category).toEqual(0);
   });
 
   it("derives the oracle window question + metadata from the category", () => {
-    // @arsenal (football binary) with aura 3040 (1e2) → "rise above 30.40?"
-    const style = parseMarketStyle(100_001_001)!;
-    const meta = JSON.parse(windowMetadata("arsenal", style, 3040)) as Record<string, unknown>;
+    // @arsenal (sports, code 3) with aura 3040 (1e2) → "rise above 30.40?"
+    const meta = JSON.parse(windowMetadata("arsenal", marketStyle(3), 3040)) as Record<string, unknown>;
     expect(meta.question).toEqual("Will @arsenal aura rise above 30.40?");
     expect(meta.style).toEqual("binary");
-    expect(meta.category).toEqual(100_001_001);
-    expect(meta.sub).toEqual("football");
-
-    // Multi (football group) asks about the aura GAINED over the window — not %.
-    const multi = JSON.parse(
-      windowMetadata("football", parseMarketStyle(100_001_002)!, 3000),
-    ) as Record<string, unknown>;
-    expect(multi.question).toEqual("Who will gain the highest aura from window start to end?");
-    expect(multi.style).toEqual("multi");
+    expect(meta.category).toEqual(3);
+    expect(meta.strike).toEqual(3040);
   });
-
-
-
   it("gain math: absolute aura gained between 1e2 levels", () => {
     expect(gainBetween(3000, 3040)).toEqual(40); // 30.00 → 30.40 = +0.40 aura
     expect(gainBetween(3000, 3000)).toEqual(0);

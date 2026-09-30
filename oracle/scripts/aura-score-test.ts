@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { ConfigService } from "@nestjs/config";
-import { SubgraphReader } from "../src/jobs/subgraph/subgraph-reader.service";
+import { IndexerReader } from "../src/jobs/indexer/indexer-reader.service";
 import { AdapterRegistry } from "../src/adapters/adapter-registry.service";
 import { SourceFetcher } from "../src/ingestion/source-fetcher.service";
 import { SourceCacheService } from "../src/jobs/source-cache/source-cache.service";
@@ -62,7 +62,7 @@ class MemoryRedis {
 }
 
 const cfg = new ConfigService({
-  SUBGRAPH_URL: process.env.SUBGRAPH_URL,
+  INDEXER_URL: process.env.INDEXER_URL,
   RPC_URL: process.env.RPC_URL,
   ALCHEMY_RPC_URL: process.env.ALCHEMY_RPC_URL,
   ORACLE_PRIVATE_KEY: process.env.ORACLE_PRIVATE_KEY,
@@ -82,27 +82,27 @@ async function main(): Promise<void> {
   const writeOnChain = process.env.WRITE_ON_CHAIN === "true";
   logBlock(
     "Config",
-    `subgraph   = ${cfg.get("SUBGRAPH_URL")}\n` +
+    `indexer    = ${cfg.get("INDEXER_URL")}\n` +
       `model      = ${cfg.get("KIMI_MODEL")} @ ${cfg.get("KIMI_BASE_URL")}\n` +
       `webSearch = ${Boolean(process.env.MOONSHOT_API_KEY) ? "enabled" : "disabled"}\n` +
       `write      = ${writeOnChain ? "ON-CHAIN" : "dry-run"}`,
   );
 
   const redis = new MemoryRedis();
-  const subgraph = new SubgraphReader(cfg, redis as never);
+  const indexer = new IndexerReader(cfg, redis as never);
   const series = new MemorySeries();
   const adapters = new AdapterRegistry();
   const fetcher = new SourceFetcher(cfg, adapters, series, { get: async () => null } as never);
   const cache = new SourceCacheService(redis as never);
 
   // One handle at a time — the AI only analyses a single handle per run.
-  log("subgraph", "loading handles…");
-  const handles = await subgraph.handles();
+  log("indexer", "loading handles…");
+  const handles = await indexer.handles();
   const ronaldo =
     handles.find((h) => h.label.toLowerCase() === "ron" || h.id.toLowerCase().includes("ronaldo")) ??
     handles.find((h) => h.sources.length > 0);
-  if (!ronaldo) throw new Error("@ronaldo not found in subgraph");
-  log("subgraph", `found @${ronaldo.label} — aura=${ronaldo.aura}, graduated=${ronaldo.graduated}, category=${ronaldo.category}`);
+  if (!ronaldo) throw new Error("@ronaldo not found in indexer");
+  log("indexer", `found @${ronaldo.label} — aura=${ronaldo.aura}, graduated=${ronaldo.graduated}, categories=${JSON.stringify(ronaldo.categories)}`);
   for (const s of ronaldo.sources) log("on-chain source", s);
 
   const chain = writeOnChain

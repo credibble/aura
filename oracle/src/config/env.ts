@@ -40,12 +40,12 @@ export const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   CLOUDINARY_FOLDER: z.string().default("aura-posts"),
-  /** Subgraph GraphQL — the oracle's source of truth for on-chain Handles
+  /** Envio indexer GraphQL — the oracle's source of truth for on-chain Handles
    *  (no handle seeding in the backend; handles are created on-chain and read
-   *  through the subgraph, cached in Redis). The frontend reads the subgraph
-   *  directly too — the backend never mirrors subgraph data. */
-  SUBGRAPH_URL: z.string().url().optional(),
-  SUBGRAPH_CACHE_TTL_MS: z.coerce.number().int().positive().default(60_000),
+   *  through the indexer, cached in Redis). The frontend reads the indexer
+   *  directly too — the backend never mirrors indexer data. */
+  INDEXER_URL: z.string().url().default("http://localhost:8080/v1/graphql"),
+  INDEXER_CACHE_TTL_MS: z.coerce.number().int().positive().default(60_000),
   /** Outbound webhook — new orderbook fills are POSTed here (order.fill). */
   WEBHOOK_URL: z.string().url().optional(),
   /** Supabase — facilitates OAuth for social connections (Spotify, Instagram,

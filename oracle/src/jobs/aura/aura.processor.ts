@@ -3,7 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import type { Job } from "bullmq";
 import { QUEUE_AURA } from "../queue.constants";
 import { AuraEngineService } from "./aura-engine.service";
-import { SubgraphReader } from "../subgraph/subgraph-reader.service";
+import { IndexerReader } from "../indexer/indexer-reader.service";
 import type { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
 import { auraJobId, SCHEDULER_AURA } from "../queue.constants";
@@ -23,7 +23,7 @@ const AURA_EVERY_MS = 10_000;
 
 /**
  * Aura worker (queue `aura`):
- *  - `fanout` jobs (one per 10s bucket) resolve handles from the subgraph and
+ *  - `fanout` jobs (one per 10s bucket) resolve handles from the indexer and
  *    enqueue one tick per handle with a deterministic jobId
  *    `aura:<handleId>:<bucket>` — deduped within the bucket, so restarts can
  *    never double-process;
@@ -36,7 +36,7 @@ export class AuraProcessor extends WorkerHost {
 
   constructor(
     private readonly engine: AuraEngineService,
-    private readonly subgraph: SubgraphReader,
+    private readonly indexer: IndexerReader,
     @InjectQueue(QUEUE_AURA) private readonly queue: Queue<AuraTickJob>,
   ) {
     super();
@@ -54,7 +54,7 @@ export class AuraProcessor extends WorkerHost {
   }
 
   private async fanout(now: number): Promise<void> {
-    const handles = await this.subgraph.handles();
+    const handles = await this.indexer.handles();
     const bucket = bucketSec(now, AURA_EVERY_MS);
     for (const handle of handles) {
       await this.queue.add(

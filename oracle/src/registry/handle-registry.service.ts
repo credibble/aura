@@ -2,21 +2,21 @@ import { Injectable } from "@nestjs/common";
 import type { IHandleRegistry } from "../core/ports/handle-registry";
 import type { HandleConfig, OnChainHandleView } from "../core/domain/handle";
 import { bytes32ToId } from "../core/domain/handle";
-import { SubgraphHandleSync } from "./subgraph-handle-sync.service";
+import { IndexerHandleSync } from "./indexer-handle-sync.service";
 import { AdapterRegistry } from "../adapters/adapter-registry.service";
 import { handleDefaultMeta } from "./seed";
 
 /**
  * The handle (handle) universe — sourced ON-CHAIN. Handles are created via the
- * HandleFactory and read through the subgraph (GraphQL), cached in Redis by
- * SubgraphHandleSync. There is NO seeding in the backend. The on-chain Handle
+ * HandleFactory and read through the indexer (GraphQL), cached in Redis by
+ * IndexerHandleSync. There is NO seeding in the backend. The on-chain Handle
  * carries identity + sources[]; display defaults (category/color/volatility)
  * are merged from a local metadata table.
  */
 @Injectable()
 export class HandleRegistryService implements IHandleRegistry {
   constructor(
-    private readonly sync: SubgraphHandleSync,
+    private readonly sync: IndexerHandleSync,
     private readonly adapters: AdapterRegistry,
   ) {}
 

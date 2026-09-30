@@ -10,13 +10,13 @@ import {
 import type { AuraEventUnion } from "@aura/contracts";
 import { OracleEventBus } from "../orchestration/oracle-event-bus.service";
 import { WalletAuthService } from "../auth/wallet-auth.service";
-import { SubgraphReader } from "../jobs/subgraph/subgraph-reader.service";
-import { handleSnapshot } from "../jobs/subgraph/handle-snapshot";
+import { IndexerReader } from "../jobs/indexer/indexer-reader.service";
+import { handleSnapshot } from "../jobs/indexer/handle-snapshot";
 
 /**
  * Real-time push to the browser: rebroadcasts oracle events as typed
  * WebSocket messages (`hello`, `aura`, `feed`, `window`). The hello handshake
- * lists on-chain handles from the SUBGRAPH (the single source of truth).
+ * lists on-chain handles from the INDEXER (the single source of truth).
  */
 @WebSocketGateway({ cors: { origin: "*" } })
 @Injectable()
@@ -28,7 +28,7 @@ export class MarketGateway implements OnGatewayConnection, OnModuleInit, OnModul
 
   constructor(
     private readonly bus: OracleEventBus,
-    private readonly subgraph: SubgraphReader,
+    private readonly indexer: IndexerReader,
     private readonly auth: WalletAuthService,
     private readonly config: ConfigService,
   ) {}
@@ -144,7 +144,7 @@ export class MarketGateway implements OnGatewayConnection, OnModuleInit, OnModul
   }
 
   private async sendHello(client: Socket): Promise<void> {
-    const handles = await this.subgraph.handles();
+    const handles = await this.indexer.handles();
     const message: WsServerMessage = {
       v: WS_VERSION,
       type: "hello",

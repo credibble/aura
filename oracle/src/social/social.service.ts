@@ -4,13 +4,13 @@ import { OracleEventBus } from "../orchestration/oracle-event-bus.service";
 import { OutboxService } from "../orchestration/outbox.service";
 import type { OnChainHandleView } from "../core/domain/handle";
 import type { FeedEvent, SocialEventData } from "@aura/contracts";
-import { SubgraphHandleSync } from "../registry/subgraph-handle-sync.service";
+import { IndexerHandleSync } from "../registry/indexer-handle-sync.service";
 import { ChainGateway } from "../jobs/chain/chain-gateway.service";
 
 export type LikeTargetType = "feed" | "window" | "handle";
 
 /** Full frontend post shape: FeedEvent + Post fields. Posts never carry an
- *  attached aura snapshot â€” the subgraph owns the aura series. */
+ *  attached aura snapshot — the indexer owns the aura series. */
 export interface PostEvent extends FeedEvent {
   handle: string;
   name: string;
@@ -66,13 +66,13 @@ export class SocialService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly bus?: OracleEventBus,
-    /** On-chain handle registry â€” owner resolution for follow notifications
-     *  (SubgraphHandleSync; omitted in unit tests). @Inject gives Nest a real
-     *  class token â€” the structural type alone would emit `Object` as the
+    /** On-chain handle registry — owner resolution for follow notifications
+     *  (IndexerHandleSync; omitted in unit tests). @Inject gives Nest a real
+     *  class token — the structural type alone would emit `Object` as the
      *  paramtype and fail DI; the field stays structural for easy stubs. */
     @Optional()
-    @Inject(SubgraphHandleSync)
-    private readonly subgraph?: { handles(): Promise<OnChainHandleView[]> },
+    @Inject(IndexerHandleSync)
+    private readonly indexer?: { handles(): Promise<OnChainHandleView[]> },
     /** On-chain metadata writer (Handle.setMetadata) â€” the relayer/auraUpdater.
      *  Optional so unit tests can omit the chain entirely. */
     @Optional()
@@ -781,9 +781,9 @@ export class SocialService {
    *  the on-chain registry; skips unknown handles, self-follows and owner-less
    *  rows. Owner is lowercased to match the app's address convention. */
   private async notifyHandleOwner(handleId: string, followerId: string): Promise<void> {
-    if (!this.subgraph) return;
+    if (!this.indexer) return;
     try {
-      const handles = await this.subgraph.handles();
+      const handles = await this.indexer.handles();
       const h = handles.find(
         (x) => x.id === handleId || x.id.toLowerCase() === handleId.toLowerCase(),
       );

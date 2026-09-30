@@ -1,9 +1,9 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { planSync, decodeHandleId, type SubgraphHandleMeta } from "../src/registry/handle-metadata-sync";
+import { planSync, decodeHandleId, type IndexerHandleMeta } from "../src/registry/handle-metadata-sync";
 
 /**
- * Sync handle metadata (name / symbol / photo / categories) from the SUBGRAPH
+ * Sync handle metadata (name / symbol / photo / categories) from the INDEXER
  * into Postgres `users.metadata`, so the oracle-owned surfaces — comment authors,
  * feeds, notifications — show the same identity as the on-chain handle.
  *
@@ -14,40 +14,32 @@ import { planSync, decodeHandleId, type SubgraphHandleMeta } from "../src/regist
  * Idempotent: re-running after a rename/photo change reports `update` once and
  * then `unchanged`.
  */
-const SUBGRAPH_URL =
-  process.env.SUBGRAPH_URL ?? "http://localhost:8000/subgraphs/name/aura/aura";
+const INDEXER_URL =
+  process.env.INDEXER_URL ?? "http://localhost:8080/v1/graphql";
 
 const HANDLES_QUERY = `{
-  handles(first: 500, where: { active: true }, orderBy: aura, orderDirection: desc) {
-    id name symbol metadata owner { id } categoryIds
+  Handle(limit: 500, where: { active: { _eq: true } }, order_by: { aura: desc }) {
+    id name symbol metadata owner { id } categories
   }
 }`;
 
-/** Pre-migration fallback: the field was `categoryId` (single) before it became a list. */
-const HANDLES_QUERY_LEGACY = HANDLES_QUERY.replace("categoryIds", "categoryId");
-
-async function gql(query: string): Promise<SubgraphHandleMeta[]> {
-  const res = await fetch(SUBGRAPH_URL, {
+async function gql(query: string): Promise<IndexerHandleMeta[]> {
+  const res = await fetch(INDEXER_URL, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ query }),
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new Error(`subgraph HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`indexer HTTP ${res.status}`);
   const json = (await res.json()) as {
-    data?: { handles?: SubgraphHandleMeta[] };
+    data?: { Handle?: IndexerHandleMeta[] };
     errors?: { message?: string }[];
   };
   if (json.errors?.length) throw new Error(json.errors[0]?.message ?? "graphql error");
-  return (json.data?.handles ?? []).map((h) => ({
-    ...h,
-    // Tolerate the single-category form so the script works before and after the
-    // `categoryId` → `categoryIds` migration.
-    categoryIds: h.categoryIds ?? (h.categoryId ? [h.categoryId] : []),
-  }));
+  return json.data?.Handle ?? [];
 }
 
-async function fetchHandles(): Promise<SubgraphHandleMeta[]> {
+async function fetchHandles(): Promise<IndexerHandleMeta[]> {
   return gql(HANDLES_QUERY);
 }
 
@@ -61,7 +53,7 @@ async function main(): Promise<void> {
     if (!only) return true;
     return decodeHandleId(h.id).toLowerCase() === only;
   });
-  console.log(`handles from subgraph: ${handles.length}${only ? ` (filter: ${only})` : ""}`);
+  console.log(`handles from indexer: ${handles.length}${only ? ` (filter: ${only})` : ""}`);
 
   // Current PG rows for the owners involved.
   const owners = [...new Set(handles.map((h) => (h.owner?.id ?? "").toLowerCase()).filter(Boolean))];

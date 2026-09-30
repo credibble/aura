@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { SubgraphHandleSync } from "../registry/subgraph-handle-sync.service";
+import { IndexerHandleSync } from "../registry/indexer-handle-sync.service";
 import { PrismaService } from "../persistence/prisma.service";
 import { CONNECTION_STORE } from "../core/ports/tokens";
 import type { IConnectionStore } from "../core/ports/connection-store";
@@ -50,7 +50,7 @@ export class PortfolioService {
   private readonly logger = new Logger(PortfolioService.name);
 
   constructor(
-    private readonly sync: SubgraphHandleSync,
+    private readonly sync: IndexerHandleSync,
     private readonly prisma: PrismaService,
     @Inject(CONNECTION_STORE) private readonly connections: IConnectionStore,
     private readonly config: ConfigService,
@@ -60,7 +60,7 @@ export class PortfolioService {
 
   /**
    * Cleanverse CVI verification for a handle — frontend → backend → onchain:
-   *   1. resolve the handle on-chain (subgraph) to its creator,
+   *   1. resolve the handle on-chain (indexer) to its creator,
    *   2. check the creator's A-Pass through Cleanverse,
    *   3. write the result to `Handle.setVerified` (onlyProtocol) when it differs
    *      from the current on-chain flag.

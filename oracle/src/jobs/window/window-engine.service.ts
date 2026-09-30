@@ -5,15 +5,14 @@ import { keccak256, toBytes } from "viem";
 import { REDIS } from "../../queue/queue.constants";
 import { slotBounds } from "@aura/contracts";
 import { ChainGateway } from "../chain/chain-gateway.service";
-import { SubgraphReader, type SubgraphWindow } from "../subgraph/subgraph-reader.service";
+import { IndexerReader, type IndexerWindow } from "../indexer/indexer-reader.service";
 import { WsBroadcastService } from "../ws/ws-broadcast.service";
 import { TIME_SERIES_STORE } from "../../core/ports/tokens";
 import type { ITimeSeriesStore } from "../../core/ports/time-series-store";
 import {
-  parseMarketStyle,
+  marketStyle,
   windowMetadata,
   gainBetween,
-  CATEGORY_BASE,
 } from "./market-style";
 import type { AuraHandle } from "../jobs.types";
 import { strikeFor, windowPriors, stepSeconds } from "./window-pricing";
@@ -35,7 +34,7 @@ const PRIOR_LOOKBACK_MS = 24 * 60 * 60 * 1000;
  *  - OPEN: the current slot's window, only when the handle has NO live window.
  *
  * ALL of that is decided from the CHAIN (`OracleFactory.oracleOf` +
- * `MarketMaker.isOpen`). The subgraph lags — and can wedge — and depending on it
+ * `MarketMaker.isOpen`). The indexer lags — and can wedge — and depending on it
  * meant a stale "still open" window blocked the next open and hid the window
  * that needed settling. It is now only consulted to enrich a settle (outcome
  * labels) and to size funding. Redis flags keep every action idempotent across
@@ -53,7 +52,7 @@ export class WindowEngineService {
 
   constructor(
     private readonly chain: ChainGateway,
-    private readonly subgraph: SubgraphReader,
+    private readonly indexer: IndexerReader,
     private readonly ws: WsBroadcastService,
     @Inject(TIME_SERIES_STORE) private readonly series: ITimeSeriesStore,
     @Inject(REDIS) private readonly redis: Redis,
@@ -84,9 +83,9 @@ export class WindowEngineService {
 
       // EVERY decision below comes from the CHAIN, never the indexer: a stale
       // "still open" window used to block the next open while hiding the window
-      // that needed settling. The subgraph only labels outcomes + sizes funding.
+      // that needed settling. The indexer only labels outcomes + sizes funding.
       const slots = this.recentSlots(handle, now);
-      const known = await this.subgraph.openWindows().catch((): SubgraphWindow[] => []);
+      const known = await this.indexer.openWindows().catch((): IndexerWindow[] => []);
       const nowSec = Math.floor(now / 1000);
       let live = false;
 
@@ -195,18 +194,9 @@ export class WindowEngineService {
       );
     }
 
-    // The handle's PRIMARY category code decides the question wording. Markets
-    // are always binary now — the multi-outcome "gain" market is gone.
-    const primary = handle.categories[0] ?? 0;
-    const style = parseMarketStyle(primary) ?? {
-      category: primary,
-      cat: CATEGORY_BASE,
-      sub: CATEGORY_BASE,
-      format: 1 as const,
-      style: "binary" as const,
-      base: "sport",
-      subLabel: "uncategorized",
-    };
+    // The handle's primary category is carried into the window metadata for
+    // display; the style itself is always binary.
+    const style = marketStyle(handle.categories[0] ?? 0);
     const outcomes: string[] = ["YES", "NO"];
 
     // STRIKE + INITIAL PROBABILITIES from the handle's own aura series (see
@@ -265,7 +255,7 @@ export class WindowEngineService {
     handle: AuraHandle,
     oracle: string,
     slot: { start: number; end: number },
-    known: SubgraphWindow[],
+    known: IndexerWindow[],
     nowSec: number,
   ): Promise<void> {
     if (slot.end + FREEZE_SECONDS >= nowSec) return; // froze moments ago — let it freeze
@@ -415,10 +405,10 @@ export class WindowEngineService {
     handle: AuraHandle,
     startSec: number,
   ): Promise<string> {
-    const prev = await this.subgraph.previousSettledWindow(handle.id, startSec);
+    const prev = await this.indexer.previousSettledWindow(handle.id, startSec);
     let funding = MIN_FUNDING;
     if (prev) {
-      const volume = await this.subgraph.windowVolume(prev.id);
+      const volume = await this.indexer.windowVolume(prev.id);
       if (volume > 0n) {
         // Round up to the next 100 USDC so the window funds cleanly.
         const hundred = 100n * 10n ** 18n;

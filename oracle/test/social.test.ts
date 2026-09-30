@@ -535,7 +535,7 @@ describe("SocialService — likes, following, subscribing, notifications, repost
           revenue: "",
           stake: "",
           graduated: false,
-          category: 0,
+          categories: [],
         },
       ],
     });

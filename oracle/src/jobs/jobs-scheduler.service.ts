@@ -21,7 +21,7 @@ const RETRY_MS = 10_000;
  *   - window every 5s  — per-graduated-handle open/settle
  *   - notify every 30s — follower notifications + subscriber WS pushes
  * Each scheduler enqueues a `fanout` job; the workers resolve handles from the
- * subgraph and enqueue idempotent per-handle jobs. Gated on Redis so the API
+ * indexer and enqueue idempotent per-handle jobs. Gated on Redis so the API
  * boots without the broker and self-heals once Redis returns.
  */
 @Injectable()

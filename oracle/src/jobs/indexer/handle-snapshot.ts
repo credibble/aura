@@ -12,7 +12,7 @@ function metadataImage(h: AuraHandle): string | undefined {
   }
 }
 
-/** Map a subgraph handle to the frontend HandleSnapshot (aura → index). */
+/** Map an indexer handle to the frontend HandleSnapshot (aura → index). */
 export function handleSnapshot(h: AuraHandle, now = Date.now()): HandleSnapshot {
   const label = windowLabel(h.windowMinutes);
   const image = metadataImage(h);

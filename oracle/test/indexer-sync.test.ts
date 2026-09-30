@@ -28,7 +28,7 @@ describe("Handle metadata defaults (display only — not seeding)", () => {
     expect(typeof meta.volatility).toBe("number");
   });
 
-  it("returns {} for unknown handles (handles still come from the subgraph)", () => {
+  it("returns {} for unknown handles (handles still come from the indexer)", () => {
     expect(handleDefaultMeta("some-new-onchain-handle")).toEqual({});
   });
 });

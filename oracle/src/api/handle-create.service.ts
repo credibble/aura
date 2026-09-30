@@ -35,9 +35,11 @@ const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const MAX_CATEGORIES = 4;
 
 /**
- * Validate + dedupe the market-style codes a handle is being created with.
+ * Validate + dedupe the category codes a handle is being created with.
  * A handle belongs to one or more families (a footballer is sport AND people);
- * the first entry is its primary category.
+ * the first entry is its primary category. Codes are the plain on-chain list:
+ * 1 people · 2 crypto · 3 sports · 4 ai · 5 tech · 6 brands · 7 music · 8 memes ·
+ * 9 culture.
  */
 function normaliseCategories(input: unknown): number[] {
   if (!Array.isArray(input) || input.length === 0)
@@ -45,8 +47,8 @@ function normaliseCategories(input: unknown): number[] {
   const codes: number[] = [];
   for (const raw of input) {
     const code = Number(raw);
-    if (!Number.isSafeInteger(code) || code < 0 || code >= 1_000_000_000)
-      throw new BadRequestException("each category must be an integer code below 1e9");
+    if (!Number.isSafeInteger(code) || code < 1 || code > 9)
+      throw new BadRequestException("each category must be a known category code (1-9)");
     if (!codes.includes(code)) codes.push(code);
   }
   if (codes.length > MAX_CATEGORIES)
@@ -70,7 +72,7 @@ export interface HandleUpdateInput {
   symbol?: string;
   /** Cloudinary https URL of the uploaded handle photo (multipart `photo`). */
   photo?: string;
-  /** The handle's current metadata JSON (from the subgraph) to merge into. */
+  /** The handle's current metadata JSON (from the indexer) to merge into. */
   current?: string;
 }
 
@@ -244,7 +246,7 @@ export class HandleCreateService {
     if (address.toLowerCase() === ZERO_ADDRESS)
       throw new NotFoundException(`handle @${label} does not exist`);
 
-    // Merge: existing metadata (subgraph copy) + the fields being changed.
+    // Merge: existing metadata (indexer copy) + the fields being changed.
     const meta: Record<string, unknown> = {};
     if (input.current) {
       try {

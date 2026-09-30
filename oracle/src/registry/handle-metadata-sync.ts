@@ -1,21 +1,23 @@
 /**
  * Handle metadata → Postgres `users.metadata`.
  *
- * The subgraph is authoritative for a handle (name, symbol, photo, categories);
+ * The indexer is authoritative for a handle (name, symbol, photo, categories);
  * Postgres keeps a copy for the surfaces the oracle owns — comment authors, feeds
  * and notifications all read the PG user. Nothing kept that copy in sync, so a
- * renamed handle or a new photo showed up on-chain and in the subgraph while the
+ * renamed handle or a new photo showed up on-chain and in the indexer while the
  * PG-backed rows kept the old values forever.
  *
  * The pure part lives here (tested); `scripts/sync-handle-metadata.ts` is the CLI.
  */
-export type SubgraphHandleMeta = {
+import { categoryFamily } from "./source-seed";
+
+export type IndexerHandleMeta = {
   id: string;
   name?: string | null;
   symbol?: string | null;
   metadata?: string | null;
   owner?: { id?: string | null } | null;
-  categoryIds?: string[] | null;
+  categories?: string[] | null;
 };
 
 export type ParsedHandleMeta = {
@@ -30,7 +32,7 @@ export type ParsedHandleMeta = {
 };
 
 /** Parse the on-chain metadata JSON + identity fields, tolerant of junk. */
-export function parseHandleMeta(row: SubgraphHandleMeta): ParsedHandleMeta | null {
+export function parseHandleMeta(row: IndexerHandleMeta): ParsedHandleMeta | null {
   const userId = (row.owner?.id ?? "").toLowerCase();
   if (!row.id || !/^0x[0-9a-f]{64}$/i.test(row.id) || !/^0x[0-9a-f]{40}$/i.test(userId)) return null;
 
@@ -57,7 +59,7 @@ export function parseHandleMeta(row: SubgraphHandleMeta): ParsedHandleMeta | nul
     symbol: str(meta.symbol) ?? row.symbol ?? "",
     photo: str(meta.photo),
     imageFit: fit,
-    categories: [...new Set((row.categoryIds ?? []).filter((c) => typeof c === "string" && c))],
+    categories: [...new Set((row.categories ?? []).map((c) => categoryFamily(Number(c))))],
   };
 }
 
@@ -115,7 +117,7 @@ export type SyncPlan = {
  * the row's current `metadata` (undefined when the row doesn't exist).
  */
 export function planSync(
-  rows: SubgraphHandleMeta[],
+  rows: IndexerHandleMeta[],
   existingUsers: Map<string, unknown>,
 ): SyncPlan[] {
   const plans: SyncPlan[] = [];

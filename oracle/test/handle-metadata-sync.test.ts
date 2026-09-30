@@ -5,12 +5,12 @@ import {
   mergeUserMetadata,
   userMetadataPatch,
   planSync,
-  type SubgraphHandleMeta,
+  type IndexerHandleMeta,
 } from "../src/registry/handle-metadata-sync";
 
 /**
- * The subgraph → Postgres metadata sync. Regression coverage for the bug it
- * fixes: a renamed handle (or a new photo) updated on-chain and in the subgraph
+ * The indexer → Postgres metadata sync. Regression coverage for the bug it
+ * fixes: a renamed handle (or a new photo) updated on-chain and in the indexer
  * while the PG-backed comment/feed rows kept the stale value forever.
  */
 
@@ -18,13 +18,14 @@ import {
 const ID_ELON = `0x${Buffer.from("elon", "utf8").toString("hex").padEnd(64, "0")}`;
 const OWNER = "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a";
 
-const row = (over: Partial<SubgraphHandleMeta> = {}): SubgraphHandleMeta => ({
+const row = (over: Partial<IndexerHandleMeta> = {}): IndexerHandleMeta => ({
   id: ID_ELON,
   name: "Elon Musk",
   symbol: "ELON",
   metadata: JSON.stringify({ name: "Elon Musk", symbol: "ELON", photo: "https://cdn/x.jpg", imageFit: "cover" }),
   owner: { id: OWNER },
-  categoryIds: ["people", "tech"],
+  // On-chain CODES (1 people, 5 tech) — the parser maps them to families.
+  categories: ["1", "5"],
   ...over,
 });
 
@@ -40,7 +41,7 @@ describe("decodeHandleId", () => {
 
 describe("parseHandleMeta", () => {
   it("parses identity + metadata JSON, deduping categories", () => {
-    const p = parseHandleMeta(row({ categoryIds: ["people", "tech", "people"] }));
+    const p = parseHandleMeta(row({ categories: ["1", "5", "1"] }));
     expect(p).not.toBeNull();
     expect(p!.userId).toBe(OWNER.toLowerCase());
     expect(p!.name).toBe("Elon Musk");

@@ -221,7 +221,7 @@ export class AuraEngineService {
     this.ws.publishAura({ handleId: handle.id, aura: next, delta, summary, inputsHash, ts: now });
     // Persist the summary so the NEXT tick can pass it as prior-tick context.
     await this.cache.set(this.summaryKey(handle.label), { summary: scored.summary }, SENT_TTL_SECONDS);
-    // No backend aura history: the subgraph's aura records are the single
+    // No backend aura history: the indexer's aura records are the single
     // source of truth for a handle's aura series + summaries.
     return { handleId: handle.id, label: handle.label, aura: next, delta };
   }

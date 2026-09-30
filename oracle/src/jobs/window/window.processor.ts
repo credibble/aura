@@ -6,7 +6,7 @@ import { QUEUE_WINDOW } from "../queue.constants";
 import { windowJobId } from "../queue.constants";
 import { slotBounds } from "@aura/contracts";
 import { WindowEngineService } from "./window-engine.service";
-import { SubgraphReader } from "../subgraph/subgraph-reader.service";
+import { IndexerReader } from "../indexer/indexer-reader.service";
 import type { AuraHandle } from "../jobs.types";
 
 interface WindowFanoutJob {
@@ -32,7 +32,7 @@ export class WindowProcessor extends WorkerHost {
 
   constructor(
     private readonly engine: WindowEngineService,
-    private readonly subgraph: SubgraphReader,
+    private readonly indexer: IndexerReader,
     @InjectQueue(QUEUE_WINDOW) private readonly queue: Queue<WindowTickJob>,
   ) {
     super();
@@ -50,7 +50,7 @@ export class WindowProcessor extends WorkerHost {
   }
 
   private async fanout(now: number): Promise<void> {
-    const handles = await this.subgraph.graduatedHandles();
+    const handles = await this.indexer.graduatedHandles();
     for (const handle of handles) {
       const { start } = slotBounds(now, handle.windowMinutes);
       const startSec = Math.floor(start / 1000);

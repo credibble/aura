@@ -22,6 +22,15 @@ export function formatSigned(n: number, decimals = 2): string {
   return `${n >= 0 ? "+" : ""}${n.toFixed(decimals)}`;
 }
 
+/**
+ * Is this a MEASURED count? A finite number — including a genuine 0 — is
+ * reported data; `undefined`/`null`/`NaN` means the platform reported nothing
+ * (an RSS feed has no likes), so the UI must show nothing rather than a fake 0.
+ */
+export function hasCount(v: number | null | undefined): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
 /** Compact count — K / M / B (drops to 2 decimals only under 1,000). */
 export function formatCompact(n: number): string {
   if (!Number.isFinite(n)) return "—";

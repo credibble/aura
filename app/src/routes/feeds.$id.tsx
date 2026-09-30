@@ -17,7 +17,7 @@ import { AuraText } from "@/components/aura/AuraTerm";
 import { FeedComments } from "@/components/feeds/FeedComments";
 import { CommentSkeleton, FeedItemSkeleton, Skeleton } from "@/components/ui/skeletons";
 import { handleSlug } from "@/lib/handle-id";
-import { formatCompact } from "@/lib/format";
+import { formatCompact, hasCount } from "@/lib/format";
 import { CATEGORY_MAP } from "@/lib/aura-data";
 import { postOptions } from "@/queries/posts";
 import { api } from "@/lib/api";
@@ -99,6 +99,11 @@ function FeedDetailPage() {
     name: post.handle ?? post.name,
   });
   const cat = CATEGORY_MAP[post.category];
+  // Platform-reported counters only; absent ones stay absent.
+  const likes = post.stats?.likes;
+  const reposts = post.stats?.reposts;
+  const replies = post.stats?.replies;
+  const views = post.stats?.views;
 
   return (
     <FeedLayout sidebar={<FeedSearch />}>
@@ -134,7 +139,7 @@ function FeedDetailPage() {
               >
                 {post.name}
               </Link>
-              {post.stats.likes + post.stats.reposts > 0 && (
+              {(likes ?? 0) + (reposts ?? 0) > 0 && (
                 <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               )}
             </div>
@@ -205,18 +210,26 @@ function FeedDetailPage() {
         )}
 
         <div className="mt-6 flex items-center gap-5 border-t border-border/70 pt-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <MessageCircle className="h-3.5 w-3.5" /> {formatCompact(post.stats.replies)}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Repeat2 className="h-3.5 w-3.5" /> {formatCompact(post.stats.reposts)}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Heart className="h-3.5 w-3.5" /> {formatCompact(post.stats.likes)}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Eye className="h-3.5 w-3.5" /> {formatCompact(post.stats.views)}
-          </span>
+          {hasCount(replies) && (
+            <span className="flex items-center gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5" /> {formatCompact(replies)}
+            </span>
+          )}
+          {hasCount(reposts) && (
+            <span className="flex items-center gap-1.5">
+              <Repeat2 className="h-3.5 w-3.5" /> {formatCompact(reposts)}
+            </span>
+          )}
+          {hasCount(likes) && (
+            <span className="flex items-center gap-1.5">
+              <Heart className="h-3.5 w-3.5" /> {formatCompact(likes)}
+            </span>
+          )}
+          {hasCount(views) && (
+            <span className="flex items-center gap-1.5">
+              <Eye className="h-3.5 w-3.5" /> {formatCompact(views)}
+            </span>
+          )}
           <Link
             to="/$id"
             params={{ id: slug }}

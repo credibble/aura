@@ -4,7 +4,7 @@ import { Bookmark, Eye, Heart, MessageCircle, Repeat2, Sparkles } from "lucide-r
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { AuraText } from "@/components/aura/AuraTerm";
 import { handleSlug } from "@/lib/handle-id";
-import { formatCompact } from "@/lib/format";
+import { formatCompact, hasCount } from "@/lib/format";
 import { CATEGORY_MAP } from "@/lib/aura-data";
 import { useSocial } from "@/lib/social-store";
 import type { FeedPost } from "@/lib/aura-feed";
@@ -42,6 +42,12 @@ export function FeedItem({
   });
   const cat = CATEGORY_MAP[post.category];
   const compact = variant === "compact";
+
+  // Only counters the platform actually reported; `undefined` renders nothing.
+  const likes = post.stats?.likes;
+  const reposts = post.stats?.reposts;
+  const replies = post.stats?.replies;
+  const views = post.stats?.views;
 
   const body = compact ? post.body.slice(0, 1) : expanded ? post.body : post.body.slice(0, 1);
   const more = !compact && (post.body.length > 1 || (post.body[0]?.length ?? 0) > 180);
@@ -87,7 +93,7 @@ export function FeedItem({
               {post.name}
             </Link>
             <span className="truncate text-xs text-muted-foreground">{post.handle}</span>
-            {post.stats.likes + post.stats.reposts > 0 && (
+            {(likes ?? 0) + (reposts ?? 0) > 0 && (
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
             )}
           </div>
@@ -209,7 +215,7 @@ export function FeedItem({
           )}
         >
           <Heart className={cn("h-3.5 w-3.5", liked && "fill-current")} />
-          <span aria-live="polite">{formatCompact(post.stats.likes)}</span>
+          {hasCount(likes) && <span aria-live="polite">{formatCompact(likes)}</span>}
         </button>
 
         <button
@@ -223,16 +229,19 @@ export function FeedItem({
           )}
         >
           <Repeat2 className="h-3.5 w-3.5" />
-          <span aria-live="polite">{formatCompact(post.stats.reposts)}</span>
+          {hasCount(reposts) && <span aria-live="polite">{formatCompact(reposts)}</span>}
         </button>
 
         {/* The counts were `title=`-only: invisible to assistive tech and useless
-            on touch. They are labelled text now, not a tooltip. */}
-        <span className="flex min-h-11 items-center gap-1.5 sm:min-h-0">
-          <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="sr-only">Comments </span>
-          <span aria-live="polite">{formatCompact(post.stats.replies)}</span>
-        </span>
+            on touch. They are labelled text now, not a tooltip. A count the
+            platform never reported renders nothing at all. */}
+        {hasCount(replies) && (
+          <span className="flex min-h-11 items-center gap-1.5 sm:min-h-0">
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sr-only">Comments </span>
+            <span aria-live="polite">{formatCompact(replies)}</span>
+          </span>
+        )}
 
         <button
           type="button"
@@ -247,11 +256,13 @@ export function FeedItem({
           <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} />
         </button>
 
-        <span className="flex min-h-11 items-center gap-1.5 sm:min-h-0">
-          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="sr-only">Impressions </span>
-          <span>{formatCompact(post.stats.views)}</span>
-        </span>
+        {hasCount(views) && (
+          <span className="flex min-h-11 items-center gap-1.5 sm:min-h-0">
+            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sr-only">Impressions </span>
+            <span>{formatCompact(views)}</span>
+          </span>
+        )}
 
         {!compact && (
           <Link

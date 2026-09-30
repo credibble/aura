@@ -112,6 +112,7 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
         });
       }
       setStakeExact(null);
+      setAmount("");
       setOpen(false);
     } catch (e) {
       toast.error("Transaction failed", { description: explainRevert(e) });

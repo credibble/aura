@@ -34,6 +34,18 @@ export type FeedMedia =
   | { kind: "image"; src: string; alt: string }
   | { kind: "video"; src: string; alt: string };
 
+/**
+ * Engagement counters a platform actually reported. Every field is optional: a
+ * platform that publishes no engagement (RSS) reports NONE, and that is not the
+ * same as a measured 0 — a real 0 is a number and must still render.
+ */
+export type FeedEngagement = {
+  replies?: number;
+  reposts?: number;
+  likes?: number;
+  views?: number;
+};
+
 export type FeedComment = {
   id: string;
   user: string;
@@ -77,7 +89,7 @@ export type FeedPost = {
   /** Absolute epoch ms when the post was published (drives live feeds). */
   createdAt?: number;
   media?: FeedMedia[];
-  stats: { replies: number; reposts: number; likes: number; views: number };
+  stats?: FeedEngagement;
   /** Underlying sources rolled up into `summary` / `body`. */
   sources: FeedSource[];
 };

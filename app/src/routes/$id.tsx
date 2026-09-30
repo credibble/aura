@@ -20,7 +20,7 @@ import { QueryError } from "@/components/QueryState";
 import { trendColor } from "@/lib/chart-domain";
 import { ChartSkeleton, HandleHeaderSkeleton } from "@/components/ui/skeletons";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
-import { MultiChart } from "@/components/aura/MultiChart";
+import { CHART_PLOT_RATIO, MultiChart } from "@/components/aura/MultiChart";
 import { OrderBook } from "@/components/aura/OrderBook";
 import {
   DropdownMenu,
@@ -180,6 +180,13 @@ function TradePage() {
     queryFn: () => api.readStakeEarned(vault!, address ?? undefined),
     enabled: !!vault && !!address,
   });
+  // The market's trading fee (bps) is a contract constant — read once. Shown in
+  // the chart's footer stat row.
+  const feeQuery = useQuery({
+    queryKey: ["market-fee"],
+    queryFn: () => api.readMarketFeeBps().catch(() => 0n),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
   const stakeStats = stakeStatsQuery.data
     ? {
         totalAssets: Number(stakeStatsQuery.data.totalAssets) / 1e18,
@@ -320,6 +327,19 @@ function TradePage() {
   const cat = market ? CATEGORY_MAP[market.category as CategoryId] : undefined;
   const trades = (tradesQuery.data?.pages ?? []).flatMap((p) => p.items);
   const tradable = h.graduated;
+
+  // Footer stats: when this window closes, and the market's trading fee.
+  const closeAt = viewed ? Number(viewed.windowEnd) * 1000 : NaN;
+  const closeLabel = Number.isFinite(closeAt)
+    ? new Date(closeAt).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "—";
+  const feeBps = feeQuery.data !== undefined ? Number(feeQuery.data) : null;
+  const feeLabel = feeBps !== null ? `${(feeBps / 100).toFixed(2)}%` : "—";
 
   const copyLink = () => {
     navigator.clipboard?.writeText(`${window.location.origin}/${slug}`).catch(() => {});
@@ -580,12 +600,31 @@ function TradePage() {
                   </div>
                 </div>
 
+                {/* Footer stats beside the range chips: volume, close time, fee */}
+                <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-secondary/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium uppercase tracking-wide">Volume</span>
+                    <UsdcAmount value={formatUsd(market.volume)} size={11} />
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium uppercase tracking-wide">Closes</span>
+                    <span className="num text-foreground/90">{closeLabel}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium uppercase tracking-wide">Fee</span>
+                    <span className="num text-foreground/90">{feeLabel}</span>
+                  </span>
+                </div>
+
                 <div
                   className="relative h-[240px] sm:h-[280px]"
                   onMouseMove={(e) => {
                     if (memos.length === 0) return;
                     const r = e.currentTarget.getBoundingClientRect();
-                    const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+                    const frac = Math.min(
+                      1,
+                      Math.max(0, (e.clientX - r.left) / (r.width * CHART_PLOT_RATIO)),
+                    );
                     let best = 0;
                     for (let i = 1; i < memos.length; i++) {
                       if (Math.abs(memos[i]!.frac - frac) < Math.abs(memos[best]!.frac - frac))
@@ -599,6 +638,7 @@ function TradePage() {
                     series={auraShown ? auraLine : (chart?.series ?? [])}
                     height={280}
                     strike={auraShown ? market.strike : undefined}
+                    axis={auraShown ? "points" : "percent"}
                   />
 
                   {/* Aura snapshot markers — the memo behind each point */}
@@ -613,7 +653,7 @@ function TradePage() {
                         "absolute top-0 h-full w-3 -translate-x-1/2 cursor-default",
                         hover === i ? "opacity-100" : "opacity-70",
                       )}
-                      style={{ left: `${m.frac * 100}%` }}
+                      style={{ left: `${m.frac * CHART_PLOT_RATIO * 100}%` }}
                     >
                       <span
                         className={cn(
@@ -629,7 +669,7 @@ function TradePage() {
                     <div
                       className="pointer-events-none absolute top-6 z-20 w-[236px] rounded-2xl border border-border/70 bg-card p-3 shadow-xl"
                       style={{
-                        left: `min(max(${memos[hover]!.frac * 100}%, 132px), calc(100% - 20px))`,
+                        left: `min(max(${memos[hover]!.frac * CHART_PLOT_RATIO * 100}%, 132px), calc(100% - 20px))`,
                         transform: "translateX(-50%)",
                       }}
                     >

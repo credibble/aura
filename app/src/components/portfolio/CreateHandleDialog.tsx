@@ -104,6 +104,8 @@ export function CreateHandleDialog({ children }: { children: ReactNode }) {
       setName("");
       setSymbol("");
       setPhoto(null);
+      setCategories([CATEGORY_OPTIONS[0].code]);
+      setWindowMinutes(WINDOW_OPTIONS[0]);
     },
     onError: (e: Error) => notifyError(e, "Create handle"),
   });

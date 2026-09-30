@@ -7,7 +7,7 @@ import { SearchPopover } from "@/components/SearchPopover";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { useSocial } from "@/lib/social-store";
 import { CATEGORY_MAP } from "@/lib/aura-data";
-import { formatUsd, formatCompact } from "@/lib/format";
+import { formatUsd, formatCompact, hasCount } from "@/lib/format";
 import { UsdcIcon } from "@/components/aura/UsdcIcon";
 import { handleSlug, labelOf, findHandle } from "@/lib/handle-id";
 import { cn } from "@/lib/utils";
@@ -120,8 +120,10 @@ export function TodayNewsCard() {
               {n.summary}
             </p>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              {n.ts} · {CATEGORY_MAP[n.category]?.label ?? n.category} ·{" "}
-              {formatCompact(n.stats.reposts + n.stats.likes)} reactions
+              {n.ts} · {CATEGORY_MAP[n.category]?.label ?? n.category}
+              {hasCount(n.stats?.reposts) || hasCount(n.stats?.likes)
+                ? ` · ${formatCompact((n.stats?.reposts ?? 0) + (n.stats?.likes ?? 0))} reactions`
+                : ""}
             </p>
           </Link>
         ))}

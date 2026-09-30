@@ -67,7 +67,7 @@ export type PostEvent = {
     aura: number;
     stats?: string;
   }[];
-  stats: { replies: number; reposts: number; likes: number; views: number };
+  stats?: { replies?: number; reposts?: number; likes?: number; views?: number };
 };
 
 function clockTime(ts: number): string {
@@ -113,7 +113,9 @@ export function toFeedPost(p: PostEvent): FeedPost {
     body: p.body.split("\n").filter(Boolean),
     createdAt: p.createdAt,
     media,
-    stats: p.stats ?? { replies: 0, reposts: 0, likes: 0, views: 0 },
+    // Pass the platform's counters through untouched: an absent `stats` stays
+    // absent (render nothing), so a fabricated 0 can never imply "no engagement".
+    stats: p.stats,
     sources,
   };
 }
@@ -186,7 +188,7 @@ export function bumpEngagement(
 ): void {
   const bump = (post: FeedPost | undefined | null): FeedPost | undefined | null =>
     post && post.id === postId
-      ? { ...post, stats: { ...post.stats, [key]: Math.max(0, (post.stats[key] ?? 0) + delta) } }
+      ? { ...post, stats: { ...post.stats, [key]: Math.max(0, (post.stats?.[key] ?? 0) + delta) } }
       : post;
 
   for (const prefix of [["feed"], ["posts"], ["search"], ["bookmarks"]]) {

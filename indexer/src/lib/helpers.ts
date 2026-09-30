@@ -138,6 +138,14 @@ export async function loadStats(context: Ctx): Promise<Entity<"Stats">> {
   };
 }
 
+/** The level in a question ("Will @x aura rise above 35.50?") as 1e2. */
+function strikeFromQuestion(question: string): bigint {
+  const match = question.match(/above\s+([0-9]+(?:\.[0-9]+)?)/i);
+  if (!match) return 0n;
+  const level = Number(match[1]);
+  return Number.isFinite(level) ? BigInt(Math.round(level * 100)) : 0n;
+}
+
 /** Parse the Oracle's metadata JSON into the indexed display fields. */
 export function parseOracleMetadata(raw: string): {
   question: string;
@@ -151,14 +159,18 @@ export function parseOracleMetadata(raw: string): {
       return { question: "", style: "", strike: 0n };
     }
     const obj = parsed as Record<string, unknown>;
+    const question = typeof obj.question === "string" ? obj.question : "";
+    // The strike the odds were priced from, 1e2 — a real number, so the app draws
+    // its strike line without parsing the question text. Metadata written before
+    // that field existed carries the level only in the question, so fall back to
+    // reading it from there rather than reporting a zero strike.
     return {
-      question: typeof obj.question === "string" ? obj.question : "",
+      question,
       style: typeof obj.style === "string" ? obj.style : "",
-      // The strike the odds were priced from, 1e2 — a real number, so the app
-      // draws its strike line without parsing the question text.
-      strike: typeof obj.strike === "number" && Number.isFinite(obj.strike)
-        ? BigInt(Math.round(obj.strike))
-        : 0n,
+      strike:
+        typeof obj.strike === "number" && Number.isFinite(obj.strike)
+          ? BigInt(Math.round(obj.strike))
+          : strikeFromQuestion(question),
     };
   } catch {
     return { question: "", style: "", strike: 0n };

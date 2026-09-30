@@ -40,7 +40,6 @@ services:
     environment: &oracle-env
       DATABASE_URL: postgresql://aura:aura@postgres:5432/aura
       REDIS_URL: redis://redis:6379
-      INDEXER_URL: http://host.docker.internal:8080/v1/graphql
       NODE_ENV: production
     extra_hosts:
       - "host.docker.internal:host-gateway"

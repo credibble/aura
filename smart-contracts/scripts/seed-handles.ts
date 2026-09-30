@@ -369,6 +369,7 @@ async function main(): Promise<void> {
               question: `Will @${s.label} aura rise above ${(s.aura / 100).toFixed(2)}?`,
               style: "binary",
               category: s.categories[0],
+              strike: s.aura,
               handle: s.label,
             }),
             1_000n * ONE,

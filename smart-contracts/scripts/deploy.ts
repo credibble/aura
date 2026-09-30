@@ -21,7 +21,7 @@ const ONE = 10n ** 18n;
 const CATEGORY_SPORTS = 3n;
 /// Categorisation is a set: @ronaldo is BOTH a sport/football handle and a
 /// people handle, which exercises the multi-category path from the seed on.
-const CATEGORY_PEOPLE_BINARY = 3_000_001n;
+const CATEGORY_PEOPLE = 1n;
 const RONALDO = ethers.encodeBytes32String("ronaldo");
 
 const h = (s: string): string => ethers.encodeBytes32String(s);
@@ -117,7 +117,7 @@ async function main(): Promise<void> {
         categories: ["sport/football/binary", "people/binary"],
       }),
       15n,
-      [CATEGORY_SPORTS, CATEGORY_PEOPLE_BINARY],
+      [CATEGORY_SPORTS, CATEGORY_PEOPLE],
     )
   ).wait();
 
@@ -160,7 +160,7 @@ async function main(): Promise<void> {
       JSON.stringify({
         question: "Will @ronaldo aura rise above 30.40?",
         style: "binary",
-        categories: [Number(CATEGORY_SPORTS), Number(CATEGORY_PEOPLE_BINARY)],
+        categories: [Number(CATEGORY_SPORTS), Number(CATEGORY_PEOPLE)],
         sub: "football",
       }),
       1_000n * ONE, // min 1k USDC funding
@@ -215,7 +215,7 @@ async function main(): Promise<void> {
         id: RONALDO,
         contract: await handle.getAddress(),
         stake: await handleFactory.stakeOf(RONALDO),
-        categories: [Number(CATEGORY_SPORTS), Number(CATEGORY_PEOPLE_BINARY)],
+        categories: [Number(CATEGORY_SPORTS), Number(CATEGORY_PEOPLE)],
         aura: 3040,
         graduated: true,
       },

@@ -412,6 +412,13 @@ function clampPercent(n: number): number {
   return Math.round(clamped * 10) / 10;
 }
 
+/** Models sometimes wrap JSON in a ```json fence despite json_object mode. */
+export function unfenceJson(raw: string): string {
+  const trimmed = raw.trim();
+  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
+  return fenced?.[1]?.trim() ?? trimmed;
+}
+
 /** One clean line, ≤ MEMO_MAX chars, no trailing period. */
 function cleanMemo(raw: string): string {
   const flat = raw.replace(/\s+/g, " ").replace(/[`"'<>]/g, "").trim();
@@ -422,7 +429,7 @@ function cleanMemo(raw: string): string {
 /** Parse the scoring output {"percent": <n>, "summary": "<memo>"} (exported for tests). */
 export function parseSummary(content: string): { percent: number; summary: string } {
   try {
-    const parsed = JSON.parse(content) as unknown;
+    const parsed = JSON.parse(unfenceJson(content)) as unknown;
     // A bare number is valid JSON ("-0.4") — that IS the percent.
     if (typeof parsed === "number") return { percent: clampPercent(parsed), summary: "" };
     if (typeof parsed !== "object" || parsed === null) return { percent: 0, summary: "" };

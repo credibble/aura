@@ -2,7 +2,7 @@
 import { ConfigService } from "@nestjs/config";
 import { AI_FETCH } from "../../core/ports/tokens";
 import { kimiRequest } from "../../adapters/ai/llm/kimi-limiter";
-import type { AiFetch } from "../../adapters/ai/llm/kimi-ai.model";
+import { unfenceJson, type AiFetch } from "../../adapters/ai/llm/kimi-ai.model";
 
 /**
  * Structured Kimi completion used by the job engines (aura scoring, feed
@@ -104,7 +104,7 @@ export class StructuredAiService {
       if (data.error?.message) throw new Error(data.error.message);
       const content = data.choices?.[0]?.message?.content;
       if (!content) throw new Error("Empty Kimi completion content");
-      return JSON.parse(content) as T;
+      return JSON.parse(unfenceJson(content)) as T;
     } catch (error) {
       this.logger.error(`Structured completion failed: ${(error as Error).message}`);
       return fallback;

@@ -169,6 +169,11 @@ export function TradeTicket({ market }: { market: Market }) {
           await exec.placeOrder(target, picked, false, limitCents / 100, shares);
         else await exec.sell(target, picked, toE18Units(shares));
       }
+      // The amounts are spent: clear them so the next trade starts from empty
+      // instead of resubmitting a stale one.
+      setAmount("");
+      setSharesIn("");
+      setLimitPrice("");
     } finally {
       setPending(false);
     }

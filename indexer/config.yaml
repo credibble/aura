@@ -24,11 +24,13 @@ chains:
   - id: 10143 # Monad testnet
     start_block: 66989549
     rpc:
-      # HyperSync is the primary source for this chain (ENVIO_API_TOKEN). This
-      # HyperRPC endpoint is the resilience path — and the only RPC the handlers'
-      # historical contract reads (metadata/priceOf/pool+stake state) go through,
-      # so no shared public node can rate-limit the indexer.
-      - url: ${ENVIO_RPC_URL}
+      # HyperSync is the primary source for this chain (ENVIO_API_TOKEN, or the
+      # token Envio Cloud provides). This RPC is the resilience path — and the
+      # only RPC the handlers' historical reads would use, though there are none:
+      # the contracts emit everything. Point it at a tokenized HyperRPC endpoint
+      # via ENVIO_RPC_URL; the public node is the non-secret default so the config
+      # always resolves (Envio Cloud, a laptop, CI).
+      - url: ${ENVIO_RPC_URL:-https://testnet-rpc.monad.xyz}
         for: fallback
     contracts:
       - name: Configurator

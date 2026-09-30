@@ -35,7 +35,7 @@ export interface WindowResult {
 
 /** A `WindowResult` plus its stable identity hash. */
 export interface ResolutionReceipt extends WindowResult {
-  /** keccak256 over the canonical serialization — the audit/subgraph id. */
+  /** keccak256 over the canonical serialization — the audit/indexer id. */
   resolutionHash: string;
   /** Present once the oracle has signed the receipt for on-chain submission. */
   signature?: string;

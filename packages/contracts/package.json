@@ -1,7 +1,7 @@
 {
   "name": "@aura/contracts",
   "version": "0.1.0",
-  "description": "Shared contracts between the Aura oracle, smart contracts, subgraph and gateway.",
+  "description": "Shared contracts between the Aura oracle, smart contracts, indexer and gateway.",
   "private": true,
   "type": "commonjs",
   "main": "./dist/index.js",

@@ -5,7 +5,7 @@
  * fills; the chart is built from per-trade PricePoint snapshots (full LMSR
  * vectors).
  */
-import { infiniteQueryOptions, queryOptions, useQuery } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { gql } from "@/lib/graphql";
 import { useIndexerLive } from "@/lib/indexer-ws";
 import { qk } from "./keys";
@@ -100,19 +100,6 @@ export type IndexerPricePoint = {
   prices: string[];
 };
 
-const WINDOWS_QUERY = `{
-  Window(where: { settled: { _eq: false } }, order_by: { windowStart: desc }, limit: 100) {
-    ${WINDOW_FIELDS}
-  }
-}`;
-
-export const windowsQueryOptions = queryOptions({
-  queryKey: qk.windows,
-  queryFn: async () => (await gql<{ Window: IndexerWindow[] }>(WINDOWS_QUERY)).Window,
-  staleTime: 5_000,
-  // No poll: `window.opened`/`window` push messages invalidate windows live.
-});
-
 const STATS_QUERY = `{
   Stats_by_pk(id: "stats") { handleCount windowCount openWindows totalVolume totalCash }
 }`;
@@ -169,23 +156,6 @@ export function useHandleWindowsLive(handleId: string | undefined): boolean {
     }`,
     variables: { id: handleId },
     enabled: !!handleId,
-  });
-}
-
-export function windowOptions(windowId: string | undefined) {
-  return queryOptions({
-    queryKey: qk.window(windowId ?? ""),
-    queryFn: async () =>
-      (
-        await gql<{ Window_by_pk: IndexerWindow | null }>(
-          `query($id: String!) { Window_by_pk(id: $id) { ${WINDOW_FIELDS} } }`,
-          { id: windowId },
-        )
-      ).Window_by_pk ?? null,
-    enabled: !!windowId,
-    staleTime: 3_000,
-    // Unused by the current surfaces — the trade page reads the handle's
-    // `Window` list, which the `Window` subscription keeps fresh.
   });
 }
 
@@ -369,6 +339,3 @@ export function buildBook(
   return { books, fills, orders: orders.length };
 }
 
-export function useWindows() {
-  return useQuery(windowsQueryOptions);
-}

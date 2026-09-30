@@ -5,6 +5,7 @@ import { bytes32ToId } from "../core/domain/handle";
 import { IndexerHandleSync } from "./indexer-handle-sync.service";
 import { AdapterRegistry } from "../adapters/adapter-registry.service";
 import { handleDefaultMeta } from "./seed";
+import { categoryFamily } from "./source-seed";
 
 /**
  * The handle (handle) universe — sourced ON-CHAIN. Handles are created via the
@@ -41,7 +42,9 @@ export class HandleRegistryService implements IHandleRegistry {
       id,
       symbol: v.symbol || meta.symbol || id.toUpperCase().slice(0, 4),
       name: v.name || meta.name || id,
-      category: (meta.category as HandleConfig["category"]) ?? "culture",
+      // The family follows the CHAIN's category codes (the indexer's `categories`),
+      // not the local seed: a handle's category can change on-chain.
+      category: v.categories.length ? categoryFamily(v.categories[0]!) : "culture",
       kind: meta.kind ?? "entity",
       windowMinutes: Number(v.windowMinutes) || meta.windowMinutes || 15,
       color: meta.color ?? "#8b5cf6",

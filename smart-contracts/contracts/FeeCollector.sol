@@ -15,9 +15,6 @@ import { Errors } from "./libraries/Errors.sol";
 contract FeeCollector is IFeeCollector, Ownable2Step {
     using SafeERC20 for IERC20;
 
-    event FeesDeposited(IERC20 indexed token, uint256 amount);
-    event FeesWithdrawn(IERC20 indexed token, address indexed to, uint256 amount);
-
     constructor() Ownable(msg.sender) {}
 
     /// Receive fees (called by RevenueSharing — anyone may donate fees too).

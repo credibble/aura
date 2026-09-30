@@ -39,11 +39,6 @@ contract RevenueSharing is IRevenueSharing, Ownable2Step, ReentrancyGuard {
     /// Markets whitelisted to send fees.
     mapping(address => bool) public markets;
 
-    event FeeSplit(bytes32 indexed handleId, uint256 amount, uint256 user, uint256 lp, uint256 protocol);
-    event CustomSharesSet(bytes32 indexed handleId, uint64 user, uint64 lp, uint64 protocolShare);
-    event DefaultSharesSet(uint64 user, uint64 lp, uint64 protocolShare);
-    event MarketStatusUpdated(address indexed market, bool status);
-
     modifier onlyMarket() {
         if (!markets[msg.sender]) revert Errors.NotMarket();
         _;

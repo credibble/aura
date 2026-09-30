@@ -34,8 +34,6 @@ contract Oracle is IAuraOracle {
     /// deployments, where no time gate can be inferred).
     uint256 public windowEnd;
 
-    event WindowConfirmed(uint256 windowEnd, string metadata);
-
     WindowStatus private _status;
     Resolution private _resolution;
 

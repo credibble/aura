@@ -22,13 +22,6 @@ contract Configurator is IConfigurator, Ownable2Step {
     /// be released (`MarketMaker.finalize`). Claims must have time to land first.
     uint256 public settlementGraceSeconds;
 
-    event DepositFeeRangeSet(uint64 minBps, uint64 maxBps);
-    event MaxFeeAuraSet(uint256 maxFeeAura);
-    event MarketFeeBpsSet(uint64 bps);
-    event MinWindowSecondsSet(uint256 minWindowSeconds);
-    event WindowPaddingSet(uint256 windowPadding);
-    event SettlementGraceSet(uint256 seconds_);
-
     constructor() Ownable(msg.sender) {
         depositFeeMinBps = 25;
         depositFeeMaxBps = 250;

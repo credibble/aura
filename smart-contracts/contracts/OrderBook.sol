@@ -30,21 +30,6 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
     bytes32 public nextOrderId;
     mapping(bytes32 => Order) public orders;
 
-    event OrderPlaced(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        uint256 outcome,
-        bool side,
-        address indexed maker,
-        bytes32 id,
-        uint256 price,
-        uint256 size,
-        uint256 expiresAt
-    );
-    event OrderCancelled(bytes32 indexed handleId, address indexed oracle, bytes32 id);
-    event OrderUpdated(bytes32 indexed handleId, address indexed oracle, bytes32 id, uint256 price, uint256 size, uint256 expiresAt);
-    event OrderFilled(bytes32 indexed handleId, address indexed oracle, bytes32 id, address indexed taker, uint256 outcome, uint256 shares, uint256 price);
-
     constructor(IOracleFactory _oracleFactory, IMarketMaker _market, IERC20 _collateral, IRevenueSharing _revenue, uint256 _feeBips) {
         oracleFactory = _oracleFactory;
         market = _market;

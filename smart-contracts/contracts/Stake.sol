@@ -10,10 +10,11 @@ import { Handle } from "./Handle.sol";
 import { IConfigurator } from "./interfaces/IConfigurator.sol";
 import { Constants } from "./libraries/Constants.sol";
 import { Errors } from "./libraries/Errors.sol";
+import { IStake } from "./interfaces/IStake.sol";
 
 /// @title Stake
 /// @notice Single-factor vault for AURA staked on a handle.
-contract Stake is ERC20, ReentrancyGuard {
+contract Stake is IStake, ERC20, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // Virtual offset standard applied universally to prevent inflation attacks
@@ -24,10 +25,6 @@ contract Stake is ERC20, ReentrancyGuard {
     IERC20 public immutable aura;
     Handle public immutable handle;
     IConfigurator public immutable configurator; // protocol-level fee curve
-
-    event Deposited(address indexed user, uint256 auraAmount, uint256 sharesMinted);
-    event Withdrawn(address indexed user, uint256 sharesBurned, uint256 auraPayout);
-    event Rewarded(uint256 auraAmount, string memo);
 
     constructor(
         string memory name,

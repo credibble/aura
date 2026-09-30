@@ -7,6 +7,14 @@ pragma solidity ^0.8.24;
 ///         protocol can tune them without redeploying. Read-only getters are
 ///         consumed by the contracts; the owner mutates them.
 interface IConfigurator {
+    function setMarketFeeBps(uint64 bps) external;
+    event DepositFeeRangeSet(uint64 minBps, uint64 maxBps);
+    event MaxFeeAuraSet(uint256 maxFeeAura);
+    event MarketFeeBpsSet(uint64 bps);
+    event MinWindowSecondsSet(uint256 minWindowSeconds);
+    event WindowPaddingSet(uint256 windowPadding);
+    event SettlementGraceSet(uint256 seconds_);
+
     /// Floor deposit fee (bps) — applied to any handle with aura > 0.
     function depositFeeMinBps() external view returns (uint64);
 
@@ -42,5 +50,5 @@ interface IConfigurator {
 
     function setWindowPadding(uint256 _seconds) external;
 
-    function setMarketFeeBps(uint64 bps) external;
+    function setSettlementGraceSeconds(uint256 seconds_) external;
 }

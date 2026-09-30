@@ -19,10 +19,11 @@ import {
 } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Constants} from "./libraries/Constants.sol";
 import {Errors} from "./libraries/Errors.sol";
+import { IPool } from "./interfaces/IPool.sol";
 
 /// @title Pool
 /// @notice Singleton auraLP vault providing liquidity across all market windows.
-contract Pool is ERC20, Ownable2Step, ReentrancyGuard {
+contract Pool is IPool, ERC20, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // Virtual offset standard applied universally to prevent inflation attacks
@@ -41,12 +42,6 @@ contract Pool is ERC20, Ownable2Step, ReentrancyGuard {
     /// per (handleId, windowStart), so it is the canonical window identity).
     mapping(address => uint256) public reserved;
     uint256 public totalReserved;
-
-    event Deposited(address indexed user, uint256 usdc, uint256 receipts);
-    event Withdrawn(address indexed user, uint256 receipts, uint256 payout);
-    event Reserved(address indexed oracle, uint256 amount);
-    event PaidOut(address indexed oracle, address indexed to, uint256 amount);
-    event Unreserved(address indexed oracle, uint256 amount);
 
     /// A market may back windows only if the AddressesProvider knows it.
     modifier onlyMarket() {
@@ -76,7 +71,7 @@ contract Pool is ERC20, Ownable2Step, ReentrancyGuard {
         }
     }
 
-    function decimals() public view override returns (uint8) {
+    function decimals() public view override(ERC20, IPool) returns (uint8) {
         return _usdcDecimals;
     }
 

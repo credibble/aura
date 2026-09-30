@@ -15,6 +15,7 @@ import {Constants} from "./libraries/Constants.sol";
 import {
     ReentrancyGuard
 } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IHandle } from "./interfaces/IHandle.sol";
 
 /// @title Handle
 /// @notice The top-level on-chain entity for a handle (e.g. "btc", "elon", a
@@ -34,7 +35,7 @@ import {
 ///         per-handle tokens; the protocol (factory / oracle relayer) curates
 ///         metadata, sources and the market whitelist — the owner's only
 ///         exclusive right is claiming the handle's USDC revenue.
-contract Handle is Ownable2Step, ReentrancyGuard {
+contract Handle is IHandle, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
     /// Protocol aura ceiling (1e2 scale: 100.00) — mirrors the oracle's clamp.
     uint256 public constant MAX_AURA = 10_000;
@@ -93,22 +94,6 @@ contract Handle is Ownable2Step, ReentrancyGuard {
 
     // --- revenue (claimed here, not on RevenueSharing) -----------------------
     IERC20 public immutable usdc;
-    /// Every USDC routed here (the creator's fee share) is claimable — no
-    /// per-role tracker; `claim()` pays out the entire balance to the creator.
-    event Claimed(address indexed to, uint256 usdc);
-
-    event MetadataSet(string metadata);
-    event WindowMinutesSet(uint256 windowMinutes);
-    event OracleFactorySet(address indexed oracleFactory);
-    event RevenueSet(address indexed revenue);
-    event StakeSet(address indexed stake);
-    event SourcesChanged(string[] sources);
-    event AuraUpdated(uint256 aura, string summary);
-    event AuraUpdaterSet(address indexed updater);
-    event CuratorSet(address indexed curator);
-    event GraduatedSet(bool graduated);
-    event CategoriesSet(uint256[] categories);
-    event VerifiedSet(bool verified);
 
     /// Only the HandleFactory may wire protocol addresses and LP receipts.
     modifier onlyFactory() {

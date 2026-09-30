@@ -62,66 +62,6 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
     /// Per (window oracle, outcome) transferable ERC20 receipts.
     mapping(address => mapping(uint256 => OutcomeToken)) public outcomeTokens;
 
-    event WindowOpened(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        uint256 windowStart,
-        uint256 windowEnd,
-        string[] outcomes,
-        uint256[] probabilities,
-        uint256 funding
-    );
-    event Bought(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        address indexed trader,
-        uint256 outcome,
-        uint256 amountIn,
-        uint256 sharesMinted,
-        uint256 price
-    );
-    event Sold(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        address indexed trader,
-        uint256 outcome,
-        uint256 sharesBurned,
-        uint256 proceeds
-    );
-    event Settled(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        uint256 winningOutcome
-    );
-    event Claimed(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        address indexed trader,
-        uint256 outcome,
-        uint256 sharesBurned,
-        uint256 payout
-    );
-    event Approved(
-        address indexed owner,
-        address indexed oracle,
-        uint256 outcome,
-        uint256 amount
-    );
-    event OutcomeTokenDeployed(address indexed oracle, uint256 outcome, address token);
-    event VoidRedeemed(
-        bytes32 indexed handleId,
-        address indexed oracle,
-        address indexed trader,
-        uint256 payout
-    );
-    event Transferred(
-        address indexed from,
-        address indexed to,
-        address indexed oracle,
-        uint256 outcome,
-        uint256 amount
-    );
-
     modifier onlyOracle() {
         if (msg.sender != oracleFactory.signer()) revert Errors.NotOracle();
         _;

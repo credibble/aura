@@ -12,6 +12,7 @@ import {Constants} from "./libraries/Constants.sol";
 import {IConfigurator} from "./interfaces/IConfigurator.sol";
 import {IAddressesProvider} from "./interfaces/IAddressesProvider.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import { IHandleFactory } from "./interfaces/IHandleFactory.sol";
 
 /// @title HandleFactory
 /// @notice Deploys and tracks each Handle (the top-level entity bundling
@@ -23,7 +24,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 ///         Pool and MarketMaker after deployment; the factory pushes them onto
 ///         every (existing and future) Handle so each Handle is self-contained
 ///         on-chain.
-contract HandleFactory {
+contract HandleFactory is IHandleFactory {
     IAuraToken public immutable aura;
     IERC20 public immutable usdc;
     IConfigurator public immutable configurator;
@@ -32,12 +33,6 @@ contract HandleFactory {
 
     mapping(bytes32 => Handle) public handles;
     Handle[] public handleList;
-
-    event HandleCreated(
-        bytes32 indexed handleId,
-        address indexed handle,
-        address indexed stake
-    );
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert Errors.NotOwner();
@@ -70,7 +65,7 @@ contract HandleFactory {
         string calldata metadata,
         uint256 windowMinutes,
         uint256[] calldata categories
-    ) external onlyOwner returns (Handle) {
+    ) external onlyOwner returns (address) {
         if (address(handles[handleId]) != address(0)) revert Errors.HandleExists();
         if (creator == address(0)) revert Errors.ZeroAddress();
         Handle h = new Handle(
@@ -98,7 +93,7 @@ contract HandleFactory {
         handles[handleId] = h;
         handleList.push(h);
         emit HandleCreated(handleId, address(h), address(stake));
-        return h;
+        return address(h);
     }
 
     // --- registry -----------------------------------------------------------

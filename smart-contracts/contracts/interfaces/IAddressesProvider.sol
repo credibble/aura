@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 ///         truth for protocol addresses. Consumers read through this instead of
 ///         hard-coding addresses; the owner updates on redeploys/upgrades.
 interface IAddressesProvider {
+
     function usdc() external view returns (address);
 
     function auraToken() external view returns (address);

@@ -10,6 +10,30 @@ import { IAuraOracle } from "../spec/IAuraOracle.sol";
 ///         the specific order ids to fill; the contract enforces limitPrice and
 ///         minFill per fill. No on-chain order list.
 interface IOrderBook {
+    function marketOrder(
+        IAuraOracle oracle,
+        uint256 outcome,
+        bool side,
+        bytes32[] calldata orderIds,
+        uint256 amount,
+        uint256 limitPrice,
+        uint256 minFill
+    ) external returns (uint256);
+    event OrderPlaced(
+        bytes32 indexed handleId,
+        address indexed oracle,
+        uint256 outcome,
+        bool side,
+        address indexed maker,
+        bytes32 id,
+        uint256 price,
+        uint256 size,
+        uint256 expiresAt
+    );
+    event OrderCancelled(bytes32 indexed handleId, address indexed oracle, bytes32 id);
+    event OrderUpdated(bytes32 indexed handleId, address indexed oracle, bytes32 id, uint256 price, uint256 size, uint256 expiresAt);
+    event OrderFilled(bytes32 indexed handleId, address indexed oracle, bytes32 id, address indexed taker, uint256 outcome, uint256 shares, uint256 price);
+
     struct Order {
         address maker;
         address oracle; // window this order belongs to
@@ -48,14 +72,4 @@ interface IOrderBook {
         uint256 size,
         uint256 expiresAt
     ) external;
-
-    function marketOrder(
-        IAuraOracle oracle,
-        uint256 outcome,
-        bool side,
-        bytes32[] calldata orderIds,
-        uint256 amount,
-        uint256 limitPrice,
-        uint256 minFill
-    ) external returns (uint256);
 }

@@ -6,13 +6,21 @@ pragma solidity ^0.8.24;
 ///         global protocol addresses (market, oracle factory, revenue, auraLP
 ///         pool) come from the AddressesProvider — not per-address setters here.
 interface IHandleFactory {
+    function market() external view returns (address);
+    event HandleCreated(
+        bytes32 indexed handleId,
+        address indexed handle,
+        address indexed stake
+    );
+
     function createHandle(
         bytes32 handleId,
         address creator,
         string calldata name,
         string calldata symbol,
         string calldata metadata,
-        uint256 windowMinutes
+        uint256 windowMinutes,
+        uint256[] calldata categories
     ) external returns (address);
 
     function handleOf(bytes32 handleId) external view returns (address);
@@ -25,5 +33,9 @@ interface IHandleFactory {
 
     function revenue() external view returns (address);
 
-    function market() external view returns (address);
+    function setAuraUpdater(bytes32 handleId, address updater) external;
+
+    function setCurator(bytes32 handleId, address curator) external;
+
+    function handleCount() external view returns (uint256);
 }

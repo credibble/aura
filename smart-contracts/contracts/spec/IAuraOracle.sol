@@ -8,6 +8,17 @@ pragma solidity ^0.8.24;
 ///         Mirrors the shared spec in `packages/contracts/src/receipt.ts`
 ///         (EIP-712 typed data).
 interface IAuraOracle {
+    event WindowOpened(bytes32 indexed handleId, uint256 windowStart, uint256 windowEnd);
+    event WindowFrozen(bytes32 indexed handleId, uint256 windowStart);
+    event WindowResolved(bytes32 indexed handleId, uint256 windowStart, bool direction, uint256 indexClose, bytes32 resolutionHash);
+    event WindowVoided(bytes32 indexed handleId, uint256 windowStart, string reason);
+
+    function resolutionOf()
+        external
+        view
+        returns (bool direction, uint256 indexClose, bytes32 resolutionHash, uint256 resolvedAt);
+    event WindowConfirmed(uint256 windowEnd, string metadata);
+
     /// The on-chain lifecycle of a (handleId, windowStart) market window.
     enum WindowStatus {
         OPEN, // trading allowed
@@ -33,11 +44,6 @@ interface IAuraOracle {
         uint256 resolvedAt;
     }
 
-    event WindowOpened(bytes32 indexed handleId, uint256 windowStart, uint256 windowEnd);
-    event WindowFrozen(bytes32 indexed handleId, uint256 windowStart);
-    event WindowResolved(bytes32 indexed handleId, uint256 windowStart, bool direction, uint256 indexClose, bytes32 resolutionHash);
-    event WindowVoided(bytes32 indexed handleId, uint256 windowStart, string reason);
-
     /// Verify the oracle signature and settle the window once.
     function submitResolution(ResolutionReceipt calldata receipt, bytes calldata signature) external;
 
@@ -59,8 +65,7 @@ interface IAuraOracle {
     /// The oracle IS the window — no (handleId, windowStart) params needed.
     function windowStatus() external view returns (WindowStatus);
 
-    function resolutionOf()
-        external
-        view
-        returns (bool direction, uint256 indexClose, bytes32 resolutionHash, uint256 resolvedAt);
+    function freezeWindow() external;
+
+    function receiptDigest(ResolutionReceipt calldata receipt) external view returns (bytes32);
 }

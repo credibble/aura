@@ -15,8 +15,6 @@ contract MarketRegistry is IMarketRegistry {
     bytes32[] public handleIds;
     mapping(bytes32 => Market) public markets;
 
-    event HandleRegistered(bytes32 indexed handleId, uint256 windowMinutes);
-
     modifier onlyOwner() {
         if (msg.sender != owner) revert Errors.NotOwner();
         _;

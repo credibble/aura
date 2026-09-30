@@ -21,13 +21,6 @@ contract OracleFactory is IOracleFactory {
 
     mapping(bytes32 => mapping(uint256 => Oracle)) public oracles;
 
-    event OracleDeployed(
-        bytes32 indexed handleId,
-        uint256 windowStart,
-        address oracle
-    );
-    event MarketSet(address indexed market);
-
     constructor(address _registry, address _signer) {
         registry = _registry;
         signer = _signer;

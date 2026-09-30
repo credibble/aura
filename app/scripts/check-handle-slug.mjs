@@ -17,7 +17,7 @@
  * SKIPPED instead of a false failure.
  */
 const BASE = process.argv[2] ?? "http://localhost:5173";
-const INDEXER = "http://localhost:8080/v1/graphql";
+const INDEXER = process.env.INDEXER_URL ?? "http://localhost:8080/v1/graphql";
 
 /**
  * Left-aligned ASCII bytes32 → label, or null. Kept local on purpose so this

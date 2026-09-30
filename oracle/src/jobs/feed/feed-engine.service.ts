@@ -157,6 +157,37 @@ function reach(item: RawDatum): number {
   return typeof item.engagement === "number" && Number.isFinite(item.engagement) ? item.engagement : 0;
 }
 
+/** The four platform counters the feed card renders — a subset of `RawDatum.stats`. */
+const COUNTER_FIELDS = ["replies", "reposts", "likes", "views"] as const;
+type FeedCounterField = (typeof COUNTER_FIELDS)[number];
+
+/**
+ * The platform's reported engagement for a digest, pooled over its stories and
+ * limited to the four counters the feed card shows.
+ *
+ * `RawDatum.stats` keys are free-form per platform (X likes/views, Reddit
+ * score, HN upvotes) and a platform that reports no engagement (an RSS feed)
+ * leaves it undefined. A counter is present here ONLY when a source actually
+ * returned it: a missing counter means the platform did not report one, so the
+ * row carries no key for it — the frontend renders an absent counter as nothing
+ * and a genuine reported `0` as `0`. Zero-filling is what made every RSS card
+ * show a `0` that no platform ever reported.
+ */
+export function digestCounters(stories: readonly Story[]): Partial<Record<FeedCounterField, number>> {
+  const out: Partial<Record<FeedCounterField, number>> = {};
+  for (const story of stories) {
+    const stats = story.rep.stats;
+    if (!stats) continue;
+    for (const field of COUNTER_FIELDS) {
+      const value = stats[field];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        out[field] = (out[field] ?? 0) + value;
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * The fallback post, used when the AI is unavailable. It AGGREGATES instead of
  * echoing: it reports how many DISTINCT stories arrived and names the sources
@@ -359,6 +390,11 @@ export class FeedEngineService {
 
     await this.writeMarker(handle.label, newestTs || now);
 
+    // The platform's reported counters for the digest, pooled over its stories.
+    // Only the counters a source actually returned are written: an unreported
+    // counter stays absent (the card renders nothing) instead of a fabricated 0.
+    const counters = digestCounters(stories);
+
     // Persist the AI feed post for the frontend timeline/detail pages.
     try {
       await this.prisma.post.create({
@@ -372,10 +408,9 @@ export class FeedEngineService {
           marketId: handle.id,
           summary: draft.title,
           body: [draft.body],
-          replies: 0,
-          reposts: 0,
-          likes: 0,
-          views: 0,
+          // Platform-reported engagement only; absent means the platform did
+          // not report it, NOT a measured zero.
+          ...counters,
           sources: postSources,
           // Media extracted from the source items (RSS enclosures / media:content
           // / inline <img>). It was collected and then dropped here, so every

@@ -9,9 +9,11 @@ import { cn } from "@/lib/utils";
  * looking stubby without per-route hacks.
  *
  * This is the same shell as the feed, not a parallel one: it renders
- * `FeedLayout`, so the centre column's 840px cap (and its `mx-auto` centring)
- * applies here too. The leaderboard/portfolio tables sit inside that measure —
- * their 620px min-width clears it, so none of them scroll sideways.
+ * `FeedLayout`, so the centre column's 840px cap applies here too. The parent
+ * flex row's `justify-center` centres rail + centre + aside as a group (the
+ * centre no longer sets `mx-auto` itself). The leaderboard/portfolio tables sit
+ * inside that measure — their 620px min-width clears it, so none of them scroll
+ * sideways.
  */
 export function PageShell({
   children,

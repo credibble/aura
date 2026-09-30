@@ -5,9 +5,11 @@ import { SourceCacheService } from "../src/jobs/source-cache/source-cache.servic
 import { marketStyle, windowMetadata, gainBetween } from "../src/jobs/window/market-style";
 import {
   FeedEngineService,
+  digestCounters,
   fallbackDraft,
   groupStories,
   normalizeTitle,
+  type Story,
   type StorySource,
 } from "../src/jobs/feed/feed-engine.service";
 import type { RawDatum } from "../src/core/domain/source-item";
@@ -268,5 +270,87 @@ describe("feed story dedupe", () => {
     expect(persisted[0]!.sources).toHaveLength(1);
     expect(persisted[0]!.sources[0]!.id).toBe("rss-gnews-tesla+rss-teslarati");
     expect(persisted[0]!.sources[0]!.account).toBe("Google News · Tesla · Teslarati");
+  });
+});
+
+describe("feed digest engagement (reported, never fabricated)", () => {
+  const storyFor = (stats?: Record<string, number>): Story => {
+    const rep: RawDatum = {
+      sourceName: "s",
+      text: "story",
+      publishedAt: 1_000,
+      ...(stats ? { stats } : {}),
+    };
+    const src: StorySource = { id: "s", label: "S", account: "S", platform: "news" };
+    return { rep, repSource: src, sources: [src], items: [rep] };
+  };
+
+  it("omits every counter when no source reported engagement (RSS)", () => {
+    expect(digestCounters([storyFor()])).toEqual({});
+  });
+
+  it("passes a genuinely reported 0 through as 0 and ignores non-card keys", () => {
+    expect(digestCounters([storyFor({ likes: 0, followers: 120, score: 4 })])).toEqual({ likes: 0 });
+  });
+
+  it("pools only the four card counters across stories", () => {
+    expect(
+      digestCounters([storyFor({ likes: 3, score: 9 }), storyFor({ likes: 4, views: 10 })]),
+    ).toEqual({ likes: 7, views: 10 });
+  });
+
+  /** Run the digest over one source and return the persisted Post row. */
+  async function persist(items: RawDatum[]): Promise<Record<string, unknown>> {
+    const sources = [
+      {
+        id: "src", kind: "media" as const, weight: 800, fetchIntervalMs: 300_000,
+        label: "Source", transport: { type: "rss" as const, feedUrl: "https://example.test/feed" },
+      },
+    ];
+    const rows: Record<string, unknown>[] = [];
+    const engine = new FeedEngineService(
+      { get: () => undefined } as never,
+      { fetch: async () => items } as never,
+      { wrap: async (_key: unknown, _ttl: number, fn: () => Promise<RawDatum[]>) => fn() } as never,
+      { publishFeed: vi.fn() } as never,
+      { build: async (_input: unknown, fallback: { title: string; body: string }) => fallback } as never,
+      {
+        post: {
+          create: async ({ data }: { data: Record<string, unknown> }) => {
+            rows.push(data);
+          },
+        },
+      } as never,
+      { get: async () => null, set: async () => "OK" } as never,
+      { sourcesForHandle: async () => sources } as never,
+    );
+    const handle: AuraHandle = {
+      id: "0x7465736c61000000000000000000000000000000000000000000000000000000",
+      label: "tesla", contract: "0x0", sources: [], aura: 2360, graduated: true, categories: [5, 1], windowMinutes: 60,
+    };
+    await engine.run(handle, 1_000_000);
+    return rows[0]!;
+  }
+
+  it("persists NO counter keys for an RSS digest — nothing was reported", async () => {
+    const row = await persist([{ sourceName: "rss", text: "Tesla robotaxi launches", publishedAt: 9_000 }]);
+    for (const key of ["replies", "reposts", "likes", "views"]) {
+      expect(row).not.toHaveProperty(key);
+    }
+  });
+
+  it("persists a reported counter, keeping a genuine 0 as 0", async () => {
+    const row = await persist([
+      {
+        sourceName: "x",
+        text: "Tesla robotaxi launches",
+        publishedAt: 9_000,
+        stats: { likes: 0, reposts: 5, followers: 900 },
+      },
+    ]);
+    expect(row.likes).toBe(0); // a measured zero survives
+    expect(row.reposts).toBe(5);
+    expect(row).not.toHaveProperty("replies");
+    expect(row).not.toHaveProperty("views");
   });
 });

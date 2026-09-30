@@ -7,6 +7,7 @@
  *   node scripts/check-routes.mjs [baseUrl]
  */
 const BASE = process.argv[2] ?? "http://localhost:5173";
+const INDEXER = process.env.INDEXER_URL ?? "http://localhost:8080/v1/graphql";
 
 /** [path, a string that must appear in the HTML] */
 const ROUTES = [
@@ -47,7 +48,7 @@ try {
   const body = JSON.stringify({
     query: "{ Handle(where: { active: { _eq: true } }, limit: 1) { name } }",
   });
-  const sub = await fetch("http://localhost:8080/v1/graphql", {
+  const sub = await fetch(INDEXER, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body,

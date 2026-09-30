@@ -24,25 +24,34 @@ export function Countdown({
   windowEnd,
   className,
   label = "until trading closes",
+  now: externalNow,
 }: {
   /** The market's windowEnd, in milliseconds (as `toMarket` normalizes it). */
   windowEnd: number;
   className?: string;
   label?: string;
+  /**
+   * Optional externally-driven clock (ms). When supplied the component runs no
+   * timer of its own, so a parent's single tick can drive both the readout and
+   * its own deadline logic. Omitted, it keeps its own second-aligned timer.
+   */
+  now?: number;
 }) {
-  const [now, setNow] = useState(() => Date.now());
+  const [internalNow, setInternalNow] = useState(() => Date.now());
+  const now = externalNow ?? internalNow;
 
   useEffect(() => {
+    if (externalNow !== undefined) return;
     // Align each tick to the second boundary so the digits never skip.
     let timer: ReturnType<typeof setTimeout>;
     const tick = () => {
       const current = Date.now();
-      setNow(current);
+      setInternalNow(current);
       timer = setTimeout(tick, 1000 - (current % 1000));
     };
     timer = setTimeout(tick, 1000 - (Date.now() % 1000));
     return () => clearTimeout(timer);
-  }, []);
+  }, [externalNow]);
 
   const remaining = Math.max(0, windowEnd - now);
   const closed = remaining <= 0;

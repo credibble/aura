@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { AuraText } from "@/components/aura/AuraTerm";
+import { Countdown } from "@/components/aura/Countdown";
 import { Avatar } from "@/components/Avatar";
 import { cents, pctLabel } from "@/components/aura/pm";
 import { AmountInput } from "@/components/aura/AmountInput";
@@ -163,7 +164,22 @@ export function TradeTicket({ market }: { market: Market }) {
   const priceCents = outcome.pct;
   const priceUsd = priceCents / 100;
 
-  const now = Date.now();
+  // One ticking clock for the ticket. `now` advances each second so `live` and
+  // `awaitingSettle` flip at the deadline without any other event, and the same
+  // value drives the countdown below — one source of truth, no second timer.
+  // Aligned to the second boundary so the digits never skip.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const current = Date.now();
+      setNow(current);
+      timer = setTimeout(tick, 1000 - (current % 1000));
+    };
+    timer = setTimeout(tick, 1000 - (Date.now() % 1000));
+    return () => clearTimeout(timer);
+  }, []);
+
   const live = !market.settled && market.windowEnd > now;
   const awaitingSettle = !market.settled && market.windowEnd <= now;
 
@@ -626,17 +642,23 @@ export function TradeTicket({ market }: { market: Market }) {
             </>
           )}
 
-          {awaitingSettle ? (
-            <div className="mt-4 rounded-xl bg-secondary/40 px-3 py-3 text-center text-[13px] text-muted-foreground">
-              Window closed — awaiting settlement.
-            </div>
-          ) : (
+          {/* Trading deadline. The countdown shares the ticket's one clock, so
+              the readout and the live/awaiting flip agree; at zero the button
+              gives way to the awaiting-settlement state. */}
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <span className="text-[11px] font-medium text-muted-foreground">
+              {awaitingSettle ? "Awaiting settlement" : "Trading open"}
+            </span>
+            <Countdown windowEnd={market.windowEnd} now={now} className="text-[11px]" />
+          </div>
+
+          {!awaitingSettle &&
             mode !== "tap" && (
               <button
                 type="button"
                 disabled={buttonDisabled || pending}
                 onClick={() => void submit()}
-                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {pending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {side === "buy"
@@ -647,8 +669,7 @@ export function TradeTicket({ market }: { market: Market }) {
                     ? "Place sell order"
                     : "Sell"}
               </button>
-            )
-          )}
+            )}
 
           <p className="mt-3 text-center text-[11px] text-muted-foreground">
             Settles on Monad · trading means you accept the{" "}

@@ -184,11 +184,19 @@ export class XSearchAdapter extends BaseSource {
 
 function bearer(credentials?: AdapterCredentials): string | undefined {
   const bag = credentials as unknown as Record<string, unknown> | undefined;
-  const direct = bag?.bearerToken ?? bag?.["x:bearerToken"];
-  if (typeof direct === "string" && direct.length > 0) return direct;
+  const secrets = bag?.secrets as Record<string, unknown> | undefined;
   const values = bag?.values as Record<string, unknown> | undefined;
-  const nested = values?.bearerToken ?? values?.["x:bearerToken"];
-  return typeof nested === "string" && nested.length > 0 ? nested : undefined;
+  // The bearer can arrive as a top-level field, the ConnectionStore secrets bag
+  // (app-level key), or a nested `values` map — accept all three shapes.
+  const candidates = [
+    bag?.bearerToken,
+    bag?.["x:bearerToken"],
+    secrets?.bearerToken,
+    secrets?.["x:bearerToken"],
+    values?.bearerToken,
+    values?.["x:bearerToken"],
+  ];
+  return candidates.find((v): v is string => typeof v === "string" && v.length > 0);
 }
 
 function slug(value: string): string {

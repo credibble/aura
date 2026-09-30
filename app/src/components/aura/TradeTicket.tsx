@@ -108,24 +108,40 @@ export function TradeTicket({ market }: { market: Market }) {
   const heldNum = Number(held) / 1e18;
 
   /**
-   * Size Max from the EXACT on-chain balance (falling back to the position
-   * memo when the read fails), never from the rounded `heldNum`. The 1e18
-   * bigint is what `exec.sell` takes, so a full exit can't round up past the
-   * balance and revert `InsufficientShares`.
+   * The exact 1e18 share balance for the picked outcome, read straight from the
+   * chain — the position memo (`held`) is indexer-derived and can lag the wallet,
+   * and its display rounding (`heldNum`) can top the real balance. Every sell
+   * size (1-Tap, Max, percentage chips) is built from this, so a sell can never
+   * round above the balance and revert `InsufficientShares` ("Not enough
+   * shares"). Falls back to the memo only when the on-chain read itself fails.
    */
-  const sellMax = async (): Promise<void> => {
-    if (!address) return;
+  const exactHeld = async (): Promise<bigint> => {
+    if (!address) return 0n;
     try {
-      const onchain = (await api.readOutcomeShares(
+      return (await api.readOutcomeShares(
         win.oracle as Address,
         BigInt(picked),
       )) as bigint;
-      setSellExact(onchain);
-      setSharesIn((Number(onchain) / 1e18).toFixed(4));
     } catch {
-      setSellExact(held);
-      setSharesIn(heldNum.toFixed(4));
+      return held;
     }
+  };
+
+  /** Max: sell the whole exact on-chain balance. */
+  const sellMax = async (): Promise<void> => {
+    const onchain = await exactHeld();
+    setSellExact(onchain);
+    setSharesIn((Number(onchain) / 1e18).toFixed(4));
+  };
+
+  /**
+   * A percentage chip (25/50/75%): that fraction of the EXACT on-chain balance,
+   * as a bigint — the display field is only the rounded echo.
+   */
+  const sellFraction = async (pct: number): Promise<void> => {
+    const part = ((await exactHeld()) * BigInt(pct)) / 100n;
+    setSellExact(part);
+    setSharesIn((Number(part) / 1e18).toFixed(4));
   };
 
   /** Public MockUSDC faucet — 1,000 test dollars, one confirmed tx. */
@@ -223,12 +239,14 @@ export function TradeTicket({ market }: { market: Market }) {
     try {
       if (mode === "tap") {
         // 1-Tap is one action either way. Buying takes a fixed dollar chip;
-        // selling exits the position, so the size is the held shares (1e18,
-        // exactly what `exec.sell` takes) — the tap branch previously bought
-        // even when the side was sell.
+        // selling exits the position. Size the sell from the EXACT on-chain
+        // balance (like Max) — the indexer memo can lag, and selling a memo
+        // value above the wallet reverts `InsufficientShares` / "Not enough
+        // shares". The tap branch previously bought even when the side was sell.
         if (side === "sell") {
-          if (held <= 0n) return;
-          await exec.sell(target, picked, held);
+          const exact = await exactHeld();
+          if (exact <= 0n) return;
+          await exec.sell(target, picked, exact);
           return;
         }
         const usd = Number(amount) || TAP_STEPS[0]!;
@@ -593,14 +611,10 @@ export function TradeTicket({ market }: { market: Market }) {
                     type="button"
                     disabled={heldNum <= 0}
                     onClick={() => {
-                      // Max sends the exact on-chain balance, not the rounded
-                      // text field; the smaller chips are just fractions.
-                      if (q === 100) {
-                        void sellMax();
-                      } else {
-                        setSellExact(null);
-                        setSharesIn(((heldNum * q) / 100).toFixed(4));
-                      }
+                      // Every sell chip sizes from the exact on-chain balance,
+                      // not the rounded position memo; Max is the whole lot.
+                      if (q === 100) void sellMax();
+                      else void sellFraction(q);
                     }}
                     className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 hover:bg-secondary/70 disabled:opacity-50"
                   >

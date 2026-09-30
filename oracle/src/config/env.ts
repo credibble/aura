@@ -32,6 +32,14 @@ export const envSchema = z.object({
   MOONSHOT_API_KEY: z.string().optional(),
   MOONSHOT_BASE_URL: z.string().url().default("https://api.moonshot.ai/v1"),
   WEB_SEARCH_LIMIT: z.coerce.number().int().positive().max(20).default(5),
+  /** X (Twitter) app credentials. The `api/` search adapter reads OTHER
+   *  people's public posts with the APP bearer token (read-only) — an app-level
+   *  secret, so it lives here, not in a per-account ConnectionStore row. The
+   *  consumer key/secret are recorded for OAuth completeness; search uses the
+   *  bearer. Env keys follow `PLATFORM_FIELD` (see SourceFetcher). */
+  X_CONSUMER_KEY: z.string().optional(),
+  X_CONSUMER_SECRET: z.string().optional(),
+  X_BEARER_TOKEN: z.string().optional(),
   /** Wallet JWT auth (EIP-191 signMessage → HS256 token) for mutations. */
   AUTH_JWT_SECRET: z.string().default("dev-secret-change-me"),
   AUTH_JWT_TTL: z.coerce.number().int().positive().default(24 * 60 * 60),
@@ -79,6 +87,10 @@ export const envSchema = z.object({
   SOURCE_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   /** Aura history window N (points fed to the AI). */
   AURA_HISTORY_N: z.coerce.number().int().positive().default(10),
+  /** Window job cadence (ms) — how often the scheduler fans out to every
+   *  graduated handle to open/settle its current slot. Keep it far below the
+   *  handle window length (windowMinutes) so a slot is never missed. */
+  WINDOW_EVERY_MS: z.coerce.number().int().positive().default(5_000),
   /** Economic AI gate — minimum ms between aura scoring calls per handle
    *  (bursts coalesce; 0 = every eligible tick may call). */
   AURA_AI_MIN_INTERVAL_MS: z.coerce.number().int().min(0).default(60_000),

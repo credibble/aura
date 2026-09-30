@@ -123,7 +123,7 @@ const SEEDS: Seed[] = [
     // A footballer is also a person — exercises the multi-category path from the
     // seed on.
     label: "ronaldo", name: "Cristiano Ronaldo", symbol: "RON", categories: [CAT.sports, CAT.people],
-    aura: 3040, windowMinutes: 30, summary: "Portugal captain · five Champions League titles",
+    aura: 3040, windowMinutes: 60, summary: "Portugal captain · five Champions League titles",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg/330px-Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg",
     sources: [
       newsSource("ronaldo", "Cristiano Ronaldo", "Cristiano Ronaldo"),
@@ -133,7 +133,7 @@ const SEEDS: Seed[] = [
   },
   {
     label: "messi", name: "Lionel Messi", symbol: "MESSI", categories: [CAT.sports, CAT.people],
-    aura: 2875, windowMinutes: 30, summary: "Inter Miami · World Cup winner",
+    aura: 2875, windowMinutes: 60, summary: "Inter Miami · World Cup winner",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg/330px-Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg",
     sources: [
       newsSource("messi", "Lionel Messi", "Lionel Messi"),
@@ -143,7 +143,7 @@ const SEEDS: Seed[] = [
   },
   {
     label: "btc", name: "Bitcoin", symbol: "BTC", categories: [CAT.crypto],
-    aura: 4150, windowMinutes: 30, imageFit: "contain", summary: "The original crypto index",
+    aura: 4150, windowMinutes: 60, imageFit: "contain", summary: "The original crypto index",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/330px-Bitcoin.svg.png",
     sources: [
       newsSource("btc", "Bitcoin", "Bitcoin"),
@@ -153,7 +153,7 @@ const SEEDS: Seed[] = [
   },
   {
     label: "eth", name: "Ethereum", symbol: "ETH", categories: [CAT.crypto],
-    aura: 3220, windowMinutes: 30, imageFit: "contain", summary: "Smart-contract settlement layer",
+    aura: 3220, windowMinutes: 60, imageFit: "contain", summary: "Smart-contract settlement layer",
     photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/Eth-diamond-%28color%29.svg/330px-Eth-diamond-%28color%29.svg.png",
     sources: [
       newsSource("eth", "Ethereum", "Ethereum"),
@@ -163,7 +163,7 @@ const SEEDS: Seed[] = [
   },
   {
     label: "sol", name: "Solana", symbol: "SOL", categories: [CAT.crypto],
-    aura: 2180, windowMinutes: 30, imageFit: "contain", summary: "High-throughput L1",
+    aura: 2180, windowMinutes: 60, imageFit: "contain", summary: "High-throughput L1",
     photo: "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png",
     sources: [
       newsSource("sol", "Solana", "Solana"),

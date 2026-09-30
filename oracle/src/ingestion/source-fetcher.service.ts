@@ -5,6 +5,7 @@ import { TIME_SERIES_STORE, CONNECTION_STORE } from "../core/ports/tokens";
 import type { ITimeSeriesStore } from "../core/ports/time-series-store";
 import type { IConnectionStore } from "../core/ports/connection-store";
 import type { Source, SourceTransport } from "../core/domain/source";
+import type { AdapterCredentials } from "../core/domain/source";
 import type { RawDatum } from "../core/domain/source-item";
 import { fetchJson, fetchText } from "./http";
 import { parseFeed } from "./rss-parser";
@@ -32,7 +33,13 @@ export class SourceFetcher {
       const adapter = this.adapters.resolve(source.adapter);
       if (!adapter) return [];
       const account = typeof source.adapter.account === "string" ? source.adapter.account : undefined;
-      const credentials = await this.connections.get(source.adapter.platform, account);
+      // App-level credentials (an `api/` adapter reading OTHER people's public
+      // data) live in the oracle's own env, not a per-account ConnectionStore
+      // row — the app has one key, not one per subject. Per-user OAuth
+      // (`connections/`) keeps resolving from the store first.
+      const credentials =
+        (await this.connections.get(source.adapter.platform, account)) ??
+        this.systemCredentials(adapter.requiredCredentials);
       const sample = await adapter.fetch(source.adapter, since, Date.now(), credentials ?? undefined);
       await this.series.appendSample(source.id, sample.points);
       return sample.items ?? [];
@@ -56,6 +63,22 @@ export class SourceFetcher {
       case "wikipedia":
         return this.wikipedia(t, limit);
     }
+  }
+
+  /**
+   * App-level credentials from env. Each required credential `platform:name`
+   * maps to `${PLATFORM}_${SNAKE(name)}` — e.g. `x:bearerToken` →
+   * `X_BEARER_TOKEN`, `youtube:apiKey` → `YOUTUBE_API_KEY` — so the adapter
+   * declares what it needs and the deploy supplies it without a DB row. Missing
+   * vars are simply omitted (the adapter then fails closed, never fabricates).
+   */
+  private systemCredentials(required: readonly string[]): AdapterCredentials | undefined {
+    const secrets: Record<string, string> = {};
+    for (const credential of required) {
+      const value = this.config.get<string>(envKey(credential));
+      if (typeof value === "string" && value.length > 0) secrets[credential] = value;
+    }
+    return Object.keys(secrets).length > 0 ? { secrets } : undefined;
   }
 
   private async rss(t: Extract<SourceTransport, { type: "rss" }>, label: string, since: number, limit: number): Promise<RawDatum[]> {
@@ -202,6 +225,17 @@ function parseIso(value?: string): number {
 
 function daysAgo(n: number): string {
   return new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** `x:bearerToken` → `X_BEARER_TOKEN` (app credential name → env var name). */
+function envKey(credential: string): string {
+  const [platform = "", ...rest] = credential.split(":");
+  const name = rest.join("_");
+  const snake = name
+    .replace(/[A-Z]/g, (c) => `_${c}`)
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .toUpperCase();
+  return `${platform.toUpperCase()}_${snake}`.replace(/_+/g, "_").replace(/^_|_$/g, "");
 }
 
 function stripHtml(value: string): string {

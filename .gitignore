@@ -43,10 +43,9 @@ smart-contracts/typechain-types/
 smart-contracts/coverage/
 smart-contracts/coverage.json
 
-# ── Subgraph (thegraph codegen/build output) ─────────────────────────────────
-**/subgraph/generated/
-**/subgraph/build/
-**/subgraph/*.wasm
+# ── Subgraph (Envio indexer codegen output) ─────────────────────────────────
+indexer/.envio/
+indexer/generated/
 
 # ── Prisma / local data ──────────────────────────────────────────────────────
 oracle/prisma/*.db

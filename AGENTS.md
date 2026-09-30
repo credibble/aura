@@ -4,22 +4,32 @@ Two deployables in this repo:
 
 | Path | What it is | Port |
 |---|---|---|
-| `app/` | The product: TanStack Start + Vite + Tailwind 4 + Radix. Every page is the market UI. | 8080 |
+| `app/` | The product: TanStack Start + Vite + Tailwind 4 + Radix. Every page is the market UI. | 5173 |
 | `oracle/` | NestJS backend: social/feeds API, handle creation + profile updates, Cloudinary uploads, WS gateway, AI aura engine. | 3000 (REST `/v1`, Socket.IO `/socket.io`) |
-| `smart-contracts/` | Solidity + the subgraph (Pool, Stake, Handle, MarketMaker, OrderBook, RevenueSharing). | subgraph 8000 |
+| `indexer/` | Envio HyperIndex: every on-chain entity the UI and the oracle read (handles, windows, trades, orders, the auraLP vault, staking). | 8080 (GraphQL `/v1/graphql`; Hasura console 8080, password `testing`) |
+| `smart-contracts/` | Solidity + the deploy tooling (Pool, Stake, Handle, MarketMaker, OrderBook, RevenueSharing). | — |
 
 ## Where the app reads data from
 
-**Subgraph (GraphQL, `VITE_SUBGRAPH_URL`, default `http://localhost:8000/subgraphs/name/aura/aura`)** — all on-chain state:
-- `handles` → explore grid, leaderboard, search popover, sidebars (`queries/handles.ts`)
-- `windows` / `trades` / `pricePoints` / `orders` + `orderFills` → market detail (`queries/markets.ts`)
-- `poolSnapshots` / `poolEvents` → `/pool` (`queries/pool.ts`)
-- `stakes` / `stakeSnapshots` → staking (`queries/stake.ts`)
+**Indexer (Envio HyperIndex, `VITE_INDEXER_URL`, default `http://localhost:8080/v1/graphql`)** — all on-chain state:
+- `Handle` → explore grid, leaderboard, search popover, sidebars (`queries/handles.ts`)
+- `Window` / `Trade` / `PricePoint` / `Order` + `OrderFill` → market detail (`queries/markets.ts`)
+- `PoolSnapshot` / `PoolEvent` → `/pool` (`queries/pool.ts`)
+- `Stake` / `StakeSnapshot` → staking (`queries/stake.ts`)
 
-Paging, sorting and filtering happen **in the query** via `lib/subgraph-page.ts`
-(`subgraphInfiniteOptions`) — `where`, `orderBy`, `orderDirection`, `first`, `skip`;
-`hasMore = page.length >= limit`. Charts are the exception: they request the whole
-series in one shot.
+Paging, sorting and filtering happen **in the query** via `lib/indexer-page.ts`
+(`indexerInfiniteOptions`) — Envio's dialect: `where` (Hasura-style
+`{ field: { _eq: … } }`), `order_by: { field: dir }`, `limit`, `offset`;
+`hasMore = page.length >= limit`. Sort/filter fields are `@index`-ed in
+`schema.graphql`. Charts are the exception: they request the whole series in one shot.
+
+**Live updates are subscriptions, polling is the fallback.** `lib/indexer-ws.ts`
+holds the `graphql-ws` client (same endpoint over `ws://`) and
+`useIndexerLive({ queryKey, query, mode })` keeps a cache entry fresh from one —
+`invalidate` for lists/paged collections, `patch` for a single row. It registers
+the query key, and `lib/poll-registry.ts` stands that key's timers down while the
+subscription is live (and they resume if the socket drops), because hosted
+WebSocket support is plan-dependent — never *require* the socket.
 
 **Oracle REST (`VITE_API_URL`, default `http://localhost:3000/v1`)** — backend-owned data:
 - posts/feeds, comments (with reaction-GIF `media`), likes, reposts, bookmarks, follows,
@@ -55,12 +65,12 @@ Queries without an event source (positions, open orders, pool/stake stats) poll 
 
 ## Redeploy runbook (one pass)
 
-Prefer the orchestrator — it runs steps 1-5 in order and prints the env lines:
+Prefer the orchestrator — it runs steps 1-3 and 5 in order and prints the env lines:
 
 ```bash
 cd smart-contracts
 PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK node scripts/deploy-all.mjs
-# (add --skip-subgraph to compile/deploy only the contracts + seed)
+# (add --skip-indexer to compile/deploy only the contracts + seed)
 ```
 
 The same steps by hand:
@@ -79,25 +89,26 @@ PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK \
 #     submitResolution reverts on every window and settlement stalls silently.
 ORACLE_PRIVATE_KEY=$RELAYER_PK npx hardhat run scripts/verify-deploy.ts --network monadTestnet
 
-# 2. Push the new addresses into the subgraph manifest, start blocks and the
-#    graph-node chain mapping; prints the env lines for both services
-node scripts/sync-subgraph.mjs --write
+# 2. Push the new addresses + start block into the indexer's config, and print
+#    the env lines for both services
+node scripts/sync-indexer.mjs --write
 
-# 3. Reindex the subgraph (same name → graph-node picks up the new addresses)
-cd subgraph && npx graph codegen && npx graph build
-npx graph create --node http://localhost:8020 aura/aura   # first time only
-npx graph deploy aura/aura --node http://localhost:8020 --ipfs http://localhost:5001 \
-  --version-label v0.1.0
+# 3. Generate the indexer's handler types from config.yaml + schema.graphql,
+#    then index (needs Docker; the Envio CLI is linux/darwin, so use WSL on Windows)
+cd ../indexer
+npm run codegen          # validates config + schema
+npm run dev              # HyperSync sync; GraphQL on :8080
 
 # 5. Seed the handles (10, each with its OWN scoped sources: an exact-phrase
 #    news feed + an entity-only site where one exists — never a general desk).
+cd ../smart-contracts
 PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK \
   npx hardhat run scripts/seed-handles.ts --network monadTestnet
 
 # 4. Point the oracle at the new addresses, then rebuild + restart it
 #    (paste the env lines printed by step 2 into oracle/.env)
-cd ../../oracle
-docker compose up -d --build oracle-api oracle-worker redis   # never the bundled postgres
+cd ../oracle
+docker compose up -d --force-recreate postgres redis oracle-api oracle-worker
 docker compose exec oracle-api npx prisma migrate deploy
 curl -s localhost:4000/health/ready
 ```
@@ -106,8 +117,9 @@ Notes:
 - `ORACLE_PRIVATE_KEY` must equal the address `OracleFactory` was deployed with
   (its `signer`): the receipt signature must recover to it *and* that same EOA
   sends `submitResolution`.
-- The oracle container uses the host's Postgres (`host.docker.internal:5432`,
-  DB `aura`) — the graph-node's Postgres container also hosts it.
+- The oracle's own Postgres service (5432, DB `aura`) is the database now that
+  graph-node is gone; the Envio indexer runs its own Postgres on 5433 so the two
+  never collide.
 - `docker compose up` **without** service names would start the bundled
   `postgres` and fight for 5432; always name the services.
 
@@ -199,7 +211,7 @@ real mitigation, and it is a deployment/config decision, not a code one.
 cd app
 node scripts/check-writes.mjs           # parses every ABI + encodes all 18 write paths
 node scripts/check-routes.mjs           # fetches every page, asserts 200 + real content
-node scripts/check-subgraph-fields.mjs  # contract test: app queries vs subgraph schema
+node scripts/check-indexer-fields.mjs   # contract test: app queries vs indexer schema
 npx tsc --noEmit
 ```
 
@@ -213,24 +225,27 @@ npx tsc --noEmit
 ```
 cd smart-contracts
 npx hardhat test                 # 45 tests, incl. the money invariants
-cd subgraph && npx graph build   # mappings compile against the schema
+cd ../indexer && npx envio codegen   # config + schema compile (linux/darwin; WSL on Windows)
 ```
 
 `.github/workflows/ci.yml` runs all of the above on every push.
 
 `check-writes.mjs` fails on ABI drift (re-reads `src/lib/chain.ts`).
-`check-subgraph-fields.mjs` fails when an entity/field the app selects is missing
-from `smart-contracts/subgraph/schema.graphql` — e.g. it pins the new
-`Handle.categoryId`. The oracle e2e asserts health/readiness shape, hardening
-headers, 401 on guarded writes, JSON 404s, and that a write burst never 5xx's.
+`check-indexer-fields.mjs` fails when an entity/field the app selects is missing
+from `indexer/schema.graphql`. The oracle e2e asserts health/readiness shape,
+hardening headers, 401 on guarded writes, JSON 404s, and that a write burst never
+5xx's.
 
 
 ## Local setup notes
 
 - `oracle/.env` needs `DATABASE_URL`, `HANDLE_OWNER_PRIVATE_KEY`, `HANDLE_FACTORY_ADDRESS`,
-  `CLOUDINARY_*`, `ALCHEMY_RPC_URL`/`RPC_URL`. Migrations: `npx prisma migrate deploy`
+  `CLOUDINARY_*`, `ALCHEMY_RPC_URL`/`RPC_URL`, `INDEXER_URL` (default
+  `http://localhost:8080/v1/graphql`). Migrations: `npx prisma migrate deploy`
   (the DB was baselined with `prisma migrate resolve --applied 0001_init`).
+- `indexer/.env` needs `ENVIO_API_TOKEN` (HyperSync) and `ENVIO_RPC_URL` (the
+  HyperRPC fallback data source). Both are gitignored; see `indexer/.env.example`.
 - The oracle's aura engine writes aura on-chain and pushes it over WS; it keeps **no**
-  backend copy of aura history — the subgraph indexes that (`AuraHistory`).
+  backend copy of aura history — the indexer indexes that (`AuraHistory`).
 - Handle profile writes are server-signed (`PATCH /handles/:id`); the old
   `social/sync-user` endpoint is gone.

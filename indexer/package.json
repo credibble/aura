@@ -1,0 +1,20 @@
+{
+  "name": "aura-indexer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Aura HyperIndex indexer — handles, windows, trades, orders, the auraLP vault and staking on Monad testnet.",
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start",
+    "stop": "envio stop",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "envio": "^3.11.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,21 +1,24 @@
 #!/usr/bin/env node
 /**
- * One-pass fresh deploy: contracts → verify → manifest sync → subgraph → sources.
+ * One-pass fresh deploy: contracts → verify → indexer config → sources.
  *
  *   cd smart-contracts
- *   PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK node scripts/deploy-all.mjs [--skip-subgraph]
+ *   PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK node scripts/deploy-all.mjs [--skip-indexer]
  *
  * What it does, in order:
  *   1. hardhat deploy.ts          (writes deployments/deployments.json)
  *   2. hardhat verify-deploy.ts   (proves the factory signer == the relayer)
- *   3. node sync-subgraph.mjs --write (manifest + start blocks + graph-node RPC)
- *   4. graph codegen && graph build && graph deploy   (reindex; SLOW)
+ *   3. node sync-indexer.mjs --write  (indexer/config.yaml addresses + start block)
+ *   4. indexer `envio codegen`    (regenerates the handler types from config + schema)
  *   5. hardhat seed-handles.ts    (10 handles, each with its own scoped sources)
  *
- * Then it prints the env lines to paste into oracle/.env and app/.env.
+ * Then it prints the env lines to paste into oracle/.env and app/.env, and how to
+ * start indexing.
  *
- * Coverage note: the public Monad RPC caps `eth_getLogs` at 100 blocks, so the
- * reindex in step 4 takes roughly an hour. A private RPC is the only lever.
+ * Coverage note: `envio dev` / `envio start` sync through HyperSync, which reads
+ * the whole range in one request — the old hour-long, 100-block-limited reindex
+ * through the public RPC is gone. The Envio CLI ships a linux/darwin native
+ * addon, so on Windows run steps 4+ in WSL.
  */
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -26,10 +29,10 @@ const run = (cmd, cwd = process.cwd()) => {
   execSync(cmd, { cwd, stdio: "inherit" });
 };
 
-const skipSubgraph = process.argv.includes("--skip-subgraph");
+const skipIndexer = process.argv.includes("--skip-indexer");
 const repo = process.cwd().endsWith("smart-contracts") ? `${process.cwd()}/..` : process.cwd();
 const sc = `${repo}/smart-contracts`;
-const sg = `${sc}/subgraph`;
+const idx = `${repo}/indexer`;
 
 const pk = process.env.ORACLE_PRIVATE_KEY;
 if (!process.env.PRIVATE_KEY || !pk) {
@@ -48,19 +51,17 @@ run("npx hardhat run scripts/deploy.ts --network monadTestnet", sc);
 STEP(2, "verify wiring (factory signer == relayer)");
 run("npx hardhat run scripts/verify-deploy.ts --network monadTestnet", sc);
 
-STEP(3, "sync the subgraph manifest + start blocks + graph-node RPC");
-run("node scripts/sync-subgraph.mjs --write", sc);
+STEP(3, "sync the indexer config (addresses + start block)");
+run("node scripts/sync-indexer.mjs --write", sc);
 
-if (skipSubgraph) {
-  console.log("\n(--skip-subgraph: skipping compile + reindex)");
+if (skipIndexer) {
+  console.log("\n(--skip-indexer: skipping codegen)");
+} else if (process.platform === "win32") {
+  STEP(4, "indexer codegen — skipped: the Envio CLI addon is linux/darwin only");
+  console.log("Run this in WSL before starting the indexer:\n  cd indexer && npm run codegen");
 } else {
-  STEP(4, "compile + deploy the subgraph (reindexes from the start blocks — this is the slow step)");
-  run("npx graph codegen", sg);
-  run("npx graph build", sg);
-  run(
-    `npx graph deploy aura/aura --node http://localhost:8020 --ipfs http://localhost:5001 --version-label v0.2.0`,
-    sg,
-  );
+  STEP(4, "indexer codegen (regenerates the handler types)");
+  run("npm run codegen", idx);
 }
 
 STEP(5, "seed 10 handles, each with its own scoped sources");
@@ -76,7 +77,7 @@ CHAIN_ID=${d.chainId}
 MARKET_MAKER_ADDRESS=${d.marketMaker}
 ORACLE_FACTORY_ADDRESS=${d.oracleFactory}
 HANDLE_FACTORY_ADDRESS=${d.handleFactory}
-SUBGRAPH_URL=http://localhost:8000/subgraphs/name/aura/aura
+INDEXER_URL=http://localhost:8080/v1/graphql
 
 # app/.env
 VITE_MARKET_MAKER_ADDRESS=${d.marketMaker}
@@ -86,9 +87,14 @@ VITE_POOL_ADDRESS=${d.pool}
 VITE_AURA_TOKEN_ADDRESS=${d.auraToken}
 VITE_USDC_ADDRESS=${d.usdc}
 VITE_REVENUE_SHARING_ADDRESS=${d.revenueSharing}
-VITE_SUBGRAPH_URL=http://localhost:8000/subgraphs/name/aura/aura
+VITE_INDEXER_URL=http://localhost:8080/v1/graphql
+
+# indexer/.env (never committed) — the Envio token + the historical RPC fallback
+ENVIO_API_TOKEN=<from https://envio.dev/app/api-tokens>
+ENVIO_RPC_URL=<https://10143.rpc.hypersync.xyz/…>
 
 # then:
-#   cd oracle && docker compose up -d --force-recreate oracle-api oracle-worker
-#   (restart the app dev server so it re-reads app/.env)
+#   cd indexer && npm run dev      (needs Docker; WSL on Windows)
+#   cd oracle  && docker compose up -d --force-recreate oracle-api oracle-worker
+#   restart the app dev server so it re-reads app/.env
 `);

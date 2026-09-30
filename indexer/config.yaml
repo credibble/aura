@@ -1,0 +1,103 @@
+# Aura — HyperIndex (Envio) indexer.
+#
+# Every piece of on-chain state the app and the oracle read: handles, windows,
+# trades, price points, orders + fills, the auraLP vault and staking. Replaces
+# the old graph-node subgraph; the flaky public-RPC + graph-node pair is gone.
+#
+# Dynamic contracts (Handle, Stake) are registered by the factory's
+# `HandleCreated` through `indexer.contractRegister` — they carry no address.
+#
+# Addresses are synced from ../smart-contracts/deployments/deployments.json by
+# `node smart-contracts/scripts/sync-indexer.mjs --write` (run by deploy-all.mjs).
+#
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: aura-indexer
+description: Aura — the internet aura market (handles, windows, trades, orders, auraLP vault, staking)
+
+# Handlers key Trade/PricePoint/PoolSnapshot rows by transaction hash, and read
+# block timestamps on every event. Both are opt-in field selections; ask once.
+field_selection:
+  transaction_fields:
+    - hash
+
+chains:
+  - id: 10143 # Monad testnet
+    start_block: 66807707 # Configurator, the earliest contract in the stack
+    rpc:
+      # HyperSync is the primary source for this chain (ENVIO_API_TOKEN). This
+      # HyperRPC endpoint is the resilience path — and the only RPC the handlers'
+      # historical contract reads (metadata/priceOf/pool+stake state) go through,
+      # so no shared public node can rate-limit the indexer.
+      - url: ${ENVIO_RPC_URL}
+        for: fallback
+    contracts:
+      - name: Configurator
+        address: "0xbCeD7FC0E0AD47b805F80BCA3Fccf80056FaC0E2"
+        events:
+          - event: "DepositFeeRangeSet(uint64 minBps, uint64 maxBps)"
+          - event: "MaxFeeAuraSet(uint256 maxFeeAura)"
+          - event: "MarketFeeBpsSet(uint64 bps)"
+          - event: "MinWindowSecondsSet(uint256 minWindowSeconds)"
+          - event: "WindowPaddingSet(uint256 windowPadding)"
+      - name: MarketRegistry
+        address: "0x5eA7806a099E6412CB4e4833B0C86895e6F8380c"
+        events:
+          - event: "HandleRegistered(bytes32 indexed handleId, uint256 windowMinutes)"
+      - name: OracleFactory
+        address: "0x3049f74A84fa875997450F84b2367295DE7349ef"
+        events:
+          - event: "OracleDeployed(bytes32 indexed handleId, uint256 windowStart, address oracle)"
+      - name: HandleFactory
+        address: "0x4d74554BC2164cef4F4f844365d200F438493fEb"
+        events:
+          - event: "HandleCreated(bytes32 indexed handleId, address indexed handle, address indexed stake, address creator, address market, address oracleFactory, address revenue, string name, string symbol, string metadata, uint256 windowMinutes, uint256[] categories)"
+      - name: Pool
+        address: "0xA7329a62A657dc43B73628dE60ba6B9c269dAc08"
+        events:
+          - event: "Reserved(address indexed oracle, uint256 amount)"
+          - event: "PaidOut(address indexed oracle, address indexed to, uint256 amount)"
+          - event: "Unreserved(address indexed oracle, uint256 amount)"
+          - event: "PoolStateChanged(uint256 totalAssets, uint256 totalSupply, uint256 idle, uint256 totalReserved)"
+      - name: RevenueSharing
+        address: "0x0B332AaF4E320ECECd022e50520a85e26B90F938"
+        events:
+          - event: "FeeSplit(bytes32 indexed handleId, uint256 amount, uint256 user, uint256 lp, uint256 protocol)"
+      - name: MarketMaker
+        address: "0xC28B87d57a8881C73f4eA4Ff3D8F40D569e35A6A"
+        events:
+          - event: "WindowOpened(bytes32 indexed handleId, address indexed oracle, uint256 windowStart, uint256 windowEnd, string[] outcomes, uint256[] probabilities, uint256 funding, string oracleMetadata)"
+          - event: "PricesUpdated(bytes32 indexed handleId, address indexed oracle, uint256[] prices)"
+          - event: "Bought(bytes32 indexed handleId, address indexed oracle, address indexed trader, uint256 outcome, uint256 amountIn, uint256 sharesMinted, uint256 price)"
+          - event: "Sold(bytes32 indexed handleId, address indexed oracle, address indexed trader, uint256 outcome, uint256 sharesBurned, uint256 proceeds)"
+          - event: "Settled(bytes32 indexed handleId, address indexed oracle, uint256 winningOutcome)"
+          - event: "Claimed(bytes32 indexed handleId, address indexed oracle, address indexed trader, uint256 outcome, uint256 sharesBurned, uint256 payout)"
+          - event: "Transferred(address indexed from, address indexed to, address indexed oracle, uint256 outcome, uint256 amount)"
+      - name: OrderBook
+        address: "0x58088273B5CB02F86c627B4c238F5ad60A9E5fd6"
+        events:
+          - event: "OrderPlaced(bytes32 indexed handleId, address indexed oracle, uint256 outcome, bool side, address indexed maker, bytes32 id, uint256 price, uint256 size, uint256 expiresAt)"
+          - event: "OrderCancelled(bytes32 indexed handleId, address indexed oracle, bytes32 id)"
+          - event: "OrderUpdated(bytes32 indexed handleId, address indexed oracle, bytes32 id, uint256 price, uint256 size, uint256 expiresAt)"
+          - event: "OrderFilled(bytes32 indexed handleId, address indexed oracle, bytes32 id, address indexed taker, uint256 outcome, uint256 shares, uint256 price)"
+      # Deployed per handle by HandleFactory.HandleCreated. No address: the
+      # factory registers each one through indexer.contractRegister.
+      - name: Handle
+        events:
+          - event: "SourcesChanged(string[] sources)"
+          - event: "AuraUpdated(uint256 aura, string summary)"
+          - event: "CategoriesSet(uint256[] categories)"
+          - event: "GraduatedSet(bool graduated)"
+          - event: "VerifiedSet(bool verified)"
+          - event: "MetadataSet(string metadata)"
+          - event: "WindowMinutesSet(uint256 windowMinutes)"
+          - event: "OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)"
+          - event: "OwnershipTransferred(address indexed previousOwner, address indexed newOwner)"
+      # Deployed per handle by HandleFactory.HandleCreated, tracked for the
+      # receipt's state snapshots.
+      - name: Stake
+        events:
+          - event: "StakeStateChanged(uint256 totalSupply, uint256 totalAssets, uint256 valuePerToken)"
+
+# Addresses come out lowercase (matching the app's lowercased wallet filters and
+# the ids graph-node used to produce), and bytes stay hex strings.
+address_format: lowercase

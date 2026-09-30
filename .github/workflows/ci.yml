@@ -26,11 +26,11 @@ jobs:
         run: npx tsc --noEmit
       - name: Every contract write encodes (ABI + arity)
         run: node scripts/check-writes.mjs
-      - name: App queries vs the subgraph schema
-        run: node scripts/check-subgraph-fields.mjs
-      # check-routes.mjs needs the dev server plus a live subgraph; run it where
+      - name: App queries vs the indexer schema
+        run: node scripts/check-indexer-fields.mjs
+      # check-routes.mjs needs the dev server plus a live indexer; run it where
       # those services exist (it is a no-op failure otherwise). Enable with:
-      #   RUN_ROUTE_SMOKE=1 and a SUBGRAPH_URL secret.
+      #   RUN_ROUTE_SMOKE=1 and an INDEXER_URL secret.
 
   oracle:
     name: oracle · types + unit + API e2e
@@ -71,17 +71,19 @@ jobs:
       - run: npx hardhat compile
       - run: npx hardhat test
 
-  subgraph:
-    name: subgraph · codegen + build
+  indexer:
+    name: indexer · config + schema codegen
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: smart-contracts/subgraph
+        working-directory: indexer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm ci
-      - run: npx graph codegen
-      - run: npx graph build
+      # Validates config.yaml + schema.graphql and regenerates the handler types
+      # from them. The Envio CLI addon is linux/darwin only, which is why this
+      # gate has to run here (or under WSL) rather than on a Windows machine.
+      - run: npx envio codegen

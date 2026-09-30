@@ -2,7 +2,7 @@
 the Handle contract bundles the creator, metadata, the pricing market, and the
 per-handle Stake receipt; the Pool is the singleton auraLP vault shared by all
 handles."""
-type Handle @entity {
+type Handle {
   id: ID! # handleId bytes32 hex
   contract: Bytes! # Handle contract address
   owner: User! # the owner (account) — every handle has one
@@ -14,32 +14,28 @@ type Handle @entity {
   revenue: Bytes! # the reward distributor
   stake: Bytes! # per-handle AURA Stake receipt
   sources: [String!]! # adapter source JSON configs (platform adapters parse them)
-  aura: BigInt! # the handle's live Aura score (1e2) - drives the Stake fee curve
+  aura: BigInt! # the handle's live Aura score (1e2) — drives the Stake fee curve
   auraDelta: BigInt! # signed change of the latest AuraUpdated push (1e2)
   graduated: Boolean! # trading-prediction graduation (backend-granted)
-  categories: [BigInt!]! # market-style category codes (e.g. 100_001_001 = sport/football/binary)
-  """Family ids derived from the codes (`crypto` | `ai` | `sports` | `people` |
-  `brands` | `memes` | `music` | `tech` | `culture`), one per code and deduped —
-  lets the index filter by category at the API level, which the numeric code's
-  family prefix can't do."""
-  categoryIds: [String!]!
+  """The handle's category codes — plain small integers the UI maps to families:
+  1 people · 2 crypto · 3 sports · 4 ai · 5 tech · 6 brands · 7 music · 8 memes ·
+  9 culture. A handle may carry several (a footballer is also a person)."""
+  categories: [BigInt!]!
   verified: Boolean! # verification status (backend-granted)
   pendingOwner: Bytes! # OZ Ownable2Step two-step transfer target (0 = none)
   windowMinutes: BigInt!
-  active: Boolean!
+  active: Boolean! @index
   windows: [Window!]! @derivedFrom(field: "handle")
-  stakeReceipt: Stake @derivedFrom(field: "handle")
   auraHistory: [AuraHistory!]! @derivedFrom(field: "handle")
   windowCount: Int!
 }
 
 """
-One prediction window on the MarketMaker: binary YES/NO against an EMA-baseline
-strike, OR a winner-takes-all categorical market (who gains the most Aura?).
-Priced by an LMSR AMM — each outcome's price is its probability, all sum to 1.
-The winning outcome (argmax of the settled final indices) pays 1 USDC per share.
+One prediction window on the MarketMaker: binary YES/NO against a strike read
+from the aura series at open. Priced by an LMSR AMM — each outcome's price is its
+probability, all sum to 1. The winning outcome pays 1 USDC per share.
 """
-type Window @entity {
+type Window {
   id: ID! # `${handleId}-${windowStart}`
   handle: Handle!
   oracle: Bytes! # per-window Oracle (identity/signer)
@@ -47,17 +43,17 @@ type Window @entity {
   question: String! # parsed from oracleMetadata — the market's question
   style: String! # parsed from oracleMetadata — "binary" | "multi"
   handleId: Bytes!
-  windowStart: BigInt!
+  windowStart: BigInt! @index
   windowEnd: BigInt!
-  outcomes: [String!]! # outcome names, e.g. ["YES","NO"] or team names
+  strike: BigInt! # the aura level the window was priced from (1e2) — the odds' strike
+  outcomes: [String!]! # outcome names, e.g. ["YES","NO"]
   initialProbabilities: [BigInt!]! # 1e18-seeded LMSR prices at open (Σ = 1e18)
-  prices: [BigInt!]! # live LMSR prices (1e18, Σ ≈ 1e18) — seeded at open, maintained per trade
+  prices: [BigInt!]! # live LMSR prices (1e18, Σ ≈ 1e18) — maintained per trade
   liquidity: BigInt! # LMSR depth b = funding/ln(n), 1e18
   q: [BigInt!]! # outstanding shares per outcome (1e18)
-  reference: BigInt! # live index S_t, 1e2
   timestamp: BigInt!
   cash: BigInt!
-  settled: Boolean!
+  settled: Boolean! @index
   winningOutcome: Int
   reserved: BigInt! # PLP capacity reserved for this window (from the Pool)
   paidOut: BigInt! # USDC paid from the PLP reserve to winners/cash-outs
@@ -68,7 +64,7 @@ type Window @entity {
 
 """Full LMSR price vector (1e18 per outcome) captured at every trade — the
 frontend's real price-history chart source (one point per state change)."""
-type PricePoint @entity {
+type PricePoint {
   id: ID! # `${txnHash}-${logIndex}` (same event as the Trade)
   window: Window!
   ts: BigInt!
@@ -77,7 +73,7 @@ type PricePoint @entity {
 
 """One reservation movement on the singleton PLP vault — keyed by the window
 oracle (the canonical window identity)."""
-type PoolEvent @entity {
+type PoolEvent {
   id: ID! # `${oracle}-${txnHash}-${logIndex}`
   pool: Bytes!
   oracle: Bytes!
@@ -95,7 +91,7 @@ enum PoolEventKind {
 
 """Historical pool snapshot (reserve/idle/supply/price) — taken on every pool
 event so the frontend renders the auraLP vault's charts over time."""
-type PoolSnapshot @entity {
+type PoolSnapshot {
   id: ID! # `${pool}-${blockNumber}-${logIndex}`
   pool: Bytes!
   blockNumber: BigInt!
@@ -109,7 +105,7 @@ type PoolSnapshot @entity {
 
 """Protocol configuration (Configurator singleton) — the tunables the owner
 updates; kept in the index for the frontend's fee/market display."""
-type Config @entity {
+type Config {
   id: ID! # "config"
   depositFeeMinBps: Int!
   depositFeeMaxBps: Int!
@@ -121,7 +117,7 @@ type Config @entity {
 
 """One RevenueSharing fee split — every fee deposit's distribution to the
 handle's creator (user), LP vault and protocol treasury."""
-type FeeSplit @entity {
+type FeeSplit {
   id: ID! # tx-log
   handle: Handle!
   amount: BigInt!
@@ -133,7 +129,7 @@ type FeeSplit @entity {
 
 """A handle's Stake receipt vault (AURA LP) — current supply/assets/share-price
 plus its historical snapshots."""
-type Stake @entity {
+type Stake {
   id: ID! # stake contract address
   contract: Bytes!
   handle: Handle!
@@ -145,7 +141,7 @@ type Stake @entity {
 
 """Historical stake snapshot — taken on every deposit/withdraw/reward for the
 handle's AURA staking charts."""
-type StakeSnapshot @entity {
+type StakeSnapshot {
   id: ID! # `${stake}-${blockNumber}-${logIndex}`
   stake: Stake!
   blockNumber: BigInt!
@@ -157,7 +153,7 @@ type StakeSnapshot @entity {
 
 """One aura update — the historical aura chart. Every updateAura push records
 the new level (1e2) + the AI's one-line summary."""
-type AuraHistory @entity {
+type AuraHistory {
   id: ID! # `${handleId}-${blockNumber}-${logIndex}`
   handle: Handle!
   aura: BigInt!
@@ -169,7 +165,7 @@ type AuraHistory @entity {
 
 """Protocol-wide counters — one entity the frontend reads instead of scanning
 every handle/window to derive totals."""
-type Stats @entity {
+type Stats {
   id: ID! # "stats"
   handleCount: Int!
   windowCount: Int!
@@ -179,19 +175,19 @@ type Stats @entity {
 }
 
 """Maps a window oracle address to its Window (events log the oracle)."""
-type OracleWindow @entity {
+type OracleWindow {
   id: ID! # oracle address hex
   window: Window!
 }
 
 """Maps a Handle contract address back to its handleId — lets event-driven
-handlers (SourcesChanged) update the right Handle.""" 
-type HandleAddress @entity {
+handlers (SourcesChanged) update the right Handle."""
+type HandleAddress {
   id: ID! # Handle contract address hex
   handleId: Bytes!
 }
 
-type User @entity {
+type User {
   id: ID! # address hex - one entity per account (owns handles + trades)
   handleCount: Int!
   handles: [Handle!]! @derivedFrom(field: "owner")
@@ -203,7 +199,7 @@ type User @entity {
 """A buy / live sell / settled claim on a window. `kind` also carries
 TRANSFER_OUT / TRANSFER_IN for share movements (order-book fills), so position
 math that sums trades stays correct."""
-type Trade @entity {
+type Trade {
   id: ID! # tx-log
   window: Window!
   user: User!
@@ -213,12 +209,12 @@ type Trade @entity {
   proceeds: BigInt! # collateral out (sell/claim)
   shares: BigInt!
   price: BigInt! # LMSR probability at the trade
-  ts: BigInt!
+  ts: BigInt! @index
 }
 
 """A movement of outcome shares between accounts (order-book fill, direct
 transfer) — the audit trail behind the two Trade rows it emits."""
-type ShareTransfer @entity {
+type ShareTransfer {
   id: ID! # tx-log
   window: Window!
   from: User!
@@ -229,7 +225,7 @@ type ShareTransfer @entity {
 }
 
 """A resting limit order on the MarketMaker order book (off-chain routed)."""
-type Order @entity {
+type Order {
   id: ID! # order id bytes32 as hex
   window: Window!
   maker: User!
@@ -239,12 +235,12 @@ type Order @entity {
   size: BigInt!
   filled: BigInt!
   expiresAt: BigInt!
-  status: String! # ACTIVE | FILLED | CANCELLED
+  status: String! @index # ACTIVE | FILLED | CANCELLED
   createdAt: BigInt!
 }
 
 """A taker execution against a resting order."""
-type OrderFill @entity {
+type OrderFill {
   id: ID! # tx-log
   order: Order!
   window: Window!

@@ -24,7 +24,7 @@ const FEED_EVERY_MS = 10 * 60 * 1000;
  * Feed worker (queue `feed`, every 10 min): fans out one job per handle and
  * drafts + broadcasts a feed post when the handle has new source data.
  */
-@Processor(QUEUE_FEED, { concurrency: 4 })
+@Processor(QUEUE_FEED, { concurrency: 2 })
 @Injectable()
 export class FeedProcessor extends WorkerHost {
   private readonly logger = new Logger(FeedProcessor.name);

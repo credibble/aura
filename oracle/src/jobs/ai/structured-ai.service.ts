@@ -1,6 +1,7 @@
 ﻿import { Injectable, Inject, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AI_FETCH } from "../../core/ports/tokens";
+import { kimiRequest } from "../../adapters/ai/llm/kimi-limiter";
 import type { AiFetch } from "../../adapters/ai/llm/kimi-ai.model";
 
 /**
@@ -32,24 +33,26 @@ export class StructuredAiService {
       return null;
     }
     try {
-      const res = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${this.apiKey}` },
-        body: JSON.stringify({
-          model: this.model,
-          temperature: 0,
-          // Economic cap: this path only produces short raw completions.
-          max_tokens: 400,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
+      // `kimiRequest` serialises this against every other AI call (the org allows
+      // one in-flight request) and retries 429/5xx with backoff.
+      const res = await kimiRequest(() =>
+        this.fetchFn(`${this.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${this.apiKey}` },
+          body: JSON.stringify({
+            model: this.model,
+            // k2.* accepts ONLY temperature 1 — 0 was rejected with a 400 on
+            // every call, so this path always fell back to the caller's default.
+            temperature: 1,
+            // Economic cap: this path only produces short raw completions.
+            max_tokens: 400,
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: user },
+            ],
+          }),
         }),
-      });
-      if (!res.ok) {
-        const detail = await res.text();
-        throw new Error(`Kimi HTTP ${res.status}: ${detail.slice(0, 200)}`);
-      }
+      );
       const data = (await res.json()) as {
         choices?: { message?: { content?: string } }[];
         error?: { message?: string };
@@ -72,25 +75,24 @@ export class StructuredAiService {
       return fallback;
     }
     try {
-      const res = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${this.apiKey}` },
-        body: JSON.stringify({
-          model: this.model,
-          temperature: 0,
-          // Economic cap: feed/aura JSON replies are two short fields.
-          max_tokens: 256,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
+      const res = await kimiRequest(() =>
+        this.fetchFn(`${this.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${this.apiKey}` },
+          body: JSON.stringify({
+            model: this.model,
+            // k2.* accepts ONLY temperature 1 (see complete()).
+            temperature: 1,
+            // Economic cap: feed/aura JSON replies are two short fields.
+            max_tokens: 256,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: user },
+            ],
+          }),
         }),
-      });
-      if (!res.ok) {
-        const detail = await res.text();
-        throw new Error(`Kimi HTTP ${res.status}: ${detail.slice(0, 200)}`);
-      }
+      );
       const data = (await res.json()) as {
         choices?: { message?: { content?: string } }[];
         error?: { message?: string };

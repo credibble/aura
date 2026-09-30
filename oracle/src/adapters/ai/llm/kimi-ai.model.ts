@@ -2,6 +2,7 @@
 import { ConfigService } from "@nestjs/config";
 import { AI_FETCH } from "../../../core/ports/tokens";
 import { KimiWebSearchService } from "../../../jobs/ai/kimi-web-search.service";
+import { kimiRequest } from "./kimi-limiter";
 
 export type AiFetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -296,35 +297,45 @@ export class KimiAiModel {
     tools?: unknown,
     jsonMode = false,
   ): Promise<KimiMessage | null> {
-    const res = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        // `kimi-k2.*` accepts ONLY temperature 1 ("invalid temperature: only 1 is
-        // allowed for this model") — sending 0 failed every scoring/draft call
-        // with a 400, which is why every feed post was the fallback text and the
-        // aura engine never scored. Configurable for older moonshot-v1 models.
-        temperature: this.temperature,
-        // k2.* is a REASONING model: thinking tokens come out of max_tokens, so a
-        // tight budget returns `content: ""` with finish_reason "length" (a
-        // 24-token delta call spent 23 on reasoning and answered nothing).
-        // Budgets must leave room for the actual answer.
-        max_tokens: jsonMode ? this.maxTokensJson : tools ? this.maxTokensTools : this.maxTokensDelta,
-        messages,
-        // Full tools declaration on every tool request; tool_choice "auto" is
-        // the documented default — set explicitly per Kimi's tool-choice guide.
-        ...(tools ? { tools, tool_choice: "auto" } : {}),
-        ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
-      }),
+    return this.requestCompletion(messages, tools, jsonMode);
+  }
+
+  /** One request — `kimiRequest` serialises it against every other AI caller. */
+  private async requestCompletion(
+    messages: KimiMessage[],
+    tools: unknown,
+    jsonMode: boolean,
+  ): Promise<KimiMessage | null> {
+    const body = JSON.stringify({
+      model: this.model,
+      // `kimi-k2.*` accepts ONLY temperature 1 ("invalid temperature: only 1 is
+      // allowed for this model") — sending 0 failed every scoring/draft call
+      // with a 400, which is why every feed post was the fallback text and the
+      // aura engine never scored. Configurable for older moonshot-v1 models.
+      temperature: this.temperature,
+      // k2.* is a REASONING model: thinking tokens come out of max_tokens, so a
+      // tight budget returns `content: ""` with finish_reason "length" (a
+      // 24-token delta call spent 23 on reasoning and answered nothing).
+      // Budgets must leave room for the actual answer.
+      max_tokens: jsonMode ? this.maxTokensJson : tools ? this.maxTokensTools : this.maxTokensDelta,
+      messages,
+      // Full tools declaration on every tool request; tool_choice "auto" is
+      // the documented default — set explicitly per Kimi's tool-choice guide.
+      ...(tools ? { tools, tool_choice: "auto" } : {}),
+      ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
     });
-    if (!res.ok) {
-      const detail = await res.text();
-      throw new Error(`Kimi HTTP ${res.status}: ${detail.slice(0, 200)}`);
-    }
+
+    const res = await kimiRequest(() =>
+      this.fetchFn(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${this.apiKey}`,
+        },
+        body,
+      }),
+    );
+
     const data = (await res.json()) as KimiResponse;
     if (data.error?.message) throw new Error(data.error.message);
     const message = data.choices?.[0]?.message;

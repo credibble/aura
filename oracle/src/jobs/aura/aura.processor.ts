@@ -27,9 +27,10 @@ const AURA_EVERY_MS = 10_000;
  *    enqueue one tick per handle with a deterministic jobId
  *    `aura:<handleId>:<bucket>` — deduped within the bucket, so restarts can
  *    never double-process;
- *  - `aura` jobs run the engine with a concurrency of 4 (many handles at once).
+ *  - `aura` jobs run the engine with a concurrency of 1: KIMI allows a single
+ *    in-flight request per organisation, so more workers only produce 429s.
  */
-@Processor(QUEUE_AURA, { concurrency: 4 })
+@Processor(QUEUE_AURA, { concurrency: 1 })
 @Injectable()
 export class AuraProcessor extends WorkerHost {
   private readonly logger = new Logger(AuraProcessor.name);

@@ -14,6 +14,7 @@ import {
 } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { notifyError } from "@/lib/notify";
 import { api, getJwt } from "@/lib/api";
 import { useEnsureJwt } from "@/lib/jwt";
 import { API_BASE } from "@/lib/privy";
@@ -323,9 +324,9 @@ export function useAddComment(postId: string | undefined) {
       void qc.invalidateQueries({ queryKey: qk.comments(postId ?? "") });
       void qc.invalidateQueries({ queryKey: qk.post(postId ?? "") });
       void qc.invalidateQueries({ queryKey: ["posts"] });
-      toast("Reply posted");
+      toast.success("Reply posted");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }
 
@@ -365,8 +366,8 @@ export function useCreatePost() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["posts"] });
       void qc.invalidateQueries({ queryKey: ["feed"] });
-      toast("Posted");
+      toast.success("Posted");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }

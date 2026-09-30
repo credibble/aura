@@ -123,12 +123,17 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
         </p>
 
         {/* Segmented control — quieter than tabs */}
-        <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-secondary/60 p-1">
+        <div
+          role="group"
+          aria-label="Stake action"
+          className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-secondary/50 p-1"
+        >
           {(["deposit", "withdraw"] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
+              aria-pressed={tab === t}
               className={cn(
                 "rounded-lg py-2 text-[13px] font-semibold capitalize transition-colors",
                 tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
@@ -146,6 +151,7 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
             onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
             inputMode="decimal"
             placeholder="0"
+            aria-label="Amount in AURA"
             className="num w-full bg-transparent text-2xl font-semibold outline-none placeholder:text-muted-foreground/50"
           />
           <span className="shrink-0 text-sm font-medium text-muted-foreground">AURA</span>

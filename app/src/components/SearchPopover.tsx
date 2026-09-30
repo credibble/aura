@@ -130,6 +130,8 @@ export function SearchPopover({
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            type="search"
+            aria-label="Search markets, posts and people"
             placeholder="Search markets, posts, people…"
             className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />

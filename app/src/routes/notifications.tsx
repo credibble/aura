@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { FeedLayout } from "@/components/social/FeedLayout";
 import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
+import { QueryError } from "@/components/QueryState";
 import { Skeleton } from "@/components/ui/skeletons";
 import { useAuraContracts } from "@/lib/contracts";
 import { useAuraAuth } from "@/lib/aura-auth";
@@ -114,11 +115,18 @@ function NotificationsPage() {
               </div>
             ))}
 
-          {items.map((n) => (
-            <Row key={n.id} item={n} onOpen={() => markRead.mutate(n.id)} />
-          ))}
+          {query.isError && (
+            <QueryError
+              what="your notifications"
+              onRetry={() => void query.refetch()}
+              className="my-6 border-0"
+            />
+          )}
 
-          {!query.isPending && items.length === 0 && (
+          {!query.isError &&
+            items.map((n) => <Row key={n.id} item={n} onOpen={() => markRead.mutate(n.id)} />)}
+
+          {!query.isPending && !query.isError && items.length === 0 && (
             <div className="px-4 py-16 text-center sm:px-6">
               <p className="text-[15px] font-semibold">Nothing yet</p>
               <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">

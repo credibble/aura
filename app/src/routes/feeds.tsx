@@ -4,6 +4,7 @@ import { FeedLayout } from "@/components/social/FeedLayout";
 import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { FeedItem } from "@/components/feeds/FeedItem";
+import { QueryError } from "@/components/QueryState";
 import { FeedItemSkeleton } from "@/components/ui/skeletons";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
@@ -135,10 +136,13 @@ function FeedsPage() {
             {query.isPending &&
               Array.from({ length: 4 }, (_, i) => <FeedItemSkeleton key={i} />)}
 
-            {posts.map((p) => (
-              <FeedItem key={p.id} post={p} />
-            ))}
-            {!query.isPending && posts.length === 0 && (
+            {query.isError && (
+              <QueryError what="the feeds" onRetry={() => void query.refetch()} className="my-6 border-0" />
+            )}
+
+            {!query.isError &&
+              posts.map((p) => <FeedItem key={p.id} post={p} />)}
+            {!query.isPending && !query.isError && posts.length === 0 && (
               <div className="px-4 py-16 text-center sm:px-6">
                 <p className="text-[15px] font-semibold">
                   {activeTab === "following"

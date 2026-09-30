@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { TrendingUp, TrendingDown, Crown, Medal } from "lucide-react";
 import { PageShell } from "@/components/PageShell";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
+import { QueryError } from "@/components/QueryState";
 import { Skeleton, SkeletonAvatar, TableSkeleton } from "@/components/ui/skeletons";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { usePollGate } from "@/lib/poll-registry";
@@ -101,6 +102,9 @@ function LeaderboardPage() {
       }
     >
       {/* Top three — a quiet podium, no cards */}
+      {ranks.isError && (
+        <QueryError what="the leaderboard" onRetry={() => void ranks.refetch()} className="border-0" />
+      )}
       <div className="grid gap-4 sm:grid-cols-3">
         {isLoading
           ? Array.from({ length: 3 }, (_, i) => (
@@ -113,10 +117,11 @@ function LeaderboardPage() {
                 <Skeleton className="h-5 w-12" />
               </div>
             ))
-          : podium.map((h, i) => <PodiumItem key={h.id} handle={h} rank={i + 1} sort={sort} />)}
+          : !ranks.isError &&
+            podium.map((h, i) => <PodiumItem key={h.id} handle={h} rank={i + 1} sort={sort} />)}
       </div>
 
-      {isLoading ? (
+      {ranks.isError ? null : isLoading ? (
         <TableSkeleton rows={7} />
       ) : (
         <>

@@ -226,7 +226,11 @@ export function TradeTicket({ market }: { market: Market }) {
       ) : (
         <>
           {/* Outcome — segmented, tinted, no blocks of color */}
-          <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-secondary/50 p-1">
+          <div
+            role="group"
+            aria-label="Outcome"
+            className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-secondary/50 p-1"
+          >
             {market.outcomes.map((o, i) => {
               const on = picked === i;
               const positive = i === 0;
@@ -235,6 +239,7 @@ export function TradeTicket({ market }: { market: Market }) {
                   key={o.id}
                   type="button"
                   onClick={() => setPicked(i)}
+                  aria-pressed={on}
                   className={cn(
                     "rounded-lg py-2 text-[13px] font-semibold transition-colors",
                     on
@@ -252,12 +257,13 @@ export function TradeTicket({ market }: { market: Market }) {
 
           {/* Buy / sell + order type */}
           <div className="mt-4 flex items-center justify-between">
-            <div className="flex gap-3">
+            <div role="group" aria-label="Side" className="flex gap-3">
               {(["buy", "sell"] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setSide(s)}
+                  aria-pressed={side === s}
                   className={cn(
                     "text-[13px] font-semibold capitalize transition-colors",
                     side === s ? "text-foreground" : "text-muted-foreground hover:text-foreground",
@@ -271,10 +277,11 @@ export function TradeTicket({ market }: { market: Market }) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
+                  aria-label={`Order type: ${mode === "tap" ? "1-Tap" : mode === "market" ? "Market" : "Limit"}`}
                   className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {mode === "tap" ? "1-Tap" : mode === "market" ? "Market" : "Limit"}
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -359,6 +366,8 @@ export function TradeTicket({ market }: { market: Market }) {
                       value={limitPrice}
                       onChange={(e) => setLimitPrice(e.target.value.replace(/[^0-9.]/g, ""))}
                       placeholder={String(priceCents)}
+                      aria-label="Limit price in cents"
+                      inputMode="decimal"
                       className="num w-14 bg-transparent text-right text-sm font-semibold outline-none placeholder:text-muted-foreground/50"
                     />
                     <span className="num text-xs text-muted-foreground">¢</span>

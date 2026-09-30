@@ -4,6 +4,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { formatUsd } from "@/lib/format";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
 import { CONTRACTS } from "@/lib/chain";
@@ -114,14 +125,31 @@ export function ConnectButton({
             {copied ? <Check className="h-4 w-4 text-up" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied" : "Copy address"}
           </button>
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-down transition-colors hover:bg-secondary/60"
-          >
-            <LogOut className="h-4 w-4" />
-            Disconnect
-          </button>
+          {/* Disconnecting drops the session and the wallet — ask first. */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-down transition-colors hover:bg-secondary/60"
+              >
+                <LogOut className="h-4 w-4" />
+                Disconnect
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Disconnect this wallet?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Your handle, stake and positions stay on-chain — you just sign out of the app.
+                  You can reconnect any time.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep me signed in</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void logout()}>Disconnect</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </PopoverContent>
     </Popover>

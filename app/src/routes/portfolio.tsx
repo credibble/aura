@@ -10,6 +10,7 @@ import { useTradeExecutor } from "@/lib/trade";
 import { cn } from "@/lib/utils";
 import { handleSlug } from "@/lib/handle-id";
 import { formatCompact, formatUsd } from "@/lib/format";
+import { QueryError } from "@/components/QueryState";
 import { useHandleArtwork } from "@/queries/handles";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
 import { Skeleton } from "@/components/ui/skeletons";
@@ -215,7 +216,16 @@ function PortfolioPage() {
                 </div>
               ))}
 
+            {positionsQuery.isError && (
+              <QueryError
+                what="your positions"
+                onRetry={() => void positionsQuery.refetch()}
+                className="my-4 border-0"
+              />
+            )}
+
             {!positionsQuery.isPending &&
+              !positionsQuery.isError &&
               positions.map((p) => {
                 const value = p.shares * p.price;
                 const rowPnl = value - Math.max(0, p.cost);
@@ -287,7 +297,7 @@ function PortfolioPage() {
                 );
               })}
 
-            {!positionsQuery.isPending && positions.length === 0 && (
+            {!positionsQuery.isPending && !positionsQuery.isError && positions.length === 0 && (
               <p className="py-6 text-[13px] text-muted-foreground">
                 No open positions — buy shares on any market to see them here.
               </p>
@@ -315,7 +325,16 @@ function PortfolioPage() {
               </div>
             )}
 
+            {ordersQuery.isError && (
+              <QueryError
+                what="your open orders"
+                onRetry={() => void ordersQuery.refetch()}
+                className="my-4 border-0"
+              />
+            )}
+
             {!ordersQuery.isPending &&
+              !ordersQuery.isError &&
               orders.map((o) => (
                 <div
                   key={o.id}

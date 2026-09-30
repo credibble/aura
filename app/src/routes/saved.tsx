@@ -6,6 +6,7 @@ import { FeedLayout } from "@/components/social/FeedLayout";
 import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { FeedItem } from "@/components/feeds/FeedItem";
+import { QueryError } from "@/components/QueryState";
 import { FeedItemSkeleton } from "@/components/ui/skeletons";
 import { toFeedPost } from "@/queries/posts";
 import { bookmarksOptions, repostedPostsOptions } from "@/queries/social";
@@ -121,10 +122,13 @@ function SavedPage() {
       ) : (
         <div className="divide-y divide-border/60">
           {query.isPending && [0, 1, 2].map((i) => <FeedItemSkeleton key={i} />)}
-          {posts.map((p) => (
+          {query.isError && (
+            <QueryError what="your saved posts" onRetry={() => void query.refetch()} className="my-6 border-0" />
+          )}
+          {!query.isError && posts.map((p) => (
             <FeedItem key={p.id} post={p} />
           ))}
-          {!query.isPending && posts.length === 0 && (
+          {!query.isPending && !query.isError && posts.length === 0 && (
             <div className="px-4 py-16 text-center sm:px-6">
               <p className="text-[15px] font-semibold">
                 {active === "reposts" ? "Nothing reposted yet" : "No bookmarks yet"}

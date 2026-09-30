@@ -87,7 +87,9 @@
   --secondary-foreground: 0 0% 15%;
 
   --muted: 0 0% 90%;
-  --muted-foreground: 0 0% 45%;
+  /* 42% (not 45%) — 45% measured 4.36:1 on the 96% background, under WCAG AA
+     for body text; 42% is 4.87:1 while staying visually "muted". */
+  --muted-foreground: 0 0% 42%;
 
   --accent: 24 100% 60%;
   --accent-foreground: 0 0% 100%;
@@ -630,3 +632,27 @@ input[type="number"] {
   animation: hiw-quiet-face 3.6s ease-in-out infinite;
 }
 
+
+/* -----------------------------------------------------------------------------
+   Accessibility: reduced motion.
+   The app animates tickers, shimmer skeletons, tip pulses, the gradient ring and
+   the how-it-works illustrations. Users who ask their OS for less motion get the
+   final state instead of the movement � blanket rule so nothing new can forget.
+   ----------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Shape system (one radius per role, so buttons stop drifting):
+     pill actions / chips / avatars  -> rounded-full
+     segmented controls + inputs     -> rounded-xl (segments rounded-lg)
+     cards / panels / sheets         -> rounded-2xl
+   ----------------------------------------------------------------------------- */

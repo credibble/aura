@@ -4,9 +4,12 @@ import { cn } from "@/lib/utils";
 
 function getInitialTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "dark";
+  // The pre-paint script in __root.tsx already applied the stored theme to
+  // <html>, so read THAT (authoritative) instead of re-deciding from storage.
+  if (document.documentElement.classList.contains("dark")) return "dark";
   const stored = window.localStorage.getItem("theme");
-  if (stored === "light" || stored === "dark") return stored;
-  return "dark";
+  if (stored === "dark") return "dark";
+  return "light";
 }
 
 export function ThemeToggle({ className }: { className?: string }) {

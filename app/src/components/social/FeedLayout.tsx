@@ -52,6 +52,11 @@ function railClass(active: boolean, wideRow: string) {
   );
 }
 
+/** The active rail link is also announced, not just tinted. */
+function railAria(active: boolean): { "aria-current": "page" | undefined } {
+  return { "aria-current": active ? "page" : undefined };
+}
+
 export function FeedLayout({
   children,
   sidebar,
@@ -69,6 +74,14 @@ export function FeedLayout({
     <div className="min-h-screen bg-background text-foreground">
       {/* Topmost, full-width slot — spans the whole shell, not just the feed */}
       {banner}
+      {/* Keyboard users land here first: without it they tab through the whole
+          rail (≈10 links) on every page to reach the content. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
       {/* Mobile keeps the standard top navbar; desktop uses the icon rail */}
       <div className="lg:hidden">
         <Navbar />
@@ -76,7 +89,11 @@ export function FeedLayout({
       {/* One shell width for every page — only the sidebar's presence differs. */}
       <div className="mx-auto flex w-full max-w-[1600px] justify-center">
         <LeftRail />
-        <main className="min-h-screen w-full min-w-0 flex-1 border-x border-border">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-screen w-full min-w-0 flex-1 border-x border-border outline-none"
+        >
           {children}
         </main>
         {sidebar && (
@@ -168,7 +185,12 @@ function LeftRail() {
       </Link>
 
       {/* Explore — the index grid + every trade page */}
-      <Link to="/" className={railClass(isExplore, wideRow)} aria-label="Explore">
+      <Link
+        to="/"
+        className={railClass(isExplore, wideRow)}
+        aria-label="Explore"
+        {...railAria(isExplore)}
+      >
         <Compass className="h-6 w-6 shrink-0" strokeWidth={isExplore ? 2.4 : 2} />
         <span className={label}>Explore</span>
       </Link>
@@ -178,6 +200,7 @@ function LeftRail() {
         to="/feeds"
         className={railClass(pathname.startsWith("/feeds"), wideRow)}
         aria-label="Feeds"
+        {...railAria(pathname.startsWith("/feeds"))}
       >
         <Rss className="h-6 w-6 shrink-0" strokeWidth={pathname.startsWith("/feeds") ? 2.4 : 2} />
         <span className={label}>Feeds</span>
@@ -188,6 +211,7 @@ function LeftRail() {
         to="/leaderboard"
         className={railClass(pathname.startsWith("/leaderboard"), wideRow)}
         aria-label="Leaderboard"
+        {...railAria(pathname.startsWith("/leaderboard"))}
       >
         <Trophy
           className="h-6 w-6 shrink-0"
@@ -201,6 +225,7 @@ function LeftRail() {
         to="/portfolio"
         className={railClass(pathname.startsWith("/portfolio"), wideRow)}
         aria-label="Portfolio"
+        {...railAria(pathname.startsWith("/portfolio"))}
       >
         <Wallet
           className="h-6 w-6 shrink-0"
@@ -214,6 +239,7 @@ function LeftRail() {
         to="/pool"
         className={railClass(pathname.startsWith("/pool"), wideRow)}
         aria-label="Pool"
+        {...railAria(pathname.startsWith("/pool"))}
       >
         <Droplets
           className="h-6 w-6 shrink-0"

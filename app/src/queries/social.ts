@@ -4,7 +4,7 @@
  * read surfaces that show its effect (timeline, profile, counts, state lists).
  */
 import { infiniteQueryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { notifyError } from "@/lib/notify";
 import { api } from "@/lib/api";
 import { useEnsureJwt } from "@/lib/jwt";
 import { bumpEngagement, type PostEvent } from "./posts";
@@ -133,7 +133,7 @@ export function useToggleFollow(userId: string | null) {
     onSuccess: (_d, v) => {
       invalidate(qc, [qk.following(userId ?? ""), qk.followers(v.handleId), ["feed"], ["posts"]]);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }
 
@@ -151,7 +151,7 @@ export function useToggleSubscribe(userId: string | null) {
     onSuccess: (_d, v) => {
       invalidate(qc, [qk.subscriptions(userId ?? ""), ["feed"]]);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }
 
@@ -172,7 +172,7 @@ export function useToggleLike(userId: string | null) {
     onMutate: ({ targetId, like }) => bumpEngagement(qc, targetId, "likes", like ? 1 : -1),
     onError: (e: Error, v) => {
       bumpEngagement(qc, v.targetId, "likes", v.like ? -1 : 1);
-      toast.error(e.message);
+      notifyError(e);
     },
     onSuccess: (_d, v) => {
       invalidate(qc, [qk.likes(userId ?? ""), ["posts"], ["post", v.targetId], ["feed"]]);
@@ -195,7 +195,7 @@ export function useToggleRepost(userId: string | null) {
     onMutate: ({ eventId, repost }) => bumpEngagement(qc, eventId, "reposts", repost ? 1 : -1),
     onError: (e: Error, v) => {
       bumpEngagement(qc, v.eventId, "reposts", v.repost ? -1 : 1);
-      toast.error(e.message);
+      notifyError(e);
     },
     onSuccess: (_d, v) => {
       invalidate(qc, [
@@ -230,7 +230,7 @@ export function useToggleBookmark(userId: string | null) {
     onSuccess: (_d, v) => {
       invalidate(qc, [qk.bookmarks(userId ?? ""), ["posts"], ["feed"], ["post", v.postId]]);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }
 
@@ -256,7 +256,7 @@ export function useDeletePost(userId: string | null) {
         ["comments", v.postId],
       ]);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }
 
@@ -273,6 +273,6 @@ export function useDeleteComment(userId: string | null) {
     onSuccess: (_d, v) => {
       invalidate(qc, [["comments", v.postId], ["post", v.postId], ["posts"], ["feed"]]);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }

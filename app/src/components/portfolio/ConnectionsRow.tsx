@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Avatar } from "@/components/Avatar";
 import { cn } from "@/lib/utils";
 import { useAuraAuth } from "@/lib/aura-auth";
+import { notifyError } from "@/lib/notify";
 import { oauthUrl, shopifyUrl } from "@/lib/privy";
 import { portfolio, type ConnectionLink, type HandleLink } from "@/lib/portfolio";
 import { qk } from "@/queries/keys";
@@ -42,7 +43,7 @@ const PLATFORMS: Platform[] = [
     key: "instagram",
     label: "Instagram",
     logo: "https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg",
-    feeds: "posts, reels and engagement",
+    feeds: "posts, reels and reach",
   },
   {
     key: "spotify",
@@ -72,7 +73,7 @@ const PLATFORMS: Platform[] = [
     key: "linkedin",
     label: "LinkedIn",
     logo: "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
-    feeds: "company posts and engagement",
+    feeds: "company posts and reach",
   },
   {
     key: "shopify",
@@ -124,7 +125,7 @@ export function ConnectionsRow({
       if (j.url) window.location.href = j.url;
       else toast.info("This platform isn't configured on the oracle yet");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not start OAuth");
+      notifyError(e, "Connect");
     } finally {
       setBusy(null);
     }
@@ -142,7 +143,7 @@ export function ConnectionsRow({
       void qc.invalidateQueries({ queryKey: qk.stake("stats", handle.stake) });
       toast.success("Disconnected");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Disconnect failed");
+      notifyError(e, "Disconnect");
     } finally {
       setBusy(null);
     }

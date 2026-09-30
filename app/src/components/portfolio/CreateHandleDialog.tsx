@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { notifyError } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -100,7 +101,7 @@ export function CreateHandleDialog({ children }: { children: ReactNode }) {
       setSymbol("");
       setPhoto(null);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e, "Create handle"),
   });
 
   return (

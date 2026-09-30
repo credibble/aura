@@ -8,6 +8,7 @@ import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
 import { ActivityChart } from "@/components/aura/charts";
 import { AmountInput } from "@/components/aura/AmountInput";
 import { UsdcAmount, UsdcIcon } from "@/components/aura/UsdcIcon";
+import { QueryError } from "@/components/QueryState";
 import { Skeleton } from "@/components/ui/skeletons";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
@@ -242,6 +243,11 @@ function PoolPage() {
       </div>
 
       {/* Depth */}
+      {snapshots.isError && (
+        <div className="px-4 pt-4 sm:px-6">
+          <QueryError what="the pool" onRetry={() => void snapshots.refetch()} />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 px-4 sm:grid-cols-4 sm:px-6">
         <Stat
           label="Pool depth"
@@ -304,12 +310,17 @@ function PoolPage() {
 
         {/* Deposit / withdraw — one segmented control, one amount, one action */}
         <section className="rounded-2xl border border-border/70 bg-card p-4">
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary/50 p-1">
+          <div
+            role="group"
+            aria-label="Pool action"
+            className="grid grid-cols-2 gap-1 rounded-xl bg-secondary/50 p-1"
+          >
             {(["deposit", "withdraw"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
+                aria-pressed={tab === t}
                 className={cn(
                   "rounded-lg py-2 text-[13px] font-semibold capitalize transition-colors",
                   tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",

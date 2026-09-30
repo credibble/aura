@@ -199,12 +199,12 @@ export function FeedItem({
           aria-pressed={liked}
           onClick={() => toggleLike(post.id)}
           className={cn(
-            "flex items-center gap-1.5 transition-colors hover:text-down",
+            "flex min-h-11 items-center gap-1.5 transition-colors hover:text-down sm:min-h-0",
             liked && "text-down",
           )}
         >
           <Heart className={cn("h-3.5 w-3.5", liked && "fill-current")} />
-          {formatCompact(post.stats.likes)}
+          <span aria-live="polite">{formatCompact(post.stats.likes)}</span>
         </button>
 
         <button
@@ -213,17 +213,20 @@ export function FeedItem({
           aria-pressed={reposted}
           onClick={() => toggleRepost(post.id)}
           className={cn(
-            "flex items-center gap-1.5 transition-colors hover:text-up",
+            "flex min-h-11 items-center gap-1.5 transition-colors hover:text-up sm:min-h-0",
             reposted && "text-up",
           )}
         >
           <Repeat2 className="h-3.5 w-3.5" />
-          {formatCompact(post.stats.reposts)}
+          <span aria-live="polite">{formatCompact(post.stats.reposts)}</span>
         </button>
 
-        <span className="flex items-center gap-1.5" title="Comments">
-          <MessageCircle className="h-3.5 w-3.5" />
-          {formatCompact(post.stats.replies)}
+        {/* The counts were `title=`-only: invisible to assistive tech and useless
+            on touch. They are labelled text now, not a tooltip. */}
+        <span className="flex min-h-11 items-center gap-1.5 sm:min-h-0">
+          <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="sr-only">Comments </span>
+          <span aria-live="polite">{formatCompact(post.stats.replies)}</span>
         </span>
 
         <button
@@ -232,16 +235,17 @@ export function FeedItem({
           aria-pressed={saved}
           onClick={() => toggleBookmark(post.id)}
           className={cn(
-            "flex items-center gap-1.5 transition-colors hover:text-primary",
+            "flex min-h-11 items-center gap-1.5 transition-colors hover:text-primary sm:min-h-0",
             saved && "text-primary",
           )}
         >
           <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} />
         </button>
 
-        <span className="flex items-center gap-1.5" title="Impressions">
-          <Eye className="h-3.5 w-3.5" />
-          {formatCompact(post.stats.views)}
+        <span className="flex min-h-11 items-center gap-1.5 sm:min-h-0">
+          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="sr-only">Impressions </span>
+          <span>{formatCompact(post.stats.views)}</span>
         </span>
 
         {!compact && (

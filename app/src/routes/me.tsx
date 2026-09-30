@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BadgeCheck, Droplets, LogIn, Wallet } from "lucide-react";
 import { FeedLayout } from "@/components/social/FeedLayout";
+import { QueryError } from "@/components/QueryState";
+import { Skeleton } from "@/components/ui/skeletons";
 import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { SourcesPanel } from "@/components/aura/SourcesPanel";
@@ -61,13 +63,36 @@ function MePage() {
   const positions = useQuery(positionsOptions(address ?? undefined));
   const openPositions = (positions.data ?? []).length;
 
-  // Full on-chain record (graduation, verification, aura history) for the
-  // handle the account acts as.
-  const { data: subgraphHandles } = useQuery(handlesQueryOptions);
+  // The account page had neither a loading nor an error state: a failed handles
+  // query rendered the "No handle yet" state for someone who HAS a handle.
+  const handlesQuery = useQuery(handlesQueryOptions);
+  const subgraphHandles = handlesQuery.data;
   const record = useMemo(
     () => (active ? findHandle(subgraphHandles, active.id) : undefined),
     [subgraphHandles, active],
   );
+
+  if (handlesQuery.isPending) {
+    return (
+      <FeedLayout sidebar={<FeedSearch />}>
+        <div className="space-y-4 px-4 pt-6 sm:px-6">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </FeedLayout>
+    );
+  }
+
+  if (handlesQuery.isError) {
+    return (
+      <FeedLayout sidebar={<FeedSearch />}>
+        <div className="px-4 pt-6 sm:px-6">
+          <QueryError what="your handle" onRetry={() => void handlesQuery.refetch()} />
+        </div>
+      </FeedLayout>
+    );
+  }
 
   if (!address) {
     return (

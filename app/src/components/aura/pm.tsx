@@ -85,7 +85,11 @@ export function MarketCard({ market }: { market: Market }) {
             </span>
             <span className="font-bold text-primary">{market.handle}</span>
           </div>
-          <div className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+          {/* Truncated to two lines: the full question stays reachable on hover. */}
+          <div
+            className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-foreground"
+            title={market.question}
+          >
             <AuraText text={market.question} />
           </div>
         </div>

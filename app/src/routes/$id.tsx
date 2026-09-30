@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { FeedLayout } from "@/components/social/FeedLayout";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { FeedItem } from "@/components/feeds/FeedItem";
+import { QueryError } from "@/components/QueryState";
 import { ChartSkeleton, HandleHeaderSkeleton } from "@/components/ui/skeletons";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { AuraText } from "@/components/aura/AuraTerm";
@@ -103,7 +104,8 @@ function shortUser(id: string): string {
 function TradePage() {
   const { id: param } = Route.useParams();
   const { address, api } = useAuraContracts();
-  const { data: handles, isPending: handlesPending } = useQuery(handlesQueryOptions);
+  const { data: handles, isPending: handlesPending, isError: handlesError, refetch: refetchHandles } =
+    useQuery(handlesQueryOptions);
   const h = useMemo(() => findHandle(handles, param), [handles, param]);
   const handleId = h?.id ?? param;
 
@@ -226,6 +228,24 @@ function TradePage() {
         <HandleHeaderSkeleton />
         <div className="space-y-4 px-4 pt-4 sm:px-6">
           <ChartSkeleton />
+        </div>
+      </FeedLayout>
+    );
+  }
+
+  // A failed load is NOT "market not found" — without this branch a subgraph
+  // outage told the user the handle doesn't exist.
+  if (handlesError || windowsQuery.isError) {
+    return (
+      <FeedLayout wide>
+        <div className="px-4 pt-6 sm:px-6">
+          <QueryError
+            what="this market"
+            onRetry={() => {
+              void refetchHandles();
+              void windowsQuery.refetch();
+            }}
+          />
         </div>
       </FeedLayout>
     );

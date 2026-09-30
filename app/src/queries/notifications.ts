@@ -8,7 +8,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { notifyError } from "@/lib/notify";
 import { api } from "@/lib/api";
 import { useEnsureJwt } from "@/lib/jwt";
 import { qk } from "./keys";
@@ -60,7 +60,7 @@ export function useMarkNotificationRead(userId: string | null) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.notifications(userId ?? "") });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }
 
@@ -79,7 +79,7 @@ export function useMarkAllNotificationsRead(userId: string | null) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.notifications(userId ?? "") });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }
 
@@ -99,6 +99,6 @@ export function useMarkNotificationUnread(userId: string | null) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.notifications(userId ?? "") });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e),
   });
 }

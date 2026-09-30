@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Coins } from "lucide-react";
 import { toast } from "sonner";
+import { notifyError } from "@/lib/notify";
 import type { Address } from "viem";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ export function RevenueCard({ handle }: { handle: HandleLink }) {
       void qc.invalidateQueries({ queryKey: qk.handleRevenue(handle.contract) });
       void qc.invalidateQueries({ queryKey: qk.handles });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => notifyError(e, "Claim"),
   });
 
   const amount = revenue.data ?? 0n;

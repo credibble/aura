@@ -37,15 +37,18 @@ function NotFoundComponent() {
         >
           <div className="flex min-h-[60vh] items-center justify-center px-4">
             <div className="max-w-md text-center">
-              <h1 className="text-7xl font-bold text-foreground">404</h1>
-              <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+              {/* The page title is the h1; "404" is decoration, not the heading. */}
+              <p aria-hidden="true" className="num text-7xl font-bold text-foreground">
+                404
+              </p>
+              <h1 className="mt-4 text-xl font-semibold text-foreground">Page not found</h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 The page you're looking for doesn't exist or has been moved.
               </p>
               <div className="mt-6">
                 <Link
                   to="/"
-                  className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   Go home
                 </Link>
@@ -62,34 +65,51 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
 
+  // Same shell as the 404: a crashed page used to strip the rail away, stranding
+  // the user with no navigation.
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Try again
-          </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
-          </a>
-        </div>
-      </div>
-    </div>
+    <AuraProvider>
+      <SocialProvider>
+        <FeedLayout
+          wide
+          sidebar={
+            <>
+              <FeedSearch />
+              <SidebarFooter />
+            </>
+          }
+        >
+          <div className="flex min-h-[60vh] items-center justify-center px-4">
+            <div className="max-w-md text-center">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                This page didn't load
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Something went wrong on our end. You can try again or head back home.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.invalidate();
+                    reset();
+                  }}
+                  className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Try again
+                </button>
+                <Link
+                  to="/"
+                  className="inline-flex items-center justify-center rounded-full border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  Go home
+                </Link>
+              </div>
+            </div>
+          </div>
+        </FeedLayout>
+      </SocialProvider>
+    </AuraProvider>
   );
 }
 
@@ -102,7 +122,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Aura turns measurable internet activity around people, projects, sports, crypto, AI and culture into Activity Assets you can discover, compare and trade.",
+          "Aura turns the internet's aura around people, projects, sports, crypto, AI and culture into markets you can discover, compare and trade.",
       },
       { name: "author", content: "Aura" },
       { property: "og:title", content: "Aura — The Internet Aura Market" },
@@ -141,9 +161,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    // `suppressHydrationWarning` is required: the pre-paint theme script rewrites
+    // the class on <html> before React hydrates (the standard theme pattern).
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
+        {/* Set the stored theme BEFORE first paint. Without this the server's
+            hard-coded `dark` class painted first and the toggle only corrected it
+            in an effect — a dark flash plus the wrong icon for light-mode users. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('theme');document.documentElement.classList.toggle('dark',t!=='light');}catch(e){}})();",
+          }}
+        />
       </head>
       <body>
         {children}

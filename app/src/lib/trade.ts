@@ -26,6 +26,27 @@ function toE18(usd: number): bigint {
   return BigInt(Math.max(0, Math.round(usd * 100))) * (E18 / 100n);
 }
 
+/**
+ * Limit prices are whole cents strictly inside (0, 1) — the AMM rejects 0 and
+ * anything ≥ 1, so 1–99¢ is the only tradable band.
+ */
+export const LIMIT_MIN_CENTS = 1;
+export const LIMIT_MAX_CENTS = 99;
+
+/**
+ * Whole cents for a 0–1 dollar price, or `null` when it isn't one. The
+ * tolerance keeps `33 * 1e16` valid (33/100 is 33.000…01 in float) while
+ * `0.33333` is rejected — the single rule the ticket input and this submit
+ * boundary both apply.
+ */
+export function wholeCentPrice(priceUsd: number): number | null {
+  if (!Number.isFinite(priceUsd)) return null;
+  const cents = Math.round(priceUsd * 100);
+  if (Math.abs(priceUsd * 100 - cents) > 1e-6) return null;
+  if (cents < LIMIT_MIN_CENTS || cents > LIMIT_MAX_CENTS) return null;
+  return cents;
+}
+
 /** 1e18 units → "12.34" (K/M/B above 1,000) for error copy. */
 function units(n: bigint): string {
   const v = Number(n) / 1e18;
@@ -265,6 +286,10 @@ export function useTradeExecutor() {
     /**
      * Rest a limit order: side=true buys `sizeShares` at `priceUsd` (per share),
      * side=false sells `sizeShares`. Approvals are arranged first.
+     *
+     * `sizeExact` is the sell side's exact 1e18 share amount (a Max/limit sell
+     * must escrow what the wallet actually holds, not a display value rounded
+     * by `toE18`); buys keep sizing from `sizeShares`.
      */
     async placeOrder(
       t: TradeTarget,
@@ -273,12 +298,21 @@ export function useTradeExecutor() {
       priceUsd: number,
       sizeShares: number,
       expiresAt = 0,
+      sizeExact?: bigint,
     ): Promise<boolean> {
       if (!requireWallet()) return false;
-      const price = toE18(priceUsd);
-      const size = toE18(sizeShares);
-      if (price <= 0n || price >= E18 || size <= 0n) {
-        toast.error("Price must be 1–99¢ and size above 0");
+      // Submit-boundary price guard, independent of the input: whole cents,
+      // clamped to 1–99. Anything else (0, 100+, negative, 33.333, NaN) is
+      // refused here so a bad price can never reach the AMM.
+      const cents = wholeCentPrice(priceUsd);
+      if (cents === null) {
+        toast.error("Price must be 1–99¢ in whole cents");
+        return false;
+      }
+      const price = BigInt(cents) * (E18 / 100n);
+      const size = sizeExact ?? toE18(sizeShares);
+      if (size <= 0n) {
+        toast.error("Size must be above 0");
         return false;
       }
       if (expiresAt > 0 && expiresAt <= Math.floor(Date.now() / 1000)) {

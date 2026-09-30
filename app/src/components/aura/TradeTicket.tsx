@@ -15,7 +15,13 @@ import {
 import type { Address } from "viem";
 import { toast } from "sonner";
 import type { Market } from "@/lib/aura-markets";
-import { useTradeExecutor, explainRevert } from "@/lib/trade";
+import {
+  useTradeExecutor,
+  explainRevert,
+  wholeCentPrice,
+  LIMIT_MIN_CENTS,
+  LIMIT_MAX_CENTS,
+} from "@/lib/trade";
 import { useAuraContracts } from "@/lib/contracts";
 import { CONTRACTS } from "@/lib/chain";
 import { positionsOptions } from "@/queries/user";
@@ -35,6 +41,21 @@ function toE18Units(n: number): bigint {
 }
 
 const toUnits = (n: number): bigint => BigInt(Math.max(0, Math.round(n * 1e6))) * 1_000_000_000_000n;
+
+/** Whole digits only ("33") → that limit price in cents, or null when not 1–99. */
+function parseLimitCents(raw: string): number | null {
+  const text = raw.trim();
+  if (!/^\d+$/.test(text)) return null;
+  return wholeCentPrice(Number(text) / 100);
+}
+
+/** Snap any cents value into the tradable 1–99 band. */
+function clampLimitCents(n: number): number {
+  return Math.min(LIMIT_MAX_CENTS, Math.max(LIMIT_MIN_CENTS, Math.round(n)));
+}
+
+/** Limit price nudge chips, in cents. */
+const LIMIT_NUDGES = [-5, -1, 1, 5] as const;
 
 /**
  * Buy/Sell ticket bound to the real contracts. Quiet by design: one segmented
@@ -161,12 +182,39 @@ export function TradeTicket({ market }: { market: Market }) {
   });
   const estimatedShares = quote.data ?? estShares;
 
-  const limitCents = limitPrice ? Number(limitPrice) : priceCents;
+  // The price the ticket quotes against lives strictly inside (0, 1) — clamp the
+  // displayed/echoed cents so an extreme market print can't seed a 0¢ or 100¢
+  // limit. An empty field means "at the live price".
+  const liveCents = clampLimitCents(priceCents);
+  const parsedLimitCents = parseLimitCents(limitPrice);
+  const limitCents = parsedLimitCents ?? liveCents;
+  /** A non-empty field that can't be read as 1–99¢ whole cents. */
+  const limitInvalid = limitPrice.trim() !== "" && parsedLimitCents === null;
+  /**
+   * A buy fills when YES trades at or below its price, a sell when YES trades
+   * at or above it — so a buy above the live price and a sell below it cross
+   * now instead of resting. That's the wrong side to place a limit on.
+   */
+  const limitWrongSide =
+    parsedLimitCents !== null &&
+    (side === "buy" ? parsedLimitCents > liveCents : parsedLimitCents < liveCents);
+
   const limitShares = useMemo(() => {
     const n = Number(amount) || 0;
     const p = (limitCents || 0) / 100;
     return p > 0 ? n / p : 0;
   }, [amount, limitCents]);
+
+  /** Nudge relative to the field, falling back to the live price. */
+  const nudgeLimit = (delta: number): void => {
+    setLimitPrice(String(clampLimitCents((parsedLimitCents ?? liveCents) + delta)));
+  };
+
+  /** Whole cents only: keep the integer part, drop fractions and signs, clamp. */
+  const onLimitChange = (raw: string): void => {
+    const whole = (raw.split(".")[0] ?? "").replace(/[^0-9]/g, "");
+    setLimitPrice(whole === "" ? "" : String(clampLimitCents(Number(whole))));
+  };
 
   const target = { oracle: win.oracle, handleId: market.handleId, windowId: win.id };
 
@@ -187,6 +235,19 @@ export function TradeTicket({ market }: { market: Market }) {
         await exec.buy(target, picked, usd);
         return;
       }
+      // Limit orders are priced once, the same way for both sides.
+      if (mode === "limit" && limitInvalid) {
+        toast.error("Limit price must be 1–99¢ in whole cents");
+        return;
+      }
+      if (mode === "limit" && limitWrongSide) {
+        toast.error(
+          side === "buy"
+            ? `Buy limit must be below the live ${liveCents}¢`
+            : `Sell limit must be above the live ${liveCents}¢`,
+        );
+        return;
+      }
       if (side === "buy") {
         const usd = Number(amount) || 0;
         if (usd <= 0) return;
@@ -194,12 +255,20 @@ export function TradeTicket({ market }: { market: Market }) {
           await exec.placeOrder(target, picked, true, limitCents / 100, limitShares);
         else await exec.buy(target, picked, usd);
       } else {
-        // Market sells send the exact bigint (Max) or the exact typed amount.
+        // Market and limit sells both escrow the exact bigint (Max) or the
+        // exact typed amount — never a display value rounded by the executor.
         const exact = sellExact ?? toE18Units(Number(sharesIn));
-        const shares = Number(sharesIn) || 0;
         if (mode === "limit") {
-          if (shares <= 0) return;
-          await exec.placeOrder(target, picked, false, limitCents / 100, shares);
+          if (exact <= 0n) return;
+          await exec.placeOrder(
+            target,
+            picked,
+            false,
+            limitCents / 100,
+            Number(exact) / 1e18,
+            0,
+            exact,
+          );
         } else {
           if (exact <= 0n) return;
           await exec.sell(target, picked, exact);
@@ -219,9 +288,66 @@ export function TradeTicket({ market }: { market: Market }) {
   const claimable = market.settled && picked === market.winningOutcome && heldNum > 0;
   const buttonDisabled =
     !live ||
+    (mode === "limit" && (limitInvalid || limitWrongSide)) ||
     (side === "buy" && (Number(amount) || 0) <= 0 && mode !== "tap") ||
     (side === "sell" && (Number(sharesIn) || 0) <= 0 && mode !== "tap") ||
     (side === "sell" && heldNum <= 0 && mode !== "tap");
+
+  const limitCopy = limitWrongSide
+    ? side === "buy"
+      ? `Above the live ${liveCents}¢ — fills now, never rests at ${limitCents}¢.`
+      : `Below the live ${liveCents}¢ — fills now, never rests at ${limitCents}¢.`
+    : side === "buy"
+      ? `Fills if YES trades at or below ${limitCents}¢.`
+      : `Fills if YES trades at or above ${limitCents}¢.`;
+
+  /** Price control shared by both sides: field, nudge chips and a Market reset. */
+  const limitControls = (
+    <div className="mt-3 rounded-xl border border-border/70 px-3 py-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] text-muted-foreground">Limit price</span>
+        <div className="flex items-baseline gap-0.5">
+          <input
+            value={limitPrice}
+            onChange={(e) => onLimitChange(e.target.value)}
+            placeholder={String(liveCents)}
+            aria-label="Limit price in cents"
+            inputMode="numeric"
+            className="num w-14 bg-transparent text-right text-sm font-semibold outline-none placeholder:text-muted-foreground/50"
+          />
+          <span className="num text-xs text-muted-foreground">¢</span>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-1.5">
+        {LIMIT_NUDGES.map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => nudgeLimit(d)}
+            aria-label={`${d > 0 ? "Raise" : "Lower"} limit by ${Math.abs(d)} cents`}
+            className="num rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 hover:bg-secondary/70"
+          >
+            {d > 0 ? `+${d}` : `−${Math.abs(d)}`}¢
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setLimitPrice(String(liveCents))}
+          className="ml-auto rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 hover:bg-secondary/70"
+        >
+          Market
+        </button>
+      </div>
+      <p
+        className={cn(
+          "num mt-1.5 text-[11px]",
+          limitWrongSide ? "text-down" : "text-muted-foreground",
+        )}
+      >
+        {limitCopy}
+      </p>
+    </div>
+  );
 
   return (
     <div className="rounded-2xl border border-border/70 bg-card p-4">
@@ -438,22 +564,7 @@ export function TradeTicket({ market }: { market: Market }) {
                   Get 1,000 test USDC
                 </button>
               )}
-              {mode === "limit" && (
-                <div className="mt-3 flex items-center justify-between rounded-xl border border-border/70 px-3 py-2">
-                  <span className="text-[13px] text-muted-foreground">Limit price</span>
-                  <div className="flex items-baseline gap-0.5">
-                    <input
-                      value={limitPrice}
-                      onChange={(e) => setLimitPrice(e.target.value.replace(/[^0-9.]/g, ""))}
-                      placeholder={String(priceCents)}
-                      aria-label="Limit price in cents"
-                      inputMode="decimal"
-                      className="num w-14 bg-transparent text-right text-sm font-semibold outline-none placeholder:text-muted-foreground/50"
-                    />
-                    <span className="num text-xs text-muted-foreground">¢</span>
-                  </div>
-                </div>
-              )}
+              {mode === "limit" && limitControls}
             </>
           ) : (
             <>
@@ -497,6 +608,7 @@ export function TradeTicket({ market }: { market: Market }) {
                   </button>
                 ))}
               </div>
+              {mode === "limit" && limitControls}
             </>
           )}
 

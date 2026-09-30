@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { keccak_256 } from "@noble/hashes/sha3";
 import { bytesToHex } from "@noble/hashes/utils";
 import type { Direction, ProofSignals } from "./domain";
@@ -67,21 +66,6 @@ export function receiptHash(result: WindowResult): string {
 
 export const EIP712_DOMAIN_NAME = "Aura Oracle";
 export const EIP712_DOMAIN_VERSION = "1";
-
-export const RESOLUTION_FIELDS = [
-  { name: "handleId", type: "bytes32" },
-  { name: "windowStart", type: "uint256" },
-  { name: "windowEnd", type: "uint256" },
-  { name: "s", type: "uint256" },
-  { name: "expectation", type: "uint256" },
-  { name: "delta", type: "int256" },
-  { name: "indexOpen", type: "uint256" },
-  { name: "indexClose", type: "uint256" },
-  { name: "direction", type: "bool" },
-  { name: "itemCount", type: "uint32" },
-  { name: "outcomesHash", type: "bytes32" },
-  { name: "resolvedAt", type: "uint256" },
-] as const;
 
 export const RESOLUTION_TYPE_STRING =
   "ResolutionReceipt(bytes32 handleId,uint256 windowStart,uint256 windowEnd,uint256 s,uint256 expectation,int256 delta,uint256 indexOpen,uint256 indexClose,bool direction,uint32 itemCount,bytes32 outcomesHash,uint256 resolvedAt)";
@@ -223,11 +207,6 @@ export function eip712Digest(chainId: bigint, verifyingContract: string, result:
   return keccak_256(
     keccakWords(prefix, domainSeparator(chainId, verifyingContract), hashStruct(toScaledResolution(result))),
   );
-}
-
-/** SHA-256 of the canonical payload — a secondary, cheap audit id. */
-export function sha256Hex(value: unknown): string {
-  return createHash("sha256").update(canonicalJson(value)).digest("hex");
 }
 
 export function hex(bytes: Uint8Array): string {

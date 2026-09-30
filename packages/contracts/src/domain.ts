@@ -33,16 +33,6 @@ export type Direction = "up" | "down";
 /** The single metric the protocol measures. */
 export type MetricId = "aura";
 
-export const PROOF_KINDS: readonly SourceKind[] = ["social", "community", "media", "search"];
-
-/** Structural weights per proof signal — matches the frontend PROOF_WEIGHTS. */
-export const PROOF_WEIGHTS: Readonly<Record<SourceKind, number>> = {
-  social: 0.35,
-  community: 0.25,
-  media: 0.2,
-  search: 0.2,
-} as const;
-
 /** The four sub-scores that make up a handle's index, each 0-100. */
 export type ProofSignals = Record<SourceKind, number>;
 

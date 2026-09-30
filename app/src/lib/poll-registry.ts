@@ -1,18 +1,17 @@
 /**
  * Observer-gated polling (JS IntersectionObserver + intervals).
  *
- * Polling policy (WS-first): queries covered by gateway push events do NOT
- * declare `meta.pollMs` — `lib/ws.ts` invalidates them on each message and
- * resyncs the whole covered set on reconnect.
+ * Polling policy (WS-first): queries covered by gateway push events or by an
+ * indexer subscription do NOT need timers. `lib/ws.ts` invalidates the gateway's
+ * covered set on each message; `lib/indexer-ws.ts` reports which keys a live
+ * subscription owns (`isCoveredLive`), and `isPollable` stands those timers down.
  *
- * What still polls, and why it can't be WS-covered yet (no event source):
+ * What still polls, and why it can't be push-covered yet (no event source):
  *   - market stats (volume) & window detail/prices/points/trades/orderbook —
- *     derived from trades + per-trade LMSR recompute on the client; the
- *     gateway pushes per-trade events but no aggregate/derived snapshots;
- *   - positions & open orders — order lifecycle (fill/cancel/expire) has no
- *     dedicated push message yet;
- *   - user handles (subgraph) — HandleCreated/aura updates land in the
- *     subgraph first; the gateway does not mirror registry events;
+ *     covered by indexer subscriptions for the surfaces that declare them;
+ *     the rest fall back to timers;
+ *   - user handles (indexer) — HandleCreated/aura updates land in the indexer;
+ *     the registry surfaces subscribe where they can;
  *   - pool stats (on-chain) — contract reads; no chain-event subscription.
  * Nothing social/timeline/notification polls — those are all WS-covered.
  *
@@ -30,6 +29,7 @@
  * its element, and hands back a ref to attach to the surface that owns them.
  */
 import { useEffect, useRef } from "react";
+import { isCoveredLive } from "./indexer-ws";
 
 type Entry = { mounted: number; visible: number };
 
@@ -76,6 +76,9 @@ export function registerPoll(key: string): PollHandle {
 /** Interval for a query's `refetchInterval`, or false to skip this tick. */
 export function isPollable(queryKey: readonly unknown[], pollMs?: number): number | false {
   if (!pollMs || pollMs <= 0) return false;
+  // A live indexer subscription owns this key — the socket IS the event source,
+  // so the timer stands down (and resumes by itself if the socket drops).
+  if (isCoveredLive(queryKey)) return false;
   if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
   const entry = entries.get(pollKey(queryKey));
   if (!entry || entry.mounted === 0) return pollMs;

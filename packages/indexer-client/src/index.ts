@@ -1,5 +1,5 @@
-export { SubgraphClient } from "./client";
-export type { SubgraphConfig } from "./client";
+export { IndexerClient } from "./client";
+export type { IndexerConfig } from "./client";
 export { EnvioClient } from "./envio";
 export type { EnvioConfig } from "./envio";
 export * from "./types";

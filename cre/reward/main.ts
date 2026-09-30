@@ -2,7 +2,7 @@
  * Aura stake-rewarding Chainlink CRE workflow.
  *
  * A cron-triggered workflow that rewards each handle's stakers: on schedule it
- * reads every handle's Stake receipt (resolved off-chain from the subgraph and
+ * reads every handle's Stake receipt (resolved off-chain from the indexer and
  * supplied via `config.stakeAddresses`), checks the vault's AURA balance, and —
  * when it has dipped below the target — approves AURA and calls
  * `Stake.rewardAura(amount)` with the protocol treasury signer.
@@ -24,7 +24,7 @@ type Config = {
   schedule: string;
   /** The AURA token contract address. */
   auraTokenAddress: string;
-  /** Every handle's Stake receipt (from the subgraph Handle.stake). */
+  /** Every handle's Stake receipt (from the indexer's Handle.stake). */
   stakeAddresses: string[];
   /** Amount (wei) to reward to each stake vault per run. */
   rewardAmount: string;

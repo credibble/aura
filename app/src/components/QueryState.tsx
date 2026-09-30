@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  *
  * Why this exists: the app had empty + loading states everywhere but almost no
  * ERROR state. A failed query doesn't throw, so it never reached the root error
- * boundary — a subgraph/RPC outage rendered as a silently EMPTY page, which
+ * boundary — an indexer/RPC outage rendered as a silently EMPTY page, which
  * reads as "there is nothing here" instead of "this failed".
  */
 export function QueryError({

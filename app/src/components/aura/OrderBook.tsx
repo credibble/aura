@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Info } from "lucide-react";
-import { orderbookOptions, type SubgraphWindow } from "@/queries/markets";
+import { orderbookOptions, useOrderbookLive, type IndexerWindow } from "@/queries/markets";
 import { UsdcIcon } from "@/components/aura/UsdcIcon";
 import { formatCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 type Level = { priceCents: number; shares: number };
 
 /**
- * Collapsible depth ladder built from the subgraph's RESTING orders for one
- * window (asks above, bids below, real sizes) — polled via the observer.
+ * Collapsible depth ladder built from the indexer's RESTING orders for one
+ * window (asks above, bids below, real sizes) — kept fresh by a subscription.
  * Tabs track the page's selected outcome.
  */
 export function OrderBook({
@@ -18,11 +18,13 @@ export function OrderBook({
   outcome,
   onOutcome,
 }: {
-  window: SubgraphWindow;
+  window: IndexerWindow;
   outcome: number;
   onOutcome: (i: number) => void;
 }) {
   const bookQuery = useQuery(orderbookOptions(win.id));
+  // Patched in place from the Order/OrderFill subscription while the tab is open.
+  useOrderbookLive(win.id);
 
   const book = bookQuery.data?.books.find((b) => b.outcome === outcome);
   const lastCents = Math.round(Number(win.prices[outcome] ?? 0) / 1e16);

@@ -1,14 +1,15 @@
 /**
- * Stake queries — AURA staked on a handle, read DIRECTLY from the subgraph.
+ * Stake queries — AURA staked on a handle, read DIRECTLY from the indexer.
  * `Stake` is the per-handle vault's current state and `StakeSnapshot` is written
  * on every deposit/withdraw/reward, so the history is real (no RPC needed for
  * anything the charts show).
  */
 import { queryOptions } from "@tanstack/react-query";
 import { gql } from "@/lib/graphql";
+import { useIndexerLive } from "@/lib/indexer-ws";
 import { qk } from "./keys";
 
-export type SubgraphStake = {
+export type IndexerStake = {
   id: string;
   contract: string;
   handle: { id: string; name: string | null; symbol: string | null };
@@ -17,7 +18,7 @@ export type SubgraphStake = {
   valuePerToken: string;
 };
 
-export type SubgraphStakeSnapshot = {
+export type IndexerStakeSnapshot = {
   id: string;
   timestamp: string;
   totalSupply: string;
@@ -31,18 +32,36 @@ export function stakeOptions(stakeAddress: string | undefined) {
     queryKey: qk.stake("stats", stakeAddress ?? ""),
     queryFn: async () =>
       (
-        await gql<{ stakes: SubgraphStake[] }>(
-          `query($id: ID!) {
-            stakes(where: { id: $id }, first: 1) {
+        await gql<{ Stake_by_pk: IndexerStake | null }>(
+          `query($id: String!) {
+            Stake_by_pk(id: $id) {
               id contract totalSupply totalAssets valuePerToken
               handle { id name symbol }
             }
           }`,
           { id: stakeAddress },
         )
-      ).stakes[0] ?? null,
+      ).Stake_by_pk ?? null,
     enabled: !!stakeAddress,
     staleTime: 10_000,
+    // No poll: the Stake subscription keeps this fresh.
+  });
+}
+
+/** Keep the handle's staked total fresh — a single row, patched in place. */
+export function useStakeLive(stakeAddress: string | undefined): boolean {
+  return useIndexerLive<{ Stake_by_pk: IndexerStake | null }>({
+    queryKey: qk.stake("stats", stakeAddress ?? ""),
+    query: `subscription($id: String!) {
+      Stake_by_pk(id: $id) {
+        id contract totalSupply totalAssets valuePerToken
+        handle { id name symbol }
+      }
+    }`,
+    variables: { id: stakeAddress },
+    enabled: !!stakeAddress,
+    mode: "patch",
+    apply: (payload) => payload.Stake_by_pk,
   });
 }
 
@@ -52,19 +71,35 @@ export function stakeSnapshotsOptions(stakeAddress: string | undefined) {
     queryKey: qk.stakeSnapshots(stakeAddress ?? ""),
     queryFn: async () =>
       (
-        await gql<{ stakeSnapshots: SubgraphStakeSnapshot[] }>(
+        await gql<{ StakeSnapshot: IndexerStakeSnapshot[] }>(
           `query($id: String!) {
-            stakeSnapshots(
-              where: { stake: $id }
-              orderBy: timestamp
-              orderDirection: asc
-              first: 500
+            StakeSnapshot(
+              where: { stake_id: { _eq: $id } }
+              order_by: { timestamp: asc }
+              limit: 500
             ) { id timestamp totalSupply totalAssets valuePerToken }
           }`,
           { id: stakeAddress },
         )
-      ).stakeSnapshots,
+      ).StakeSnapshot,
     enabled: !!stakeAddress,
     staleTime: 10_000,
+    // No poll: the StakeSnapshot subscription keeps this fresh.
+  });
+}
+
+/** Keep the stake history chart fresh as deposits/withdrawals land. */
+export function useStakeSnapshotsLive(stakeAddress: string | undefined): boolean {
+  return useIndexerLive<{ StakeSnapshot: IndexerStakeSnapshot[] }>({
+    queryKey: qk.stakeSnapshots(stakeAddress ?? ""),
+    query: `subscription($id: String!) {
+      StakeSnapshot(
+        where: { stake_id: { _eq: $id } }
+        order_by: { timestamp: asc }
+        limit: 500
+      ) { id timestamp totalSupply totalAssets valuePerToken }
+    }`,
+    variables: { id: stakeAddress },
+    enabled: !!stakeAddress,
   });
 }

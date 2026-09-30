@@ -1,5 +1,5 @@
 {
   "schedule": "0 */15 * * * *",
-  "subgraphUrl": "https://api.studio.thegraph.com/query/xxxx/aura-monad-testnet",
+  "indexerUrl": "https://indexer.example/graphql",
   "minGraduationAura": "1000"
 }

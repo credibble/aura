@@ -17,7 +17,7 @@ export function SparkCard({ asset, className }: { asset: LiveAsset; className?: 
   const up = asset.change >= 0;
   // One rule for every chart: green when the trend is up, red when it is down.
   const color = trendColor(asset.history, asset.change);
-  // Real history when the subgraph has more than one point; otherwise draw the
+  // Real history when the indexer has more than one point; otherwise draw the
   // latest real move (index − delta → index) so a young handle still shows the
   // movement it has instead of a dead flat line.
   const data =

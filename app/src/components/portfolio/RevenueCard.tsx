@@ -16,7 +16,7 @@ import { qk } from "@/queries/keys";
  * Creator revenue for the active (owned) handle: the USDC sitting in the
  * Handle contract (`usdc.balanceOf(handle)`), claimable with one click —
  * `Handle.claim()` is owner-only and sweeps the full balance to the wallet.
- * Owner-only by construction: the /me handle list is subgraph owner-filtered.
+ * Owner-only by construction: the /me handle list is indexer owner-filtered.
  */
 export function RevenueCard({ handle }: { handle: HandleLink }) {
   const { api, address } = useAuraContracts();

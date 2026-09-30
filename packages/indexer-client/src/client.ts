@@ -32,7 +32,7 @@ import {
   windowId,
 } from "./queries";
 
-export type SubgraphConfig = { url?: string };
+export type IndexerConfig = { url?: string };
 
 /** Inline a pagination fragment (`first`/`skip`). */
 const pg = (p?: Page): string => {
@@ -48,12 +48,12 @@ const pg = (p?: Page): string => {
  * Pool vault's reserve movements, and the MarketMaker's trades + order book.
  * Shared by the frontend (app) and the oracle backend.
  */
-export class SubgraphClient {
+export class IndexerClient {
   readonly url: string;
 
-  constructor(config: SubgraphConfig = {}) {
+  constructor(config: IndexerConfig = {}) {
     const url = config.url;
-    if (!url) throw new Error("SubgraphClient requires a `url`");
+    if (!url) throw new Error("IndexerClient requires a `url`");
     this.url = url.replace(/\/$/, "");
   }
 

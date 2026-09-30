@@ -1,9 +1,9 @@
 /** Query key factory — every invalidation goes through these. */
 export const qk = {
   handles: ["handles"] as const,
-  /** People search (subgraph name_contains). */
+  /** People search (indexer name ilike). */
   peopleSearch: (q: string) => ["people-search", q] as const,
-  /** Handle search (subgraph name/symbol contains) — the search popover. */
+  /** Handle search (indexer name/symbol ilike) — the search popover. */
   handleSearch: (q: string) => ["handle-search", q] as const,
   handle: (id: string) => ["handle", id] as const,
   handleVerified: (id: string) => ["handle-verified", id] as const,
@@ -28,13 +28,13 @@ export const qk = {
   reposted: (userId: string) => ["reposted", userId] as const,
   /** On-chain auraLP pool — "stats" | per-account "shares"/"earned". */
   pool: (kind: "stats" | "shares" | "earned", id?: string) => ["pool", kind, id ?? ""] as const,
-  /** Subgraph auraLP history — snapshots (charts) + pool events (flows). */
+  /** Indexer auraLP history — snapshots (charts) + pool events (flows). */
   poolSnapshots: ["pool-snapshots"] as const,
   poolEvents: ["pool-events"] as const,
   /** Per-handle AURA stake vault — "stats" | per-account "shares"/"earned". */
   stake: (kind: "stats" | "shares" | "earned", vault: string, id?: string) =>
     ["stake", kind, vault, id ?? ""] as const,
-  /** Subgraph stake history for the vault's chart. */
+  /** Indexer stake history for the vault's chart. */
   stakeSnapshots: (vault: string) => ["stake-snapshots", vault] as const,
   windows: ["windows"] as const,
   stats: ["stats"] as const,

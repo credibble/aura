@@ -6,17 +6,15 @@ import { toast } from "sonner";
 import { SearchPopover } from "@/components/SearchPopover";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { useSocial } from "@/lib/social-store";
-import { usePollGate } from "@/lib/poll-registry";
 import { CATEGORY_MAP } from "@/lib/aura-data";
 import { formatUsd, formatCompact } from "@/lib/format";
 import { UsdcIcon } from "@/components/aura/UsdcIcon";
 import { handleSlug, labelOf, findHandle } from "@/lib/handle-id";
 import { cn } from "@/lib/utils";
-import { handlesQueryOptions, useHandleArtwork, type SubgraphHandle } from "@/queries/handles";
+import { handlesQueryOptions, useHandleArtwork, type IndexerHandle } from "@/queries/handles";
 import { postsOptions } from "@/queries/posts";
 import { flatPages } from "@/queries/page";
-import { statsQueryOptions } from "@/queries/markets";
-import { qk } from "@/queries/keys";
+import { statsQueryOptions, useStatsLive } from "@/queries/markets";
 
 // ----------------------------------------------------------------------------
 // X-style right sidebar: search pill, Earn (liquidity) card, Today's News,
@@ -46,16 +44,17 @@ export function FeedSearch() {
 }
 
 export function EarnCard() {
-  // TVL = USDC locked in unsettled windows (subgraph Stats.totalCash, 1e18);
+  // TVL = USDC locked in unsettled windows (indexer Stats.totalCash, 1e18);
   // volume/windows are the protocol's real counters — nothing is estimated.
   const { data: stats } = useQuery(statsQueryOptions);
-  const gate = usePollGate<HTMLDivElement>(qk.stats);
+  // The Stats row is patched in place from the indexer subscription.
+  useStatsLive();
   const tvl = Number(stats?.totalCash ?? 0) / 1e18;
   const volume = Number(stats?.totalVolume ?? 0) / 1e18;
   return (
     <Card>
       <CardTitle>Earn</CardTitle>
-      <div ref={gate} className="px-4 pb-4">
+      <div className="px-4 pb-4">
         <p className="text-[15px] leading-snug text-muted-foreground">
           Provide liquidity in USDC and earn steady yield from every window traded on Aura.
         </p>
@@ -180,8 +179,8 @@ export function HappeningCard() {
   );
 }
 
-/** The handle's follow-row view — top of the subgraph's aura-ranked list. */
-function SuggestedRow({ h }: { h: SubgraphHandle }) {
+/** The handle's follow-row view — top of the indexer's aura-ranked list. */
+function SuggestedRow({ h }: { h: IndexerHandle }) {
   const { isFollowing, toggleFollow } = useSocial();
   const artwork = useHandleArtwork();
   const slug = handleSlug(h);
@@ -235,7 +234,7 @@ function SuggestedRow({ h }: { h: SubgraphHandle }) {
 }
 
 export function WhoToFollowCard() {
-  // Real suggestions: the top handles by aura, straight from the subgraph.
+  // Real suggestions: the top handles by aura, straight from the indexer.
   const { data: handles } = useQuery(handlesQueryOptions);
   const suggested = (handles ?? []).slice(0, 4);
   if (suggested.length === 0) return null;

@@ -1,17 +1,17 @@
 /**
- * Subgraph contract test — the app's queries are hand-written GraphQL, so a
+ * Indexer contract test — the app's queries are hand-written GraphQL, so a
  * schema change (a renamed field, a dropped entity, a missing derived list) only
  * shows up as a runtime error until this runs.
  *
- *   node scripts/check-subgraph-fields.mjs
+ *   node scripts/check-indexer-fields.mjs
  *
- * It reads the subgraph schema and asserts every entity + field the app actually
- * uses still exists. Add to CI next to check-writes/check-routes.
+ * It reads the Envio indexer schema and asserts every entity + field the app
+ * actually uses still exists. Add to CI next to check-writes/check-routes.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const SCHEMA = "../../smart-contracts/subgraph/schema.graphql";
+const SCHEMA = "../../indexer/schema.graphql";
 const APP_SRC = "src";
 
 /** entity → fields the app selects (scalar, derived list, or nested). */
@@ -29,7 +29,6 @@ const REQUIRED = {
     "graduated",
     "verified",
     "categories",
-    "categoryIds",
     "windowMinutes",
     "active",
     "windowCount",
@@ -50,7 +49,7 @@ const REQUIRED = {
     "prices",
     "q",
     "liquidity",
-    "reference",
+    "strike",
     "settled",
     "winningOutcome",
     "volume",
@@ -99,7 +98,7 @@ function entities(src) {
 
 /**
  * Cross-check: every `entity(` that appears in an app query should be a real
- * subgraph collection (pluralised entity, or a known custom root).
+ * indexer collection (the entity name as declared, or a `_by_pk` root).
  */
 function queryRoots() {
   const roots = new Set();
@@ -109,7 +108,7 @@ function queryRoots() {
       if (statSync(p).isDirectory()) walk(p);
       else if (p.endsWith(".ts") && !p.endsWith(".d.ts")) {
         const src = readFileSync(p, "utf8");
-        for (const [, name] of src.matchAll(/(?:^|[\s{])([a-zA-Z]+)\s*\(\s*(?:where|orderBy|first|skip|\$)/gm)) {
+        for (const [, name] of src.matchAll(/(?:^|[\s{])([a-zA-Z]+)\s*\(\s*(?:where|order_by|orderBy|limit|offset|first|skip|\$)/gm)) {
           if (name) roots.add(name);
         }
       }
@@ -122,7 +121,7 @@ function queryRoots() {
 const table = entities(schema);
 let failures = 0;
 
-console.log("Subgraph contract check\n");
+console.log("Indexer contract check\n");
 for (const [entity, fields] of Object.entries(REQUIRED)) {
   const have = table.get(entity);
   if (!have) {
@@ -139,12 +138,27 @@ for (const [entity, fields] of Object.entries(REQUIRED)) {
   }
 }
 
-// Pluralised collections the app queries (handles, windows, trades, …).
+// Indexer collections the app queries (Handle, Window, Trade, …).
 const collections = [...queryRoots()].filter((r) => !r.startsWith("$"));
-const known = new Set(["handles", "windows", "trades", "orders", "orderFills", "pricePoints", "stats", "stakes", "stakeSnapshots", "poolSnapshots", "poolEvents"]);
+const known = new Set([
+  "Handle",
+  "Window",
+  "Window_by_pk",
+  "Trade",
+  "Order",
+  "OrderFill",
+  "PricePoint",
+  "Stats",
+  "Stats_by_pk",
+  "Stake",
+  "Stake_by_pk",
+  "StakeSnapshot",
+  "PoolSnapshot",
+  "PoolEvent",
+]);
 const unknown = collections.filter((c) => !known.has(c));
 if (unknown.length) {
-  // Informational: these are usually SDK/other calls, not subgraph collections.
+  // Informational: these are usually SDK/other calls, not indexer collections.
   console.log(`\n  · root fields seen in app queries: ${collections.join(", ")}`);
 }
 console.log(

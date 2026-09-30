@@ -47,13 +47,16 @@ import { useAuraContracts } from "@/lib/contracts";
 import { usePollGate } from "@/lib/poll-registry";
 import {
   handleWindowsOptions,
+  useHandleWindowsLive,
+  useWindowPointsLive,
+  useWindowTradesLive,
   windowPricePointsOptions,
   windowTradesOptions,
 } from "@/queries/markets";
-import { handlesQueryOptions, type SubgraphHandle } from "@/queries/handles";
+import { handlesQueryOptions, type IndexerHandle } from "@/queries/handles";
 import { postsOptions } from "@/queries/posts";
 import { flatPages } from "@/queries/page";
-import { stakeOptions } from "@/queries/stake";
+import { stakeOptions, useStakeLive } from "@/queries/stake";
 import { qk } from "@/queries/keys";
 import { cn } from "@/lib/utils";
 
@@ -152,12 +155,19 @@ function TradePage() {
   const pointsQuery = useQuery(windowPricePointsOptions(viewed?.id));
   const tradesQuery = useInfiniteQuery(windowTradesOptions(viewed?.id));
 
+  // The market detail is indexer-streamed: the handle's windows, the chart's
+  // price points and the trade tape each keep their query fresh over the socket.
+  useHandleWindowsLive(handleId);
+  useWindowPointsLive(viewed?.id);
+  useWindowTradesLive(viewed?.id);
+
   // AURA staked on this handle. The CHAIN leads for the numbers (exact + fresh,
-  // per the repo's data-source rules); the subgraph is the fallback while an RPC
+  // per the repo's data-source rules); the indexer is the fallback while an RPC
   // read is in flight. Mixing the two was the bug: the viewer's receipts came
-  // from the vault (1e18) while the share price came from the subgraph, so a
+  // from the vault (1e18) while the share price came from the indexer, so a
   // "Worth" figure could disagree with the receipts it was derived from.
   const vault = h?.stake && h.stake !== "0x" ? (h.stake as `0x${string}`) : undefined;
+  useStakeLive(vault);
   const stakeEntity = useQuery(stakeOptions(vault));
   const stakeStatsQuery = useQuery({
     queryKey: qk.stake("stats", vault ?? ""),
@@ -272,7 +282,7 @@ function TradePage() {
     );
   }
 
-  // A failed load is NOT "market not found" — without this branch a subgraph
+  // A failed load is NOT "market not found" — without this branch an indexer
   // outage told the user the handle doesn't exist.
   if (handlesError || windowsQuery.isError) {
     return (
@@ -832,7 +842,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function stakeFrom(h: SubgraphHandle, name: string, symbol: string, aura: number): StakeHandle {
+function stakeFrom(h: IndexerHandle, name: string, symbol: string, aura: number): StakeHandle {
   return {
     id: h.id,
     name,

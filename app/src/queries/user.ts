@@ -1,12 +1,13 @@
 /**
- * Wallet-scoped subgraph queries — the signed-in account's own handles,
+ * Wallet-scoped indexer queries — the signed-in account's own handles,
  * resting orders and trade history (positions are derived from real trades;
- * nothing is synthesized). All read directly from the subgraph.
+ * nothing is synthesized). All read directly from the indexer.
  */
 import { queryOptions } from "@tanstack/react-query";
 import { gql } from "@/lib/graphql";
+import { useIndexerLive } from "@/lib/indexer-ws";
 import { qk } from "./keys";
-import type { SubgraphHandle } from "./handles";
+import type { IndexerHandle } from "./handles";
 
 const OWNED_WINDOW_FIELDS = `id question outcomes prices settled winningOutcome windowStart windowEnd oracle volume handle { id name symbol aura }`;
 
@@ -46,22 +47,22 @@ export function userHandlesOptions(address: string | undefined) {
     queryKey: qk.userHandles(address?.toLowerCase() ?? ""),
     queryFn: async () =>
       (
-        await gql<{ handles: SubgraphHandle[] }>(
+        await gql<{ Handle: IndexerHandle[] }>(
           `query($owner: String!) {
-            handles(where: { owner: $owner, active: true }, orderBy: aura, orderDirection: desc, first: 50) {
-              id contract stake name symbol metadata sources aura auraDelta graduated verified categories categoryIds windowMinutes active windowCount
-              auraHistory(first: 64, orderBy: timestamp, orderDirection: desc) { aura summary timestamp }
-              windows(first: 1, orderBy: windowStart, orderDirection: desc) {
+            Handle(where: { owner_id: { _eq: $owner }, active: { _eq: true } }, order_by: { aura: desc }, limit: 50) {
+              id contract stake name symbol metadata sources aura auraDelta graduated verified categories windowMinutes active windowCount
+              auraHistory(limit: 64, order_by: { timestamp: desc }) { aura summary timestamp }
+              windows(limit: 1, order_by: { windowStart: desc }) {
                 id windowStart windowEnd outcomes settled prices volume
               }
             }
           }`,
           { owner: address!.toLowerCase() },
         )
-      ).handles,
+      ).Handle,
     enabled: !!address,
     staleTime: 10_000,
-    meta: { pollMs: 15_000 },
+    // No poll: aura/handle push messages invalidate this live.
   });
 }
 
@@ -71,19 +72,35 @@ export function positionsOptions(address: string | undefined) {
     queryKey: qk.positions(address?.toLowerCase() ?? ""),
     queryFn: async () =>
       (
-        await gql<{ trades: PositionTrade[] }>(
+        await gql<{ Trade: PositionTrade[] }>(
           `query($user: String!) {
-            trades(where: { user: $user }, orderBy: ts, orderDirection: desc, first: 500) {
+            Trade(where: { user_id: { _eq: $user } }, order_by: { ts: desc }, limit: 500) {
               id outcome kind premium proceeds shares price ts
               window { ${OWNED_WINDOW_FIELDS} }
             }
           }`,
           { user: address!.toLowerCase() },
         )
-      ).trades,
+      ).Trade,
     enabled: !!address,
     staleTime: 5_000,
-    meta: { pollMs: 15_000 },
+    // No poll: the Trade subscription keeps this fresh.
+  });
+}
+
+/** Keep the account's position history fresh as it trades. */
+export function usePositionsLive(address: string | undefined): boolean {
+  const user = address?.toLowerCase();
+  return useIndexerLive<{ Trade: PositionTrade[] }>({
+    queryKey: qk.positions(user ?? ""),
+    query: `subscription($user: String!) {
+      Trade(where: { user_id: { _eq: $user } }, order_by: { ts: desc }, limit: 500) {
+        id outcome kind premium proceeds shares price ts
+        window { ${OWNED_WINDOW_FIELDS} }
+      }
+    }`,
+    variables: { user },
+    enabled: !!address,
   });
 }
 
@@ -112,18 +129,34 @@ export function openOrdersOptions(address: string | undefined) {
     queryKey: qk.openOrders(address?.toLowerCase() ?? ""),
     queryFn: async () =>
       (
-        await gql<{ orders: OpenOrder[] }>(
+        await gql<{ Order: OpenOrder[] }>(
           `query($maker: String!) {
-            orders(where: { maker: $maker, status: "ACTIVE" }, orderBy: createdAt, orderDirection: desc, first: 100) {
+            Order(where: { maker_id: { _eq: $maker }, status: { _eq: "ACTIVE" } }, order_by: { createdAt: desc }, limit: 100) {
               id outcome side price size filled expiresAt createdAt
               window { id question outcomes windowEnd oracle handle { id } }
             }
           }`,
           { maker: address!.toLowerCase() },
         )
-      ).orders,
+      ).Order,
     enabled: !!address,
     staleTime: 5_000,
-    meta: { pollMs: 15_000 },
+    // No poll: the Order subscription keeps this fresh.
+  });
+}
+
+/** Keep the account's resting orders fresh as the book changes. */
+export function useOpenOrdersLive(address: string | undefined): boolean {
+  const maker = address?.toLowerCase();
+  return useIndexerLive<{ Order: OpenOrder[] }>({
+    queryKey: qk.openOrders(maker ?? ""),
+    query: `subscription($maker: String!) {
+      Order(where: { maker_id: { _eq: $maker }, status: { _eq: "ACTIVE" } }, order_by: { createdAt: desc }, limit: 100) {
+        id outcome side price size filled expiresAt createdAt
+        window { id question outcomes windowEnd oracle handle { id } }
+      }
+    }`,
+    variables: { maker },
+    enabled: !!address,
   });
 }

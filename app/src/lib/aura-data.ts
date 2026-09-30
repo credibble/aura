@@ -26,14 +26,14 @@ export type MetricId = "aura";
 
 export const METRIC_LABEL: Record<MetricId, string> = { aura: "Aura" };
 
-/** Static catalog entry (seed metadata — live values come from the subgraph). */
+/** Static catalog entry (seed metadata — live values come from the indexer). */
 export type AssetSeed = {
   id: string;
   symbol: string;
   name: string;
   /** Primary category — the first of `categories`. */
   category: CategoryId;
-  /** Every category the handle belongs to (on-chain `categories`/`categoryIds`). */
+  /** Every category the handle belongs to (the raw on-chain `categories` codes). */
   categories: CategoryId[];
   color: string;
   /** Real artwork (logo / photo) hot-linked from the open web. */
@@ -45,7 +45,7 @@ export type AssetSeed = {
   summary: string;
 };
 
-/** A handle's live state — mapped straight from the subgraph (no simulation). */
+/** A handle's live state — mapped straight from the indexer (no simulation). */
 export type LiveAsset = AssetSeed & {
   index: number;
   change: number;

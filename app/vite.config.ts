@@ -1,15 +1,36 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - TanStack devtools (dev-only, first), tanstackStart, viteReact, tailwindcss, tsConfigPaths,
-//     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
-//     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+/**
+ * Pure TanStack Start + Vite. No wrapper config: every plugin below is one the
+ * app declares itself, so what runs is what is written here.
+ *
+ *   - tsConfigPaths   → the `@/*` alias from tsconfig.json
+ *   - tailwindcss     → Tailwind 4 (CSS-first, no tailwind.config)
+ *   - tanstackStart   → Start's server/SSR pipeline, file-based routes
+ *                       (`src/routes` → `src/routeTree.gen.ts`), the server
+ *                       entry (`src/server.ts`, our SSR error wrapper)
+ *   - viteReact       → React fast refresh + JSX
+ *
+ * Order matters: Start's plugin runs before the React one.
+ */
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import tailwindcss from "@tailwindcss/vite";
+import viteReact from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+import tsConfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
+  // 5173, not 8080: the indexer's Hasura console and GraphQL API own 8080
+  // (see indexer/README.md), and the two must not fight for it.
+  server: { port: 5173, strictPort: true },
+  // One copy of React and the shared runtime libraries — a second copy (from a
+  // transitive dep) breaks hooks and context in ways that look like app bugs.
+  resolve: {
+    dedupe: ["react", "react-dom", "@tanstack/react-router", "@tanstack/react-query"],
   },
+  plugins: [
+    tsConfigPaths({ projects: ["./tsconfig.json"] }),
+    tailwindcss(),
+    // `entry` is relative to src/, so `server` → src/server.ts.
+    tanstackStart({ start: { entry: "server" } }),
+    viteReact(),
+  ],
 });

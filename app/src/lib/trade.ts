@@ -2,7 +2,7 @@
  * Trade executor — every buy / sell / claim / limit order is a REAL contract
  * write signed by the Privy embedded wallet (USDC allowance handled first),
  * quoted against the live LMSR price for slippage guards. On confirmation the
- * market/position caches are invalidated so the UI re-reads the subgraph.
+ * market/position caches are invalidated so the UI re-reads the indexer.
  *
  * PRE-FLIGHT: before anything is signed the executor reads the on-chain state it
  * can check cheaply — wallet balance, share balance, window still open — and

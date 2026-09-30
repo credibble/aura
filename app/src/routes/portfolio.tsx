@@ -14,7 +14,13 @@ import { QueryError } from "@/components/QueryState";
 import { useHandleArtwork } from "@/queries/handles";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
 import { Skeleton } from "@/components/ui/skeletons";
-import { openOrdersOptions, positionsOptions, type PositionTrade } from "@/queries/user";
+import {
+  openOrdersOptions,
+  positionsOptions,
+  useOpenOrdersLive,
+  usePositionsLive,
+  type PositionTrade,
+} from "@/queries/user";
 
 export const Route = createFileRoute("/portfolio")({
   head: () => ({
@@ -89,7 +95,7 @@ function derivePositions(rows: PositionTrade[]): ViewPosition[] {
       row.costAcc -= Number(t.proceeds) / 1e18;
     } else if (t.kind === "TRANSFER_OUT") {
       // Order-book fills move shares through MarketMaker.transferFrom, which the
-      // subgraph records as a transfer pair — the claim follows the shares.
+      // indexer records as a transfer pair — the claim follows the shares.
       row.shares -= shares;
     } else if (t.kind === "TRANSFER_IN") {
       row.shares += shares;
@@ -123,6 +129,9 @@ function PortfolioPage() {
 
   const positionsQuery = useQuery(positionsOptions(address ?? undefined));
   const ordersQuery = useQuery(openOrdersOptions(address ?? undefined));
+  // The wallet's positions + resting orders are indexer-streamed.
+  usePositionsLive(address ?? undefined);
+  useOpenOrdersLive(address ?? undefined);
 
   const positions = useMemo(
     () => derivePositions(positionsQuery.data ?? []),

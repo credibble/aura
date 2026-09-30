@@ -18,7 +18,12 @@ import { trendColor } from "@/lib/chart-domain";
 import { explainRevert } from "@/lib/trade";
 import { cn } from "@/lib/utils";
 import { qk } from "@/queries/keys";
-import { poolEventsOptions, poolSnapshotsOptions } from "@/queries/pool";
+import {
+  poolEventsOptions,
+  poolSnapshotsOptions,
+  usePoolEventsLive,
+  usePoolSnapshotsLive,
+} from "@/queries/pool";
 
 export const Route = createFileRoute("/pool")({
   head: () => ({
@@ -64,7 +69,7 @@ const KIND_LABEL = {
  * The auraLP vault's own page: depth and the reserve/idle split at the top, the
  * snapshot history as the hero chart, the vault's recent flows, and one quiet
  * deposit / withdraw panel. Figures are the contract's live values or the
- * subgraph's snapshots — never estimates.
+ * indexer's snapshots — never estimates.
  */
 function PoolPage() {
   const { address, api } = useAuraContracts();
@@ -78,6 +83,9 @@ function PoolPage() {
 
   const snapshots = useQuery(poolSnapshotsOptions);
   const events = useQuery(poolEventsOptions);
+  // The vault's history + recent flows are indexer-streamed.
+  usePoolSnapshotsLive();
+  usePoolEventsLive();
   const stats = useQuery({
     queryKey: qk.pool("stats"),
     queryFn: () => api.readPoolStats(),

@@ -22,8 +22,13 @@ import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
 import { useHandles, useLoadHandles } from "@/lib/handle-store";
 import { handlesQueryOptions } from "@/queries/handles";
-import { stakeOptions, stakeSnapshotsOptions } from "@/queries/stake";
-import { positionsOptions } from "@/queries/user";
+import {
+  stakeOptions,
+  stakeSnapshotsOptions,
+  useStakeLive,
+  useStakeSnapshotsLive,
+} from "@/queries/stake";
+import { positionsOptions, usePositionsLive } from "@/queries/user";
 import { qk } from "@/queries/keys";
 
 export const Route = createFileRoute("/me")({
@@ -63,6 +68,10 @@ function MePage() {
     enabled: !!vault && !!address,
   });
   const positions = useQuery(positionsOptions(address ?? undefined));
+  // Wallet staking + positions are indexer-streamed.
+  useStakeLive(vault);
+  useStakeSnapshotsLive(vault);
+  usePositionsLive(address ?? undefined);
   const openPositions = (positions.data ?? []).length;
   /** The vault's asset history, oldest → newest (the chart + its trend colour). */
   const stakeSeries = useMemo(
@@ -73,10 +82,10 @@ function MePage() {
   // The account page had neither a loading nor an error state: a failed handles
   // query rendered the "No handle yet" state for someone who HAS a handle.
   const handlesQuery = useQuery(handlesQueryOptions);
-  const subgraphHandles = handlesQuery.data;
+  const indexerHandles = handlesQuery.data;
   const record = useMemo(
-    () => (active ? findHandle(subgraphHandles, active.id) : undefined),
-    [subgraphHandles, active],
+    () => (active ? findHandle(indexerHandles, active.id) : undefined),
+    [indexerHandles, active],
   );
 
   if (handlesQuery.isPending) {
@@ -305,7 +314,7 @@ function MePage() {
         <ConnectionsSection handle={active} connection={null} />
       </div>
 
-      {/* Activity history from the subgraph */}
+      {/* Activity history from the indexer */}
       <section className="mt-2 px-4 pb-10 sm:px-6">
         <h2 className="text-sm font-semibold">Aura history</h2>
         <div className="mt-2 divide-y divide-border/60">

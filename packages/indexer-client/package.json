@@ -1,5 +1,5 @@
 {
-  "name": "@aura/subgraph-client",
+  "name": "@aura/indexer-client",
   "version": "0.1.0",
   "description": "Typed GraphQL client for the Aura subgraph (handles, creators, windows, orders, pool events). Shared by the frontend and the oracle.",
   "private": true,

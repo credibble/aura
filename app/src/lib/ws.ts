@@ -40,7 +40,7 @@ const COVERED: readonly (readonly unknown[])[] = [
   ["reposted"],
   ["people-search"],
   // Oracle-owned surfaces (connections/metadata) + the on-chain vaults the app
-  // reads through the subgraph: a reconnect resync refreshes every one of them.
+  // reads through the indexer: a reconnect resync refreshes every one of them.
   ["handle-connection"],
   ["handle-revenue"],
   ["user-handles"],
@@ -123,7 +123,7 @@ function patchAura(handleId: string, aura: number, delta: number): void {
       auraDelta: nextDelta,
     });
   }
-  // Charts re-read from the subgraph on the next tick; aura moves ~10s/handle.
+  // Charts re-read from the indexer on the next tick; aura moves ~10s/handle.
   invalidateLater(qk.auraHistory(id));
 }
 

@@ -8,8 +8,9 @@ import { QueryError } from "@/components/QueryState";
 import { Skeleton, SkeletonAvatar, TableSkeleton } from "@/components/ui/skeletons";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { usePollGate } from "@/lib/poll-registry";
-import { HANDLE_FIELDS, categoriesOf, type SubgraphHandle } from "@/queries/handles";
-import { subgraphInfiniteOptions, flatSubgraphPages } from "@/lib/subgraph-page";
+import { HANDLE_FIELDS, categoriesOf, type IndexerHandle } from "@/queries/handles";
+import { indexerInfiniteOptions, flatIndexerPages } from "@/lib/indexer-page";
+import { useIndexerLive } from "@/lib/indexer-ws";
 import { handleSlug } from "@/lib/handle-id";
 import { qk } from "@/queries/keys";
 import { CATEGORY_MAP } from "@/lib/aura-data";
@@ -25,18 +26,18 @@ function rankColor(rank: number) {
   return "text-muted-foreground/70";
 }
 
-/** Latest aura push delta (subgraph `Handle.auraDelta`, 1e2 → absolute points). */
-function changePts(h: SubgraphHandle): number {
+/** Latest aura push delta (indexer `Handle.auraDelta`, 1e2 → absolute points). */
+function changePts(h: IndexerHandle): number {
   return Number(h.auraDelta) / 100;
 }
 
-function metricOf(h: SubgraphHandle, sort: Sort): number {
+function metricOf(h: IndexerHandle, sort: Sort): number {
   if (sort === "Aura") return Number(h.aura) / 100;
   if (sort === "Change") return changePts(h);
   return Number(h.windowCount);
 }
 
-function metricLabel(h: SubgraphHandle, sort: Sort): string {
+function metricLabel(h: IndexerHandle, sort: Sort): string {
   if (sort === "Aura") return metricOf(h, sort).toFixed(2);
   if (sort === "Change") {
     const v = metricOf(h, sort);
@@ -52,7 +53,7 @@ export const Route = createFileRoute("/leaderboard")({
   component: LeaderboardPage,
 });
 
-/** Sort key → the subgraph's own ordering field. */
+/** Sort key → the indexer's own ordering field. */
 const ORDER_BY: Record<Sort, string> = {
   Aura: "aura",
   Change: "auraDelta",
@@ -61,13 +62,13 @@ const ORDER_BY: Record<Sort, string> = {
 
 function LeaderboardPage() {
   const [sort, setSort] = useState<Sort>("Aura");
-  // Sorting + paging happen in the subgraph query itself.
+  // Sorting + paging happen in the indexer query itself.
   const ranks = useInfiniteQuery(
-    subgraphInfiniteOptions<SubgraphHandle>({
+    indexerInfiniteOptions<IndexerHandle>({
       queryKey: ["leaderboard", sort],
-      entity: "handles",
+      entity: "Handle",
       fields: HANDLE_FIELDS,
-      where: "where: { active: true }",
+      where: "where: { active: { _eq: true } }",
       orderBy: ORDER_BY[sort],
       orderDirection: "desc",
       limit: 25,
@@ -76,7 +77,13 @@ function LeaderboardPage() {
   const isLoading = ranks.isPending;
   const gate = usePollGate<HTMLDivElement>(qk.handles);
 
-  const list = flatSubgraphPages(ranks.data?.pages);
+  // The ranked list is indexer-streamed — the subscription keeps it fresh.
+  useIndexerLive<{ Handle: IndexerHandle[] }>({
+    queryKey: ["leaderboard", sort],
+    query: `subscription { Handle(where: { active: { _eq: true } }, order_by: { ${ORDER_BY[sort]}: desc }) { ${HANDLE_FIELDS} } }`,
+  });
+
+  const list = flatIndexerPages(ranks.data?.pages);
   const podium = list.slice(0, 3);
 
   return (
@@ -239,7 +246,7 @@ function Segmented<T extends string>({
   );
 }
 
-function PodiumItem({ handle, rank, sort }: { handle: SubgraphHandle; rank: number; sort: Sort }) {
+function PodiumItem({ handle, rank, sort }: { handle: IndexerHandle; rank: number; sort: Sort }) {
   const change = changePts(handle);
   const name = handle.name ?? handle.symbol ?? handle.id;
 

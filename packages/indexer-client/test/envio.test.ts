@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EnvioClient } from "../src/envio";
-import { SubgraphClient } from "../src/client";
+import { IndexerClient } from "../src/client";
 import { bytes32ToId } from "../src/index";
 
 function mockFetch(routes: Record<string, unknown>): void {
@@ -58,10 +58,10 @@ const WINDOW = {
   paidOut: "0",
 };
 
-describe("SubgraphClient", () => {
+describe("IndexerClient", () => {
   it("queries handles and decodes bytes32 ids", async () => {
     mockFetch({ "graph.aura.xyz": { data: { handles: [HANDLE] } } });
-    const client = new SubgraphClient({ url: "https://graph.aura.xyz" });
+    const client = new IndexerClient({ url: "https://graph.aura.xyz" });
     const handles = await client.handles();
     expect(handles[0]!.symbol).toBe("BTC");
     expect(bytes32ToId(handles[0]!.id)).toBe("btc");
@@ -70,14 +70,14 @@ describe("SubgraphClient", () => {
 
   it("queries a handle's sources", async () => {
     mockFetch({ "graph.aura.xyz": { data: { handle: HANDLE } } });
-    const client = new SubgraphClient({ url: "https://graph.aura.xyz" });
+    const client = new IndexerClient({ url: "https://graph.aura.xyz" });
     const handle = await client.handle(HANDLE.id);
     expect(handle?.sources).toEqual(['{"platform":"github","username":"bitcoin"}']);
   });
 
   it("resolves windows by oracle address", async () => {
     mockFetch({ "graph.aura.xyz": { data: { oracleWindow: { id: "0xwo", window: WINDOW } } } });
-    const client = new SubgraphClient({ url: "https://graph.aura.xyz" });
+    const client = new IndexerClient({ url: "https://graph.aura.xyz" });
     const win = await client.windowByOracle("0xwo");
     expect(win?.id).toBe(WINDOW.id);
     expect(win?.outcomes).toEqual(["YES", "NO"]);
@@ -88,7 +88,7 @@ describe("SubgraphClient", () => {
     mockFetch({
       "graph.aura.xyz": { data: { orders: [{ id: "o1", window: WINDOW.id, maker: "0xmaker", outcome: 0, side: true, price: "500000000000000000", size: "1000000000000000000", filled: "0", expiresAt: "0", status: "ACTIVE", createdAt: "1777000000" }] } },
     });
-    const client = new SubgraphClient({ url: "https://graph.aura.xyz" });
+    const client = new IndexerClient({ url: "https://graph.aura.xyz" });
     const orders = await client.ordersByMaker("0xmaker", { first: 10, skip: 0 });
     expect(orders[0]!.maker).toBe("0xmaker");
     expect(orders[0]!.outcome).toBe(0);

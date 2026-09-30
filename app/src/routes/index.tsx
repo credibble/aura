@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
@@ -17,8 +17,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CATEGORIES, type CategoryId } from "@/lib/aura-data";
-import { HANDLE_CARD_FIELDS, toLiveAsset, type SubgraphHandle } from "@/queries/handles";
-import { subgraphInfiniteOptions, flatSubgraphPages } from "@/lib/subgraph-page";
+import { HANDLE_CARD_FIELDS, toLiveAsset, type IndexerHandle } from "@/queries/handles";
+import { indexerInfiniteOptions, flatIndexerPages } from "@/lib/indexer-page";
+import { useIndexerLive } from "@/lib/indexer-ws";
 import { qk } from "@/queries/keys";
 import { usePollGate } from "@/lib/poll-registry";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,7 @@ export const Route = createFileRoute("/")({
 const SORTS = ["Highest aura", "Movers", "Windows", "Name"] as const;
 type Sort = (typeof SORTS)[number];
 
-/** Sort key → the subgraph's own ordering field (sorting is done server-side). */
+/** Sort key → the indexer's own ordering field (sorting is done server-side). */
 const ORDER_BY: Record<Sort, { field: string; dir: "asc" | "desc" }> = {
   "Highest aura": { field: "aura", dir: "desc" },
   Movers: { field: "auraDelta", dir: "desc" },
@@ -49,62 +50,37 @@ const ORDER_BY: Record<Sort, { field: string; dir: "asc" | "desc" }> = {
 };
 
 /**
- * The index is the market grid. Sorting and paging happen in the subgraph query
- * (`orderBy` / `first` / `skip`); category chips filter server-side on the
- * subgraph's list field `categoryIds` (`_contains` for a [String!]! list), with
- * a client-side fallback when that field isn't deployed yet.
+ * The index is the market grid. Sorting and paging happen in the indexer query
+ * (`order_by` / `limit` / `offset`); category chips filter CLIENT-side by family
+ * (`categoriesOf(handle)`), so one cached list per sort serves every chip.
  */
 function ExplorePage() {
   const [cat, setCat] = useState<CategoryId | "all">("all");
   const [sort, setSort] = useState<Sort>("Highest aura");
-  const [stuck, setStuck] = useState(false);
   const order = ORDER_BY[sort];
-  // Category filtering happens AT THE API (`where.categoryIds_contains`, a list
-  // filter). Until that field is deployed the query errors — then we fall back
-  // to the unfiltered list + a local filter.
-  const catQuery = useInfiniteQuery(
-    subgraphInfiniteOptions<SubgraphHandle>({
-      queryKey: ["explore", sort, cat],
-      entity: "handles",
+  const query = useInfiniteQuery(
+    indexerInfiniteOptions<IndexerHandle>({
+      queryKey: ["explore", sort],
+      entity: "Handle",
       fields: HANDLE_CARD_FIELDS,
-      where:
-        cat === "all"
-          ? "where: { active: true }"
-          : `where: { active: true, categoryIds_contains: ["${cat}"] }`,
+      where: "where: { active: { _eq: true } }",
       orderBy: order.field,
       orderDirection: order.dir,
       limit: 24,
     }),
   );
-  const fallbackQuery = useInfiniteQuery({
-    ...subgraphInfiniteOptions<SubgraphHandle>({
-      queryKey: ["explore", sort, "all"],
-      entity: "handles",
-      fields: HANDLE_CARD_FIELDS,
-      where: "where: { active: true }",
-      orderBy: order.field,
-      orderDirection: order.dir,
-      limit: 24,
-    }),
-    enabled: catQuery.isError,
-    retry: false,
-  });
-  const query = catQuery.isError ? fallbackQuery : catQuery;
   const isPending = query.isPending;
   // Aura pushes only stream while the grid is on screen.
   const gate = usePollGate<HTMLDivElement>(qk.handles);
 
-  // The sticky bar reveals a search icon once the hero has scrolled away.
-  useEffect(() => {
-    const onScroll = () => setStuck(window.scrollY > 120);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  // The grid is the indexer's surface — its subscription is the event source.
+  useIndexerLive<{ Handle: IndexerHandle[] }>({
+    queryKey: ["explore", sort],
+    query: `subscription { Handle(where: { active: { _eq: true } }, order_by: { ${order.field}: ${order.dir} }) { ${HANDLE_CARD_FIELDS} } }`,
+  });
 
-  const assets = useMemo(() => flatSubgraphPages(query.data?.pages).map(toLiveAsset), [query.data]);
-  // The API already filtered when `categoryIds` is deployed; the local filter is
-  // a no-op then and the fallback path when it isn't.
+  const assets = useMemo(() => flatIndexerPages(query.data?.pages).map(toLiveAsset), [query.data]);
+  // Category chips filter by family locally — the query itself is unfiltered.
   const list = useMemo(
     () => (cat === "all" ? assets : assets.filter((a) => a.categories.includes(cat))),
     [assets, cat],
@@ -149,14 +125,7 @@ function ExplorePage() {
           ))}
         </ScrollRow>
 
-        {/* Appears once the hero is out of view */}
-        <div
-          className={cn(
-            "shrink-0 transition-all duration-200",
-            stuck ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0",
-          )}
-          aria-hidden={!stuck}
-        >
+        <div className="shrink-0">
           <SearchPopover iconOnly />
         </div>
 

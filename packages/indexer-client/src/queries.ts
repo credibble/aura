@@ -1,6 +1,6 @@
 /**
  * Aura subgraph query fragments — the exact field sets the client fetches.
- * Keep in sync with `subgraph/schema.graphql`.
+ * Keep in sync with `indexer/schema.graphql`.
  */
 
 export const HANDLE_FIELDS = `

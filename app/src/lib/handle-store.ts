@@ -1,13 +1,13 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { userHandlesOptions } from "@/queries/user";
-import type { SubgraphHandle } from "@/queries/handles";
+import type { IndexerHandle } from "@/queries/handles";
 import { CONTRACTS } from "./chain";
 import type { HandleLink } from "./portfolio";
 
 /**
  * Active-handle store — the currently selected handle on the sidebar "You"
- * chip. Loads the wallet's OWNED handles straight from the subgraph (owner
+ * chip. Loads the wallet's OWNED handles straight from the indexer (owner
  * filter) and keeps the chip popover and the portfolio page in sync without
  * prop drilling. No mock fallback: an address with no handles loads empty.
  */
@@ -38,8 +38,8 @@ export function setHandles(handles: HandleLink[]): void {
   emit();
 }
 
-/** Subgraph handle → the portfolio's handle link (real on-chain fields). */
-function toHandleLink(h: SubgraphHandle): HandleLink {
+/** Indexer handle → the portfolio's handle link (real on-chain fields). */
+function toHandleLink(h: IndexerHandle): HandleLink {
   return {
     id: h.id,
     name: h.name ?? h.symbol ?? h.id,

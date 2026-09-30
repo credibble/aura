@@ -1,7 +1,19 @@
 import "./lib/error-capture";
 
+import { createStart } from "@tanstack/react-start";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+
+/**
+ * TanStack Start reads the app's start instance from THIS file — the generated
+ * route tree declares `config: Awaited<ReturnType<typeof startInstance.getOptions>>`
+ * and the runtime reads it for request middleware. `createStart` is imported from
+ * the root entry rather than `/server` because the plugin compiles this file for
+ * both environments and the root entry is the client-safe one; empty options are
+ * the default behaviour, so everything here stays customised through the fetch
+ * wrapper below.
+ */
+export const startInstance = createStart(() => ({}));
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

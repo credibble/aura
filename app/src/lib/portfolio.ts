@@ -1,7 +1,7 @@
 /**
  * Portfolio lib — the oracle backend client for the portfolio page.
  * Backed by the oracle NestJS API (/v1/...) which reads on-chain handles via
- * the subgraph. 404 = "no connection row" (null); anything else throws.
+ * the indexer. 404 = "no connection row" (null); anything else throws.
  */
 import { API_BASE } from "./privy";
 

@@ -1,46 +1,48 @@
 /**
- * Subgraph pagination — filters, sorting and paging happen AT THE API (GraphQL)
+ * Indexer pagination — filters, sorting and paging happen AT THE API (GraphQL)
  * level, and every list is an infinite query.
  *
+ * Envio's dialect (not The Graph's): `limit`/`offset` instead of `first`/`skip`,
+ * and `order_by: { field: asc | desc }` instead of `orderBy` + `orderDirection`.
+ *
  * `hasMore` is the page's own length against the requested size: a full page
- * means "ask for the next skip" (the subgraph has no total count on these
- * collections), a short page means we've reached the end.
+ * means "ask for the next offset" (these collections have no total count), a
+ * short page means we've reached the end.
  */
 import { infiniteQueryOptions } from "@tanstack/react-query";
 import { gql } from "./graphql";
 
-export type SubgraphPage<T> = { items: T[]; hasMore: boolean; nextSkip: number };
+export type IndexerPage<T> = { items: T[]; hasMore: boolean; nextOffset: number };
 
-export const SUBGRAPH_PAGE_SIZE = 30;
+export const INDEXER_PAGE_SIZE = 30;
 
-export function subgraphInfiniteOptions<T>({
+export function indexerInfiniteOptions<T>({
   queryKey,
   entity,
   fields,
   where,
   orderBy,
   orderDirection = "desc",
-  limit = SUBGRAPH_PAGE_SIZE,
+  limit = INDEXER_PAGE_SIZE,
 }: {
   /** Include every filter/sort input so each permutation caches separately. */
   queryKey: readonly unknown[];
-  /** Subgraph collection, e.g. "handles". */
+  /** Entity name as declared in the schema, e.g. "Handle". */
   entity: string;
   /** Selection set (no braces). */
   fields: string;
-  /** Raw where clause, e.g. `where: { active: true }`. */
+  /** Raw where clause in Envio syntax, e.g. `where: { active: { _eq: true } }`. */
   where?: string;
   orderBy?: string;
   orderDirection?: "asc" | "desc";
   limit?: number;
 }) {
-  const build = (skip: number) =>
+  const build = (offset: number) =>
     [
       where,
-      orderBy ? `orderBy: ${orderBy}` : null,
-      orderBy ? `orderDirection: ${orderDirection}` : null,
-      `first: ${limit}`,
-      `skip: ${skip}`,
+      orderBy ? `order_by: { ${orderBy}: ${orderDirection} }` : null,
+      `limit: ${limit}`,
+      `offset: ${offset}`,
     ]
       .filter(Boolean)
       .join(", ");
@@ -55,15 +57,15 @@ export function subgraphInfiniteOptions<T>({
       return {
         items,
         hasMore: items.length >= limit,
-        nextSkip: pageParam + items.length,
+        nextOffset: pageParam + items.length,
       };
     },
     initialPageParam: 0,
-    getNextPageParam: (last: SubgraphPage<T>) => (last.hasMore ? last.nextSkip : undefined),
+    getNextPageParam: (last: IndexerPage<T>) => (last.hasMore ? last.nextOffset : undefined),
   });
 }
 
 /** Flatten infinite pages into one list (order preserved). */
-export function flatSubgraphPages<T>(pages: SubgraphPage<T>[] | undefined): T[] {
+export function flatIndexerPages<T>(pages: IndexerPage<T>[] | undefined): T[] {
   return (pages ?? []).flatMap((p) => p.items);
 }

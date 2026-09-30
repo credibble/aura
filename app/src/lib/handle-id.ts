@@ -4,7 +4,7 @@
  * link uses a lowercase slug instead (`/ronaldo`); lookups accept both the slug
  * and the raw id so old links keep working.
  */
-import type { SubgraphHandle } from "@/queries/handles";
+import type { IndexerHandle } from "@/queries/handles";
 
 /** Decode a left-aligned ASCII bytes32 ("0x6d65…" → "messi"). */
 export function decodeBytes32(hex: string): string | null {
@@ -48,7 +48,7 @@ function slugify(label: string): string {
  * a handle whose display name is "Elon Musk" still links to `/elon`. Only when
  * the id isn't decodable does the display name/symbol decide — otherwise a
  * cosmetic rename would move the URL and could point at a handle that no longer
- * matches the subgraph id.
+ * matches the indexer id.
  */
 export function handleSlug(
   source: { id: string; name?: string | null; symbol?: string | null } | string,
@@ -61,7 +61,7 @@ export function handleSlug(
   return slugify(label || (typeof source === "string" ? source : source.id));
 }
 
-export function handleHref(h: Pick<SubgraphHandle, "id" | "name" | "symbol">): string {
+export function handleHref(h: Pick<IndexerHandle, "id" | "name" | "symbol">): string {
   return `/${handleSlug(h)}`;
 }
 
@@ -83,7 +83,7 @@ function normaliseKey(value: string): string {
  * id, decoded label, canonical slug, symbol and the normalised display name.
  */
 export function matchesParam(
-  h: Pick<SubgraphHandle, "id" | "name" | "symbol">,
+  h: Pick<IndexerHandle, "id" | "name" | "symbol">,
   param: string,
 ): boolean {
   const p = normaliseKey(param);
@@ -98,7 +98,7 @@ export function matchesParam(
 }
 
 /** Resolve a URL param (`ronaldo`, `@ronaldo`, `0x726f…`) to a handle. */
-export function findHandle<T extends Pick<SubgraphHandle, "id" | "name" | "symbol">>(
+export function findHandle<T extends Pick<IndexerHandle, "id" | "name" | "symbol">>(
   handles: T[] | undefined,
   param: string,
 ): T | undefined {

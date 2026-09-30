@@ -11,13 +11,13 @@
  *
  *   node scripts/check-handle-slug.mjs [baseUrl]
  *
- * Data-verification needs the subgraph AND the app render path. When the
- * subgraph has no handles, lacks the app's `categories`/`categoryIds` fields,
+ * Data-verification needs the indexer AND the app render path. When the
+ * indexer has no handles, lacks the app's `categories` field,
  * or is unreachable (e.g. a schema migration is in flight) the script reports
  * SKIPPED instead of a false failure.
  */
-const BASE = process.argv[2] ?? "http://localhost:8080";
-const SUBGRAPH = "http://localhost:8000/subgraphs/name/aura/aura";
+const BASE = process.argv[2] ?? "http://localhost:5173";
+const INDEXER = "http://localhost:8080/v1/graphql";
 
 /**
  * Left-aligned ASCII bytes32 → label, or null. Kept local on purpose so this
@@ -49,21 +49,21 @@ const slugOf = (value) =>
  *  missing schema field is treated as "cannot data-verify", not a failure. */
 async function loadHandles() {
   try {
-    const res = await fetch(SUBGRAPH, {
+    const res = await fetch(INDEXER, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         query:
-          "{ handles(where: { active: true }, first: 50) { id name symbol categories categoryIds } }",
+          '{ Handle(where: { active: { _eq: true } }, limit: 50) { id name symbol categories } }',
       }),
     });
     const json = await res.json();
     if (json?.errors?.length) {
-      return { ok: false, reason: json.errors[0]?.message ?? "subgraph reported errors" };
+      return { ok: false, reason: json.errors[0]?.message ?? "indexer reported errors" };
     }
-    return { ok: true, handles: json?.data?.handles ?? [] };
+    return { ok: true, handles: json?.data?.Handle ?? [] };
   } catch (e) {
-    return { ok: false, reason: `subgraph unreachable (${e.message})` };
+    return { ok: false, reason: `indexer unreachable (${e.message})` };
   }
 }
 
@@ -75,7 +75,7 @@ if (!loaded.ok) {
   process.exit(0);
 }
 if (loaded.handles.length === 0) {
-  console.log("  – SKIPPED (subgraph has no handles yet — schema migration in flight?)\n");
+  console.log("  – SKIPPED (indexer has no handles yet — schema migration in flight?)\n");
   process.exit(0);
 }
 

@@ -1,10 +1,10 @@
 import { CATEGORY_MAP, type CategoryId, type MetricId } from "./aura-data";
 import { artworkOf } from "./handle-metadata";
 import { categoriesOf, windowLabels } from "@/queries/handles";
-import type { SubgraphWindow } from "@/queries/markets";
+import type { IndexerWindow } from "@/queries/markets";
 
 // ----------------------------------------------------------------------------
-// One market model for everything — built from REAL subgraph windows.
+// One market model for everything — built from REAL indexer windows.
 //
 // A market is one window on a handle: the question comes from the oracle's
 // metadata, the outcome list and prices from the window itself, and the
@@ -67,7 +67,7 @@ export type Market = {
   /** Always exactly two: YES and NO. */
   outcomes: MarketOutcome[];
   /** Raw window — carries the oracle address + LMSR state for trading. */
-  window: SubgraphWindow;
+  window: IndexerWindow;
 };
 
 /**
@@ -101,8 +101,8 @@ function pcts(prices: string[]): number[] {
   return pct;
 }
 
-/** Build the app's market model from one subgraph window (all real data). */
-export function toMarket(w: SubgraphWindow): Market {
+/** Build the app's market model from one indexer window (all real data). */
+export function toMarket(w: IndexerWindow): Market {
   const start = Number(w.windowStart) * 1000;
   const end = Number(w.windowEnd) * 1000;
   const minutes = end > start ? Math.round((end - start) / 60_000) : Number(w.handle.windowMinutes);
@@ -143,7 +143,7 @@ export function toMarket(w: SubgraphWindow): Market {
  * Markets for a window list. With `dedupe` (the /markets grid) each handle
  * shows only its newest window — one card per market, not one per interval.
  */
-export function toMarkets(windows: SubgraphWindow[], dedupe = false): Market[] {
+export function toMarkets(windows: IndexerWindow[], dedupe = false): Market[] {
   const out: Market[] = [];
   const seen = new Set<string>();
   for (const w of windows) {

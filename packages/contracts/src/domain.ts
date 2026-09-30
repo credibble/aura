@@ -6,7 +6,10 @@
  * contract-tested against the UI without drift.
  */
 
-/** The nine market categories used across the app. */
+/** The nine market categories used across the app. The on-chain code for each is
+ *  the plain small integer in the app's `CATEGORY_BY_CODE` (1 people, 2 crypto,
+ *  3 sports, 4 ai, 5 tech, 6 brands, 7 music, 8 memes, 9 culture) — the index
+ *  stores codes raw and the UI owns the mapping. */
 export type CategoryId =
   | "crypto"
   | "ai"

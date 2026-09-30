@@ -49,7 +49,7 @@ export function SearchPopover({
   const navigate = useNavigate();
   const needle = q.trim();
 
-  // Searching happens in the subgraph (name/symbol contains), not by scanning
+  // Searching happens in the indexer (name/symbol ilike), not by scanning
   // the client's list; the store only provides each hit's live index + change.
   const searchQuery = useQuery(handleSearchOptions(needle));
   const { handles } = useHandlesData();
@@ -76,7 +76,7 @@ export function SearchPopover({
       .slice(0, 6);
   }, [handles, searchQuery.data]);
 
-  // People search — subgraph `name_contains`, first 6 active handles.
+  // People search — indexer `name` ilike, first 6 active handles.
   const peopleQuery = useQuery({ ...peopleSearchOptions(needle), enabled: !!needle });
   const peopleResults = useMemo(() => peopleQuery.data ?? [], [peopleQuery.data]);
 

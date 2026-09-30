@@ -2,7 +2,7 @@
  * Aura handle-graduation Chainlink CRE workflow.
  *
  * A cron-triggered workflow that graduates handles once they clear the aura
- * bar: on schedule it queries the Aura subgraph for handles that are NOT yet
+ * bar: on schedule it queries the Aura indexer for handles that are NOT yet
  * graduated but have `aura > minGraduationAura` (1e2-scaled; 1000 = 10.00),
  * then calls `Handle.setGraduated(true)` on each candidate with the protocol
  * signer. That signer must be the handle's `auraUpdater` (the oracle relayer)
@@ -18,8 +18,8 @@ import { CronCapability, HttpCapability, handler, Runner, type Runtime } from "@
 type Config = {
   /** Cron schedule (every 15 minutes by default). */
   schedule: string;
-  /** The Aura subgraph GraphQL endpoint. */
-  subgraphUrl: string;
+  /** The Aura indexer GraphQL endpoint. */
+  indexerUrl: string;
   /** Aura floor (1e2-scaled) — graduate handles strictly above this (1000 = 10.00). */
   minGraduationAura: string;
 };
@@ -27,12 +27,11 @@ type Config = {
 const HANDLE_ABI = ["function setGraduated(bool graduated)"] as const;
 
 const GRADUATION_QUERY = `
-  query($minAura: BigInt!, $first: Int) {
-    handles(
-      where: { graduated: false, aura_gt: $minAura }
-      orderBy: aura
-      orderDirection: desc
-      first: $first
+  query($minAura: numeric!, $limit: Int) {
+    Handle(
+      where: { graduated: { _eq: false }, aura: { _gt: $minAura } }
+      order_by: { aura: desc }
+      limit: $limit
     ) {
       contract
       aura
@@ -41,28 +40,28 @@ const GRADUATION_QUERY = `
 `;
 
 const onCron = (runtime: Runtime<Config>): string => {
-  const { subgraphUrl, minGraduationAura } = runtime.config;
+  const { indexerUrl, minGraduationAura } = runtime.config;
   const evm = runtime.evm;
 
-  // Query the subgraph for handles that cleared the aura bar but aren't
+  // Query the indexer for handles that cleared the aura bar but aren't
   // graduated yet — a consensus-verified HTTP read of the indexed chain state.
   const response = new HttpCapability()
     .request(runtime, {
       method: "POST",
-      url: subgraphUrl,
+      url: indexerUrl,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         query: GRADUATION_QUERY,
-        variables: { minAura: minGraduationAura, first: 100 },
+        variables: { minAura: minGraduationAura, limit: 100 },
       }),
     })
     .result();
 
   let candidates: { contract: string; aura: string }[] = [];
   try {
-    candidates = JSON.parse(response).data.handles;
+    candidates = JSON.parse(response).data.Handle;
   } catch {
-    runtime.log(`CRE: subgraph response not parseable — skipping run`);
+    runtime.log(`CRE: indexer response not parseable — skipping run`);
     return "graduation-skip";
   }
 

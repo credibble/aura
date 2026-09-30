@@ -33,7 +33,7 @@ import {
 // Social state for the feed — follows, notification bells, likes, reposts,
 // bookmarks and comments, all backed by the oracle API (query cache +
 // invalidations). Handles are markets, not user accounts: you follow a @handle
-// (its market). Keys resolve both "@name" and the subgraph handle id.
+// (its market). Keys resolve both "@name" and the indexer handle id.
 // ----------------------------------------------------------------------------
 
 type SocialState = {

@@ -4,7 +4,7 @@ import { handlesQueryOptions, toLiveAsset } from "@/queries/handles";
 import type { AuraState, FeedEvent, LiveAsset } from "./aura-data";
 
 // ----------------------------------------------------------------------------
-// Live state provider — assets from the subgraph (per-handle aura + history),
+// Live state provider — assets from the indexer (per-handle aura + history),
 // live activity feed from the newest posts. No local simulation/tick.
 // ----------------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
 
   const assets = useMemo<LiveAsset[]>(() => (handles ?? []).map(toLiveAsset), [handles]);
 
-  // No backend feed: the app's surfaces are the subgraph's handles + windows.
+  // No backend feed: the app's surfaces are the indexer's handles + windows.
   const feed = useMemo<FeedEvent[]>(() => [], []);
 
   const state = useMemo<AuraState>(() => ({ assets, feed }), [assets, feed]);

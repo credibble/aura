@@ -129,7 +129,7 @@ function TradePage() {
    * AURA — the value the market's question is about, which is where the strike
    * line belongs. One chart, two lenses.
    */
-  const [chartMode, setChartMode] = useState<"aura" | "prices">("prices");
+  const [chartMode, setChartMode] = useState<"aura" | "prices">("aura");
   const [tab, setTab] = useState<TabId>("feeds");
   const [picked, setPicked] = useState(0);
   const [compact, setCompact] = useState(false);

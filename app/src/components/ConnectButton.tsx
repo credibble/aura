@@ -143,7 +143,7 @@ export function ConnectButton({
             ) : (
               <>
                 {formatCompact(Number(aura) / 1e18)}
-                <span className="text-[11px] font-medium text-muted-foreground">AURA</span>
+                <span className="text-xs font-medium text-muted-foreground">AURA</span>
               </>
             )}
           </div>
@@ -152,7 +152,7 @@ export function ConnectButton({
           <button
             type="button"
             onClick={copy}
-            className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/60"
+            className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/60 sm:min-h-0"
           >
             {copied ? <Check className="h-4 w-4 text-up" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied" : "Copy address"}
@@ -162,7 +162,7 @@ export function ConnectButton({
             <AlertDialogTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-down transition-colors hover:bg-secondary/60"
+                className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-down transition-colors hover:bg-secondary/60 sm:min-h-0"
               >
                 <LogOut className="h-4 w-4" />
                 Disconnect

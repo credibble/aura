@@ -31,7 +31,7 @@ export function PageShell({
   return (
     <FeedLayout sidebar={sidebar ?? <HomeSidebar />}>
       {header}
-      <div className={cn("px-4 py-5 sm:px-6", mainClassName)}>{children}</div>
+      <div className={cn("px-4 py-6 sm:px-6", mainClassName)}>{children}</div>
     </FeedLayout>
   );
 }

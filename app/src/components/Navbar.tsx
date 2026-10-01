@@ -46,8 +46,8 @@ export function Navbar() {
         </div>
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <HowItWorks>
-            <button className="hidden items-center gap-1.5 px-2 text-sm text-muted-foreground hover:text-foreground md:inline-flex">
-              <span className="grid h-4 w-4 place-items-center rounded-full border border-muted-foreground text-[10px]">
+            <button className="hidden min-h-11 items-center gap-1.5 px-2 text-sm text-muted-foreground hover:text-foreground md:inline-flex">
+              <span className="grid h-4 w-4 place-items-center rounded-full border border-muted-foreground text-xs">
                 i
               </span>
               How it works
@@ -73,11 +73,11 @@ export function Navbar() {
                 key={item.label}
                 to={item.to}
                 data-active={on ? "true" : undefined}
+                // Active state is carried by the underline ALONE — a second
+                // border utility would mean two borders on one tab.
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-2.5 text-sm font-medium",
-                  on
-                    ? "border-foreground text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
+                  on ? "border-foreground" : "border-transparent",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -96,9 +96,7 @@ export function Navbar() {
                 data-active={on ? "true" : undefined}
                 className={cn(
                   "shrink-0 border-b-2 px-2.5 py-2.5 text-sm font-medium",
-                  on
-                    ? "border-foreground text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
+                  on ? "border-foreground" : "border-transparent",
                 )}
               >
                 {c.label}
@@ -110,4 +108,3 @@ export function Navbar() {
     </header>
   );
 }
-

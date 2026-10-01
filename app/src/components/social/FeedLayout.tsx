@@ -57,6 +57,8 @@ function railClass(active: boolean, wideRow: string) {
     "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary/70",
     "text-foreground",
     wideRow,
+    // The active row is marked by TINT ONLY — a border on top of the tint was
+    // two signals for one state.
     active && "bg-secondary/60",
   );
 }
@@ -175,13 +177,14 @@ function LeftRail() {
    * Rail labels never unmount — they collapse to zero width and fade, so the
    * expand/collapse animates instead of snapping (display:none can't transition).
    */
-  const labelBase = "overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-200 ease-out";
+  const labelBase =
+    "overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-200 ease-out";
   const label =
     pref === "on"
-      ? `${labelBase} ml-4 max-w-[200px] opacity-100 text-[19px] leading-none`
+      ? `${labelBase} ml-4 max-w-[200px] opacity-100 text-xl leading-none`
       : pref === "off"
-        ? `${labelBase} ml-0 max-w-0 opacity-0 text-[19px] leading-none`
-        : `${labelBase} ml-0 max-w-0 opacity-0 text-[19px] leading-none 2xl:ml-4 2xl:max-w-[200px] 2xl:opacity-100`;
+        ? `${labelBase} ml-0 max-w-0 opacity-0 text-xl leading-none`
+        : `${labelBase} ml-0 max-w-0 opacity-0 text-xl leading-none 2xl:ml-4 2xl:max-w-[200px] 2xl:opacity-100`;
   // Same visibility rules as `label`, but without the rail's text sizing —
   // used for the Connect Wallet button's text spans.
   const btnLabel = pref === "on" ? "inline" : pref === "off" ? "hidden" : "hidden 2xl:inline";

@@ -22,8 +22,7 @@ const FADE = 28;
 type Edges = { start: boolean; end: boolean };
 
 /** Edge-fade mask — only fades the side(s) that actually hide content. */
-function edgeMask(edges: Edges, axis: "x" | "y"): CSSProperties | undefined {
-  if (!edges.start && !edges.end) return undefined;
+function edgeMask(edges: Edges, axis: "x" | "y"): CSSProperties | undefined {  if (!edges.start && !edges.end) return undefined;
   const stops = [
     edges.start ? `transparent 0px` : `black 0px`,
     edges.start ? `black ${FADE}px` : null,
@@ -93,7 +92,9 @@ function RowArrow({
       onClick={onClick}
       aria-label={side === "start" ? "Scroll left" : "Scroll right"}
       className={cn(
-        "absolute top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/90 text-foreground shadow-sm backdrop-blur transition-colors hover:bg-secondary",
+        // The pill keeps a border + fill (they carry the hit area); the drop
+        // shadow was a third signal on a 32px control.
+        "absolute top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/90 text-foreground backdrop-blur transition-colors hover:bg-secondary",
         side === "start" ? "left-0.5" : "right-0.5",
         className,
       )}
@@ -174,6 +175,9 @@ export function ScrollRow({
   };
 
   return (
+    // `min-w-0` on the wrapper: as a flex child the row must be allowed to
+    // shrink below its content's width, or the intrinsic width of the tabs wins
+    // and the whole bar overflows the viewport at tablet widths.
     <div className={cn("relative min-w-0", wrapperClassName)}>
       <div
         ref={ref}

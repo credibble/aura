@@ -74,7 +74,7 @@ const RANGES = [
 const MAX_MEMOS = 64;
 
 const ICON_BTN =
-  "grid h-9 w-9 place-items-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
+  "grid h-10 w-10 place-items-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
 
 type TabId = "feeds" | "trades" | "orderbook";
 
@@ -402,9 +402,9 @@ function TradePage() {
     <FeedLayout
       sidebar={
         !tradable ? (
-          <div className="rounded-2xl border border-border/70 bg-card p-4 text-[13px] leading-relaxed">
+          <div className="rounded-2xl border border-border/70 bg-card p-4 text-sm leading-relaxed">
             <h2 className="text-sm font-semibold">Not tradable yet</h2>
-            <p className="mt-1.5 text-muted-foreground">
+            <p className="mt-2 text-muted-foreground">
               <span className="text-foreground">@{slug}</span> hasn&apos;t graduated, so its
               prediction market is locked. A handle graduates at{" "}
               <span className="num text-foreground">100</span> aura and unlocks trading.
@@ -415,7 +415,7 @@ function TradePage() {
             <TradeTicket market={market} />
             <div className="rounded-2xl border border-border/70 bg-card p-4">
               <h2 className="text-sm font-semibold">Market</h2>
-              <dl className="mt-2 space-y-1.5 text-[13px]">
+              <dl className="mt-3 space-y-2 text-sm">
                 <Row label="Volume">
                   <UsdcAmount value={formatUsd(market.volume)} size={12} />
                 </Row>
@@ -430,20 +430,20 @@ function TradePage() {
               {vault && (
                 <div className="mt-4 border-t border-border/70 pt-4">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Staked on @{slug}
                     </span>
                     <span className="num text-sm font-bold">
                       {stakeStats
                         ? `${formatCompact(stakeStats.totalAssets)}`
                         : "—"}
-                      <span className="ml-1 text-[11px] font-medium text-muted-foreground">
+                      <span className="ml-1 text-xs font-medium text-muted-foreground">
                         AURA
                       </span>
                     </span>
                   </div>
                   {myStake && (
-                    <div className="num mt-1 text-[11px] text-muted-foreground">
+                    <div className="num mt-1.5 text-xs text-muted-foreground">
                       yours {formatCompact(myStake.earned)}{" "}
                       AURA
                     </div>
@@ -459,16 +459,16 @@ function TradePage() {
             </div>
 
             {/* Rules live with the market facts, not in the trade column */}
-            <div className="text-[13px] leading-relaxed text-muted-foreground">
+            <div className="text-sm leading-relaxed text-muted-foreground">
               <h2 className="text-sm font-semibold text-foreground">Rules</h2>
-              <p className="mt-1.5">
+              <p className="mt-2">
                 This market resolves on the handle&apos;s aura index at the end of its{" "}
                 {market.deadline} window. Exactly one outcome pays 100¢. Aura is not ownership.
               </p>
             </div>
           </>
         ) : (
-          <div className="rounded-2xl border border-border/70 bg-card p-4 text-[13px] text-muted-foreground">
+          <div className="rounded-2xl border border-border/70 bg-card p-4 text-sm text-muted-foreground">
             No open window for <span className="text-foreground">@{slug}</span> right now. The next
             interval opens automatically.
           </div>
@@ -503,7 +503,7 @@ function TradePage() {
                 <div className="flex items-center gap-1.5">
                   <span
                     className={cn(
-                      "truncate font-bold tracking-tight transition-all",
+                      "truncate font-bold transition-all",
                       compact ? "text-base" : "text-xl sm:text-2xl",
                     )}
                   >
@@ -541,8 +541,8 @@ function TradePage() {
 
           <div className="px-4 pt-4 sm:px-6">
             {market ? (
-              <section className="rounded-2xl border border-border/70 bg-card p-3 sm:p-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <section className="rounded-2xl border border-border/70 bg-card p-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-1">
                     {/* What the chart plots. One chart: Aura shows the index the
                         market is about (with its strike line); Prices shows the
@@ -556,7 +556,7 @@ function TradePage() {
                           aria-pressed={on}
                           onClick={() => setChartMode(m === "Aura" ? "aura" : "prices")}
                           className={cn(
-                            "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                            "rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
                             on
                               ? "bg-secondary text-foreground"
                               : "text-muted-foreground hover:text-foreground",
@@ -573,7 +573,7 @@ function TradePage() {
                         type="button"
                         onClick={() => setRange(r.id)}
                         className={cn(
-                          "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                          "rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
                           range === r.id
                             ? "bg-secondary text-foreground"
                             : "text-muted-foreground hover:text-foreground",
@@ -590,7 +590,7 @@ function TradePage() {
                       <button
                         type="button"
                         onClick={() => setWindowId(null)}
-                        className="flex items-center gap-1.5 rounded-full bg-up/15 px-2.5 py-1 text-[11px] font-semibold text-up transition-colors hover:bg-up/25"
+                        className="flex items-center gap-1.5 rounded-full bg-up/15 px-3 py-1.5 text-xs font-semibold text-up transition-colors hover:bg-up/25"
                       >
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-up" />
                         Back to live
@@ -600,7 +600,7 @@ function TradePage() {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         >
                           <History className="h-3.5 w-3.5" />
                           {isLiveView
@@ -641,7 +641,7 @@ function TradePage() {
                           type="button"
                           onClick={copyLink}
                           aria-label="Copy link"
-                          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                          className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         >
                           <Link2 className="h-4 w-4" />
                         </button>
@@ -651,11 +651,12 @@ function TradePage() {
                   </div>
                 </div>
 
-                {/* Footer stats beside the range chips: volume, close time, fee */}
-                <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-secondary/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+                {/* Footer stats beside the range chips: volume, close time, fee.
+                    No tinted strip — the card already sets these apart. */}
+                <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-1 border-y border-border/70 py-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <span className="font-medium uppercase tracking-wide">Volume</span>
-                    <UsdcAmount value={formatUsd(market.volume)} size={11} />
+                    <UsdcAmount value={formatUsd(market.volume)} size={12} />
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="font-medium uppercase tracking-wide">Closes</span>
@@ -724,21 +725,21 @@ function TradePage() {
                         transform: "translateX(-50%)",
                       }}
                     >
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Aura memo</span>
                         <span>{ago(memos[hover]!.ts)}</span>
                       </div>
-                      <p className="mt-1 text-[13px] leading-snug text-foreground">
+                      <p className="mt-1.5 text-sm leading-snug text-foreground">
                         {memos[hover]!.summary}
                       </p>
-                      <div className="num mt-1.5 text-[11px] text-muted-foreground">
+                      <div className="num mt-2 text-xs text-muted-foreground">
                         index {formatIndex(memos[hover]!.aura)}
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/70 pt-3 text-[13px]">
+                <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-border/70 pt-4 text-sm">
                   {market.outcomes.map((o) => (
                     <span key={o.id} className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full" style={{ background: o.color }} />
@@ -757,8 +758,8 @@ function TradePage() {
             ) : (
               <section className="flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card px-4 py-12 text-center">
                 <Clock className="h-5 w-5 text-muted-foreground" />
-                <p className="text-[15px] font-semibold">No trading window open</p>
-                <p className="max-w-sm text-[13px] text-muted-foreground">
+                <p className="text-sm font-semibold">No trading window open</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
                   @{slug} publishes on its own interval — the next window opens automatically and
                   this page becomes tradable.
                 </p>
@@ -821,7 +822,7 @@ function TradePage() {
                     <FeedItem key={p.id} post={p} variant="compact" />
                   ))}
                   {!feeds.isPending && feedsPosts.length === 0 && (
-                    <p className="px-4 py-6 text-[13px] text-muted-foreground">
+                    <p className="px-4 py-8 text-sm text-muted-foreground">
                       No feeds published for @{slug} yet — they appear as its sources report.
                     </p>
                   )}
@@ -837,7 +838,7 @@ function TradePage() {
               {tab === "trades" && viewed && (
                 <div className="overflow-x-auto">
                   <div className="min-w-[560px]">
-                    <div className="grid grid-cols-[1fr_84px_76px_92px] items-center gap-3 border-b border-border/70 px-4 pb-3 pt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[1fr_96px_80px_96px_96px_64px] sm:px-6">
+                    <div className="grid grid-cols-[1fr_84px_76px_92px] items-center gap-3 border-b border-border/70 px-4 pb-3 pt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[1fr_96px_80px_96px_96px_64px] sm:px-6">
                     <span>Trader</span>
                     <span>Side</span>
                     <span className="text-right">Price</span>
@@ -847,7 +848,7 @@ function TradePage() {
                   </div>
 
                   {trades.length === 0 && (
-                    <p className="px-4 py-6 text-center text-[13px] text-muted-foreground sm:px-6">
+                    <p className="px-4 py-8 text-center text-sm text-muted-foreground sm:px-6">
                       No trades on this window yet.
                     </p>
                   )}
@@ -858,14 +859,14 @@ function TradePage() {
                     return (
                       <div
                         key={t.id}
-                        className="grid grid-cols-[1fr_84px_76px_92px] items-center gap-3 border-b border-border/50 px-4 py-3 text-[13px] transition-colors last:border-0 hover:bg-secondary/25 sm:grid-cols-[1fr_96px_80px_96px_96px_64px] sm:px-6"
+                        className="grid grid-cols-[1fr_84px_76px_92px] items-center gap-3 border-b border-border/50 px-4 py-3 text-sm transition-colors last:border-0 hover:bg-secondary/25 sm:grid-cols-[1fr_96px_80px_96px_96px_64px] sm:px-6"
                       >
                         <span className="num truncate text-muted-foreground">
                           {shortUser(t.user.id)}
                         </span>
                         <span
                           className={cn(
-                            "truncate text-[12px] font-semibold",
+                            "truncate text-xs font-semibold",
                             isBuy ? "text-up" : "text-down",
                           )}
                         >
@@ -880,7 +881,7 @@ function TradePage() {
                         <span className="flex justify-end">
                           <UsdcAmount value={formatUsd(Number(t.premium) / 1e18)} size={12} />
                         </span>
-                        <span className="hidden text-right text-[11px] text-muted-foreground sm:block">
+                        <span className="hidden text-right text-xs text-muted-foreground sm:block">
                           {ago(Number(t.ts) * 1000)}
                         </span>
                       </div>
@@ -956,7 +957,7 @@ function HandleActions({
         type="button"
         onClick={() => toggleFollow(handle)}
         className={cn(
-          "rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors",
+          "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
           following
             ? "border border-border text-foreground hover:border-down/60 hover:text-down"
             : "bg-foreground text-background hover:opacity-90",
@@ -992,14 +993,14 @@ function HandleActions({
 
       {/* Staking is a core signal — say how much AURA is behind this handle. */}
       {hasVault && (
-        <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px]">
+        <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
           <div className="flex items-baseline gap-1.5">
             <dt className="text-muted-foreground">Staked</dt>
             <dd className="num font-semibold text-foreground">
               {stakeStats
                 ? formatCompact(stakeStats.totalAssets)
                 : "—"}
-              <span className="ml-1 text-[11px] font-medium text-muted-foreground">AURA</span>
+              <span className="ml-1 text-xs font-medium text-muted-foreground">AURA</span>
             </dd>
           </div>
           {myStake && (
@@ -1008,7 +1009,7 @@ function HandleActions({
                 <dt className="text-muted-foreground">Yours</dt>
                 <dd className="num font-semibold text-foreground">
                   {formatCompact(myStake.earned)}
-                  <span className="ml-1 text-[11px] font-medium text-muted-foreground">AURA</span>
+                  <span className="ml-1 text-xs font-medium text-muted-foreground">AURA</span>
                 </dd>
               </div>
               <div className="flex items-baseline gap-1.5">

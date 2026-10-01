@@ -24,7 +24,7 @@ export const StakeButton = forwardRef<
         type="button"
         {...props}
         className={cn(
-          "inline-flex items-center justify-center gap-1.5 rounded-full bg-card px-4 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-secondary",
+          "inline-flex items-center justify-center gap-1.5 rounded-full bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-secondary",
           block && "w-full py-3 text-sm",
           className,
         )}

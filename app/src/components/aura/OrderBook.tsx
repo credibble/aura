@@ -58,7 +58,7 @@ export function OrderBook({
   const row = (l: Level, dir: "up" | "down") => (
     <div
       key={`${dir}-${l.priceCents}-${l.shares}`}
-      className="relative grid grid-cols-[1fr_72px_84px_92px] items-center px-1 py-[7px] text-sm"
+      className="relative grid grid-cols-[1fr_72px_84px_92px] items-center px-1 py-2 text-sm"
     >
       <span
         aria-hidden="true"
@@ -117,7 +117,7 @@ export function OrderBook({
           <div className="num shrink-0 text-xs text-muted-foreground">Last: {formatCents(lastPrice)}</div>
         </div>
 
-        <div className="mt-2 grid grid-cols-[1fr_72px_84px_92px] px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="mt-3 grid grid-cols-[1fr_72px_84px_92px] px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Resting orders</span>
           <span className="text-right">Price</span>
           <span className="text-right">Shares</span>
@@ -126,7 +126,7 @@ export function OrderBook({
 
         <div className="relative mt-1">
           {asks.length === 0 && bids.length === 0 && (
-            <div className="py-6 text-center text-[13px] text-muted-foreground">
+            <div className="py-8 text-center text-sm text-muted-foreground">
               {bookQuery.isPending
                 ? "Loading resting orders…"
                 : "No resting orders for this outcome yet — trade at the AMM price."}
@@ -137,16 +137,16 @@ export function OrderBook({
 
           {(asks.length > 0 || bids.length > 0) && (
             <div className="relative border-t border-border">
-              <span className="absolute -top-2.5 left-0 z-10 rounded bg-down px-1.5 py-px text-[10px] font-bold text-white">
+              <span className="absolute -top-2.5 left-0 z-10 rounded bg-down px-2 py-0.5 text-xs font-bold text-white">
                 Asks
               </span>
-              <div className="flex items-center justify-between py-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between py-2 text-xs text-muted-foreground">
                 <span className="num">Last: {formatCents(lastPrice)}</span>
                 <span className="num">
                   {spreadCents != null ? `Spread: ${formatCents(spreadCents / 100)}` : "Spread: —"}
                 </span>
               </div>
-              <span className="absolute -bottom-2.5 left-0 z-10 rounded bg-up px-1.5 py-px text-[10px] font-bold text-white">
+              <span className="absolute -bottom-2.5 left-0 z-10 rounded bg-up px-2 py-0.5 text-xs font-bold text-white">
                 Bids
               </span>
             </div>

@@ -33,8 +33,6 @@ type Mode = "tap" | "market" | "limit";
 
 const QUICK = [1, 5, 10, 100];
 const TAP_STEPS = [5, 25, 100];
-/** 1-Tap sells exit the position — the unit is shares, so there is no dollar chip. */
-const TAP_SELL_LABEL = "Sell position";
 
 /** Dollars/shares text → 1e18 base units (≤6 decimals of precision). */
 function toE18Units(n: number): bigint {
@@ -339,7 +337,7 @@ export function TradeTicket({ market }: { market: Market }) {
   const limitControls = (
     <div className="mt-3 rounded-xl border border-border/70 px-3 py-2">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] text-muted-foreground">Limit price</span>
+        <span className="text-sm text-muted-foreground">Limit price</span>
         <div className="flex items-baseline gap-0.5">
           <input
             value={limitPrice}
@@ -359,7 +357,7 @@ export function TradeTicket({ market }: { market: Market }) {
             type="button"
             onClick={() => nudgeLimit(d)}
             aria-label={`${d > 0 ? "Raise" : "Lower"} limit by ${Math.abs(d)} cents`}
-            className="num rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 hover:bg-secondary/70"
+            className="num rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
           >
             {d > 0 ? `+${d}` : `−${Math.abs(d)}`}¢
           </button>
@@ -367,14 +365,14 @@ export function TradeTicket({ market }: { market: Market }) {
         <button
           type="button"
           onClick={() => setLimitPrice(String(liveCents))}
-          className="ml-auto rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 hover:bg-secondary/70"
+          className="ml-auto rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
         >
           Market
         </button>
       </div>
       <p
         className={cn(
-          "num mt-1.5 text-[11px]",
+          "num mt-2 text-xs",
           limitWrongSide ? "text-down" : "text-muted-foreground",
         )}
       >
@@ -398,10 +396,10 @@ export function TradeTicket({ market }: { market: Market }) {
           className="shrink-0"
         />
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="line-clamp-2 text-[14px] font-medium">
+          <div className="line-clamp-2 text-sm font-medium">
             <AuraText text={market.question} />
           </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
+          <div className="mt-1 text-xs text-muted-foreground">
             {outcome.label} · {formatCents(priceUsd)}
           </div>
         </div>
@@ -409,13 +407,13 @@ export function TradeTicket({ market }: { market: Market }) {
       </div>
 
       {market.settled ? (
-        <div className="mt-4 rounded-2xl bg-secondary/40 p-3.5 text-[13px]">
+        <div className="mt-4 rounded-2xl bg-secondary/40 p-4 text-sm">
           <div className="font-semibold">
             Settled — {market.outcomes[market.winningOutcome ?? 0]?.label ?? "?"} won
           </div>
           {claimable ? (
             <>
-              <div className="num mt-1 text-muted-foreground">
+              <div className="num mt-1.5 text-muted-foreground">
                 {heldNum.toFixed(2)} winning shares · ${heldNum.toFixed(2)} payout
               </div>
               <button
@@ -457,7 +455,7 @@ export function TradeTicket({ market }: { market: Market }) {
                   }}
                   aria-pressed={on}
                   className={cn(
-                    "rounded-lg py-2 text-[13px] font-semibold transition-colors",
+                    "rounded-lg py-2.5 text-sm font-semibold transition-colors",
                     on
                       ? positive
                         ? "bg-up/15 text-up"
@@ -484,7 +482,7 @@ export function TradeTicket({ market }: { market: Market }) {
                   }}
                   aria-pressed={side === s}
                   className={cn(
-                    "text-[13px] font-semibold capitalize transition-colors",
+                    "text-sm font-semibold capitalize transition-colors",
                     side === s ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -543,19 +541,18 @@ export function TradeTicket({ market }: { market: Market }) {
                     type="button"
                     disabled={!live}
                     onClick={() => void exec.buy(target, picked, step)}
-                    className="rounded-xl border border-border/70 py-2.5 transition-colors hover:bg-secondary/50 disabled:opacity-50"
+                    className="rounded-xl border border-border/70 py-3 transition-colors hover:bg-secondary/50 disabled:opacity-50"
                   >
                     <div className="num text-base font-semibold">{step}</div>
-                    <div className="num text-[11px] text-up">win {winUsd.toFixed(0)}</div>
+                    <div className="num text-xs text-up">win {winUsd.toFixed(0)}</div>
                   </button>
                 );
               })}
             </div>
           ) : side === "buy" ? (
             <>
-              {/* Amount — one big number */}
               {/* Amount — one big number that grows with its digits */}
-              <div className="mt-3 flex items-center justify-center gap-2">
+              <div className="mt-4 flex items-center justify-center gap-2">
                 <UsdcIcon size={22} />
                 <AmountInput
                   value={amount}
@@ -565,16 +562,16 @@ export function TradeTicket({ market }: { market: Market }) {
                   ariaLabel="Amount in USDC"
                 />
               </div>
-              <div className="num mt-1 text-center text-[11px] text-muted-foreground">
+              <div className="num mt-2 text-center text-xs text-muted-foreground">
                 ≈ {estimatedShares.toFixed(2)} shares @ {formatCents(priceUsd)}
               </div>
-              <div className="mt-3 flex justify-center gap-1.5">
+              <div className="mt-3 flex justify-center gap-2">
                 {QUICK.map((q) => (
                   <button
                     key={q}
                     type="button"
                     onClick={() => setAmount(String((Number(amount) || 0) + q))}
-                    className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 hover:bg-secondary/70"
+                    className="min-h-9 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
                   >
                     +{q}
                   </button>
@@ -588,7 +585,7 @@ export function TradeTicket({ market }: { market: Market }) {
                   type="button"
                   disabled={minting}
                   onClick={() => void getTestUsdc()}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-border/70 py-1.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                  className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-border/70 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
                 >
                   {minting ? (
                     <Loader2 className="size-3 animate-spin" />
@@ -602,7 +599,7 @@ export function TradeTicket({ market }: { market: Market }) {
             </>
           ) : (
             <>
-              <div className="mt-3 flex items-center justify-center gap-2">
+              <div className="mt-4 flex items-center justify-center gap-2">
                 <AmountInput
                   value={sharesIn}
                   onChange={(v) => {
@@ -615,12 +612,12 @@ export function TradeTicket({ market }: { market: Market }) {
                 />
                 <span className="text-sm text-muted-foreground">shares</span>
               </div>
-              <div className="num mt-1 text-center text-[11px] text-muted-foreground">
+              <div className="num mt-2 text-center text-xs text-muted-foreground">
                 {address
                   ? `you hold ${heldNum.toFixed(4)} · ≈ $${((Number(sharesIn) || 0) * priceUsd).toFixed(2)}`
                   : "connect to see your holdings"}
               </div>
-              <div className="mt-3 flex justify-center gap-1.5">
+              <div className="mt-3 flex justify-center gap-2">
                 {[25, 50, 75, 100].map((q) => (
                   <button
                     key={q}
@@ -632,7 +629,7 @@ export function TradeTicket({ market }: { market: Market }) {
                       if (q === 100) void sellMax();
                       else void sellFraction(q);
                     }}
-                    className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground/90 hover:bg-secondary/70 disabled:opacity-50"
+                    className="min-h-9 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground/90 hover:bg-secondary/70 disabled:opacity-50"
                   >
                     {q === 100 ? "Max" : `${q}%`}
                   </button>
@@ -643,13 +640,18 @@ export function TradeTicket({ market }: { market: Market }) {
           )}
 
           {/* Trading deadline. The countdown shares the ticket's one clock, so
-              the readout and the live/awaiting flip agree; at zero the button
-              gives way to the awaiting-settlement state. */}
+              the readout and the live/awaiting flip agree; `windowStart` lets it
+              pick a shape from the window's length instead of the time left. */}
           <div className="mt-4 flex items-center justify-between gap-3">
-            <span className="text-[11px] font-medium text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               {awaitingSettle ? "Awaiting settlement" : "Trading open"}
             </span>
-            <Countdown windowEnd={market.windowEnd} now={now} className="text-[11px]" />
+            <Countdown
+              windowEnd={market.windowEnd}
+              windowStart={market.windowStart}
+              now={now}
+              className="text-xs"
+            />
           </div>
 
           {!awaitingSettle &&
@@ -671,7 +673,7 @@ export function TradeTicket({ market }: { market: Market }) {
               </button>
             )}
 
-          <p className="mt-3 text-center text-[11px] text-muted-foreground">
+          <p className="mt-4 text-center text-xs text-muted-foreground">
             Settles on Monad · trading means you accept the{" "}
             <span className="underline underline-offset-2">Terms of Use</span>.
           </p>

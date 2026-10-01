@@ -334,7 +334,7 @@ export function MultiChart({
       {ticks.map((t) => (
         <span
           key={`tick-${t}`}
-          className="num pointer-events-none absolute -translate-y-1/2 pl-1.5 text-[10px] text-muted-foreground"
+          className="num pointer-events-none absolute -translate-y-1/2 pl-1.5 text-xs text-muted-foreground"
           style={{ left: `${CHART_PLOT_RATIO * 100}%`, top: `${(yFor(t) / h) * 100}%` }}
         >
           {label(t)}
@@ -350,7 +350,7 @@ export function MultiChart({
         return (
           <span
             key={`end-${s.label}-${id}`}
-            className="num pointer-events-none absolute z-10 -translate-y-1/2 whitespace-nowrap rounded-[4px] px-1 text-[10px] font-semibold"
+            className="num pointer-events-none absolute z-10 -translate-y-1/2 whitespace-nowrap rounded bg-card px-1 text-xs font-semibold"
             style={{
               left: `${(cx / W) * 100}%`,
               top: `${(cy / h) * 100}%`,
@@ -369,7 +369,7 @@ export function MultiChart({
           span the full height. */}
       {hasStrike && (
         <span
-          className="num pointer-events-none absolute right-1 -translate-y-1/2 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
+          className="num pointer-events-none absolute right-1 -translate-y-1/2 rounded-full border px-2 py-0.5 text-xs font-semibold"
           style={{
             top: `${(strikeY / h) * 100}%`,
             color: strikeColor,

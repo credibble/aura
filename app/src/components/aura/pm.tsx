@@ -73,7 +73,7 @@ export function MarketCard({ market }: { market: Market }) {
           size={36}
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span>
               {cat.label} · {windowLabels(market.windowMinutes).short}
             </span>
@@ -91,15 +91,15 @@ export function MarketCard({ market }: { market: Market }) {
 
       <div className="mt-3 flex items-end justify-between gap-2">
         <div>
-          <div className="text-[11px] text-muted-foreground">chance</div>
+          <div className="text-xs text-muted-foreground">chance</div>
           <div className="flex items-baseline gap-1.5">
-            <span className="num text-2xl font-bold leading-none tracking-tight text-foreground">
+            <span className="num text-2xl font-bold leading-none text-foreground">
               {pctLabel(yes)}
             </span>
             <DeltaChip delta={move} />
           </div>
         </div>
-        <div className="text-right text-[11px] text-muted-foreground">
+        <div className="text-right text-xs text-muted-foreground">
           <div>
             <span className="text-up">Yes</span> {pctLabel(yes)}
           </div>
@@ -190,7 +190,7 @@ export function ChanceGauge({ value }: { value: number }) {
           strokeLinecap="round"
         />
       </svg>
-      <span className="num absolute text-[10px] font-bold text-foreground">{label}</span>
+      <span className="num absolute text-xs font-bold text-foreground">{label}</span>
     </div>
   );
 }

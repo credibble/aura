@@ -83,6 +83,10 @@ interface IMarketMaker {
     );
 
     // --- views ----------------------------------------------------------------
+    /// True while the window is within its scheduled bounds and has not settled.
+    /// This is a SCHEDULE view (is the clock still inside the window?); the
+    /// trading gate additionally freezes on `oracle.windowStatus() == RESOLVED`,
+    /// which can happen before the scheduled end.
     function isOpen(IAuraOracle oracle) external view returns (bool);
 
     function priceOf(IAuraOracle oracle, uint256 outcome) external view returns (uint256);
@@ -109,6 +113,8 @@ interface IMarketMaker {
 
     function sell(IAuraOracle oracle, uint256 outcome, uint256 delta, uint256 minProceeds) external;
 
+    /// Mirror the outcome the window's Oracle already recorded. Settles as soon
+    /// as the Oracle is RESOLVED — before the scheduled `windowEnd` too.
     function settle(IAuraOracle oracle, uint256 winningOutcome) external;
 
     function claim(IAuraOracle oracle, uint256 outcome) external;

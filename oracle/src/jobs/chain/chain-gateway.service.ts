@@ -195,6 +195,26 @@ export class ChainGateway implements OnModuleInit {
     }
   }
 
+  /**
+   * The window Oracle's lifecycle status: 0 OPEN, 1 FROZEN, 2 RESOLVED,
+   * 3 VOIDED. `null` = RPC couldn't answer (distinct from a status of 0).
+   */
+  async windowStatus(oracle: string): Promise<number | null> {
+    if (!this.enabled) return null;
+    try {
+      const status = (await this.read({
+        address: oracle,
+        abi: OracleAbi,
+        functionName: "windowStatus",
+        args: [],
+      })) as bigint | number;
+      return Number(status);
+    } catch (error) {
+      this.logger.warn(`windowStatus unknown (${oracle}): ${(error as Error).message}`);
+      return null;
+    }
+  }
+
   async onChainAura(handleContract: string): Promise<number | null> {
     if (!this.enabled) return null;
     try {
@@ -308,55 +328,62 @@ export class ChainGateway implements OnModuleInit {
   ): Promise<boolean> {
     if (!this.enabled || !this.market || !this.account) return false;
     try {
-      const message = {
-        handleId: receipt.handleId as `0x${string}`,
-        windowStart: BigInt(Math.floor(receipt.windowStart)),
-        windowEnd: BigInt(Math.floor(receipt.windowEnd)),
-        s: scaled(receipt.s),
-        expectation: scaled(receipt.expectation),
-        delta: scaledSigned(receipt.delta),
-        indexOpen: scaled(receipt.indexOpen),
-        indexClose: scaled(receipt.indexClose),
-        direction: receipt.direction,
-        itemCount: Math.max(0, Math.floor(receipt.itemCount)),
-        outcomesHash: receipt.outcomesHash as `0x${string}`,
-        resolvedAt: BigInt(Math.floor(Date.now() / 1000)),
-      };
-      // Domain mirrors ResolutionReceiptLib.domainSeparator exactly.
-      const signature = await this.account.signTypedData({
-        domain: {
-          name: "Aura Oracle",
-          version: "1",
-          chainId: BigInt(this.chainId),
-          verifyingContract: oracle as `0x${string}`,
-        },
-        types: RESOLUTION_TYPES,
-        primaryType: "ResolutionReceipt",
-        message,
-      });
+      // Already resolved (a previous attempt submitted but its settle failed, or
+      // the early-close path resolved on the aura tick): re-submitting reverts
+      // `AlreadyResolved`, which would leave the window permanently unsettled.
+      // Detect RESOLVED and go straight to settle.
+      const status = await this.windowStatus(oracle);
+      if (status !== 2) {
+        const message = {
+          handleId: receipt.handleId as `0x${string}`,
+          windowStart: BigInt(Math.floor(receipt.windowStart)),
+          windowEnd: BigInt(Math.floor(receipt.windowEnd)),
+          s: scaled(receipt.s),
+          expectation: scaled(receipt.expectation),
+          delta: scaledSigned(receipt.delta),
+          indexOpen: scaled(receipt.indexOpen),
+          indexClose: scaled(receipt.indexClose),
+          direction: receipt.direction,
+          itemCount: Math.max(0, Math.floor(receipt.itemCount)),
+          outcomesHash: receipt.outcomesHash as `0x${string}`,
+          resolvedAt: BigInt(Math.floor(Date.now() / 1000)),
+        };
+        // Domain mirrors ResolutionReceiptLib.domainSeparator exactly.
+        const signature = await this.account.signTypedData({
+          domain: {
+            name: "Aura Oracle",
+            version: "1",
+            chainId: BigInt(this.chainId),
+            verifyingContract: oracle as `0x${string}`,
+          },
+          types: RESOLUTION_TYPES,
+          primaryType: "ResolutionReceipt",
+          message,
+        });
 
-      await this.write({
-        address: oracle,
-        abi: OracleAbi,
-        functionName: "submitResolution",
-        args: [
-          [
-            message.handleId,
-            message.windowStart,
-            message.windowEnd,
-            message.s,
-            message.expectation,
-            message.delta,
-            message.indexOpen,
-            message.indexClose,
-            message.direction,
-            message.itemCount,
-            message.outcomesHash,
-            message.resolvedAt,
+        await this.write({
+          address: oracle,
+          abi: OracleAbi,
+          functionName: "submitResolution",
+          args: [
+            [
+              message.handleId,
+              message.windowStart,
+              message.windowEnd,
+              message.s,
+              message.expectation,
+              message.delta,
+              message.indexOpen,
+              message.indexClose,
+              message.direction,
+              message.itemCount,
+              message.outcomesHash,
+              message.resolvedAt,
+            ],
+            signature,
           ],
-          signature,
-        ],
-      });
+        });
+      }
       return await this.settle(oracle, winningOutcome);
     } catch (error) {
       this.logger.error(`resolveAndSettle failed (${oracle}): ${(error as Error).message}`);

@@ -179,19 +179,24 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
     }
 
     /// Settle: the ORACLE's own on-chain resolution is the authority. The relayer
-    /// submits a signed receipt to the window's Oracle first (which enforces the
-    /// window's end time), and this call only mirrors the outcome the Oracle
-    /// already recorded — a settlement can never disagree with the receipt.
-    /// Binary windows: the outcome index must match the receipt's direction.
+    /// submits a signed receipt to the window's Oracle first and this call only
+    /// mirrors the outcome the Oracle already recorded — a settlement can never
+    /// disagree with the receipt. Binary windows: the outcome index must match
+    /// the receipt's direction.
+    ///
+    /// There is deliberately NO "not before `windowEnd`" gate: a window is
+    /// settled as soon as its Oracle carries a verified resolution, which is the
+    /// handle's first in-window aura observation (freeze-on-resolve). The
+    /// scheduled `windowEnd` is a MAXIMUM — a window that reaches it with no
+    /// observation is left for the market's grace window to VOID.
     function settle(IAuraOracle oracle, uint256 winningOutcome) external onlyOracle {
         _checkOracle(oracle);
         Window storage w = windows[address(oracle)];
         if (w.windowEnd == 0) revert Errors.WindowNotOpened();
         if (w.settled) revert Errors.AlreadySettled();
         if (winningOutcome >= w.outcomes.length) revert Errors.BadOutcome();
-        // The window cannot settle before it has ended.
-        if (block.timestamp < w.windowEnd) revert Errors.TooEarly();
-        // The Oracle must carry a verified resolution (signed receipt).
+        // The Oracle must carry a verified resolution (signed receipt). Its
+        // `windowStatus` is the freeze: once RESOLVED, trading is already off.
         if (oracle.windowStatus() != IAuraOracle.WindowStatus.RESOLVED)
             revert Errors.OracleNotResolved();
         (bool direction, , , ) = oracle.resolutionOf();
@@ -384,7 +389,7 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         _checkOracle(oracle);
         Window storage w = windows[address(oracle)];
         if (w.windowEnd == 0) revert Errors.WindowNotOpened();
-        if (!_live(w)) revert Errors.WindowNotOpen();
+        if (!_isTradable(w, oracle)) revert Errors.WindowNotOpen();
         if (amountIn == 0) revert Errors.ZeroInput();
         if (outcome >= w.outcomes.length) revert Errors.BadOutcome();
         uint256 price = priceOf(oracle, outcome);
@@ -432,7 +437,7 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         _checkOracle(oracle);
         Window storage w = windows[address(oracle)];
         if (w.windowEnd == 0) revert Errors.WindowNotOpened();
-        if (!_live(w)) revert Errors.WindowNotOpen();
+        if (!_isTradable(w, oracle)) revert Errors.WindowNotOpen();
         uint256 held = shares[msg.sender][address(oracle)][outcome];
         if (delta > held) revert Errors.InsufficientShares();
         uint256 proceeds = sellProceeds(oracle, outcome, delta);
@@ -496,11 +501,18 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
 
     // --- internal helpers ----------------------------------------------------
 
-    /// A window is tradable only while LIVE **and unsettled** — before its close
-    /// padding (last-second gaming) and never after settlement (the winner would
-    /// be public knowledge, letting anyone buy the winner below par).
-    function _live(Window storage w) internal view returns (bool) {
+    /// A window is tradable only while LIVE **and unresolved** — before its close
+    /// padding (last-second gaming) and never once its outcome exists.
+    ///
+    /// THE FREEZE: the moment the window's Oracle is RESOLVED the deciding aura
+    /// observation is public, so the winner could be bought far below par; trading
+    /// must stop even though the scheduled `windowEnd` may still be ahead. The
+    /// `w.settled` check alone is too late — `submitResolution` and `settle` are
+    /// separate transactions, and a resolution alone must already freeze the book.
+    /// `oracle` is validated by the caller via `_checkOracle` before this runs.
+    function _isTradable(Window storage w, IAuraOracle oracle) internal view returns (bool) {
         if (w.windowEnd == 0 || w.settled) return false;
+        if (oracle.windowStatus() == IAuraOracle.WindowStatus.RESOLVED) return false;
         uint256 cut = configurator.windowPadding();
         return block.timestamp < (w.windowEnd > cut ? w.windowEnd - cut : 0);
     }
@@ -514,7 +526,7 @@ contract MarketMaker is IMarketMaker, ReentrancyGuard {
         _checkOracle(oracle);
         Window storage w = windows[address(oracle)];
         if (w.windowEnd == 0) revert Errors.WindowNotOpened();
-        if (!_live(w)) revert Errors.WindowNotOpen();
+        if (!_isTradable(w, oracle)) revert Errors.WindowNotOpen();
         uint256 held = shares[from][address(oracle)][outcome];
         if (q > held) revert Errors.InsufficientShares();
         shares[from][address(oracle)][outcome] = held - q;

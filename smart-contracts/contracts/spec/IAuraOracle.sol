@@ -26,10 +26,13 @@ interface IAuraOracle {
     }
 
     /// The on-chain lifecycle of a (handleId, windowStart) market window.
+    /// RESOLVED is the FREEZE signal: the MarketMaker refuses trading the moment
+    /// a window's oracle is RESOLVED, even if the scheduled `windowEnd` is still
+    /// ahead — the outcome (and winner) is public from that block on.
     enum WindowStatus {
         OPEN, // trading allowed
         FROZEN, // trading locked; awaiting resolution
-        RESOLVED, // settled from a signed receipt
+        RESOLVED, // resolved from a signed receipt — trading frozen, settles next
         VOIDED // no resolution — market voided and refunded
     }
 
@@ -70,7 +73,9 @@ interface IAuraOracle {
 
     function freezeWindow() external;
 
-    /// Verify the oracle signature and settle the window once.
+    /// Verify the oracle signature and resolve the window exactly once. May run
+    /// early (the first in-window aura observation is the close), but never
+    /// before the window has opened. Resolution freezes the market's trading.
     function submitResolution(ResolutionReceipt calldata receipt, bytes calldata signature) external;
 
     /// Void a window (no resolution) — refunds traders.

@@ -3,6 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import type { Job } from "bullmq";
 import { QUEUE_AURA } from "../queue.constants";
 import { AuraEngineService } from "./aura-engine.service";
+import { WindowEngineService } from "../window/window-engine.service";
 import { IndexerReader } from "../indexer/indexer-reader.service";
 import type { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
@@ -37,6 +38,7 @@ export class AuraProcessor extends WorkerHost {
 
   constructor(
     private readonly engine: AuraEngineService,
+    private readonly windows: WindowEngineService,
     private readonly indexer: IndexerReader,
     @InjectQueue(QUEUE_AURA) private readonly queue: Queue<AuraTickJob>,
   ) {
@@ -51,7 +53,13 @@ export class AuraProcessor extends WorkerHost {
       return;
     }
     const tick = job.data as AuraTickJob;
-    await this.engine.compute(tick.handle, tick.now);
+    // The tick is now public on-chain (Handle.updateAura) and over WS. If this
+    // handle has a live window, that observation is its close: settle early so
+    // the market freezes before anyone can buy the now-known winner below par.
+    const aura = await this.engine.compute(tick.handle, tick.now);
+    if (aura) {
+      await this.windows.settleOnObservation(tick.handle, aura.aura, tick.now);
+    }
   }
 
   private async fanout(now: number): Promise<void> {

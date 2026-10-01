@@ -23,6 +23,15 @@ const MIN_FUNDING = 1_000n * 10n ** 18n;
 /** The pricing model's lookback for drift/volatility: the last 24h of ticks. */
 const PRIOR_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
+/** A tradable window resolved to its oracle + on-chain bounds. */
+interface LiveWindow {
+  oracle: string;
+  start: number;
+  end: number;
+  /** The indexer record, when one was available (carries the strike/outcomes). */
+  rec?: IndexerWindow;
+}
+
 /**
  * The market-maker window job engine — one tick per (handle, slot):
  *  - the tick RUNS AS EACH SLOT BEGINS (the queue keys the job by slot), so it
@@ -156,6 +165,115 @@ export class WindowEngineService {
       );
       throw error;
     }
+  }
+
+  /**
+   * FREEZE-ON-RESOLVE — the early-close trigger.
+   *
+   * Called by the aura worker immediately after the aura engine has written a
+   * tick ON-CHAIN (and pushed it over WS). If the handle has a LIVE window, that
+   * just-observed aura level IS the window's close: the window stops being a bet
+   * on `windowEnd` and becomes a bet on the FIRST in-window observation. Resolve
+   * and settle it NOW — before its scheduled end — so trading freezes the moment
+   * the outcome is public. The scheduled `windowEnd` reverts to being a MAXIMUM:
+   * a window that reaches it with no observation is left to VOID (see `tick`).
+   *
+   * The strike comes from the same `referenceFor` the `windowEnd` path uses and
+   * the receipt from the same `windowReceipt` — only the close is the observation
+   * we just made instead of the last point in the series.
+   */
+  async settleOnObservation(
+    handle: AuraHandle,
+    observedAura: number,
+    now: number,
+  ): Promise<boolean> {
+    if (!handle.graduated || !this.chain.ready) return false;
+    const nowSec = Math.floor(now / 1000);
+    let live: LiveWindow | null;
+    try {
+      live = await this.findLiveWindow(handle, nowSec);
+    } catch (error) {
+      // RPC unknown — the window job retries. Never let this break the aura tick.
+      this.logger.warn(
+        `@${handle.id}: early-settle lookup failed — ${(error as Error).message}`,
+      );
+      return false;
+    }
+    if (!live) return false;
+    if (await this.flag(this.settledKey(handle.id, live.start))) return false;
+
+    const known = await this.indexer.openWindows().catch((): IndexerWindow[] => []);
+    const rec =
+      live.rec ??
+      known.find((w) => w.oracle.toLowerCase() === live!.oracle.toLowerCase());
+    // Every market is binary; the labels are only cosmetic for the indexer.
+    const outcomes = rec?.outcomes ?? ["YES", "NO"];
+    const reference = await this.referenceFor(handle, rec, live.start);
+    const winner = await this.winnerFromReference(
+      handle,
+      outcomes,
+      live.start,
+      live.end,
+      reference,
+      observedAura,
+    );
+    const receipt = await this.windowReceipt(
+      handle,
+      { windowStart: live.start, windowEnd: live.end, outcomes },
+      winner,
+      reference,
+      observedAura,
+    );
+    this.logger.log(
+      `@${handle.id}: early-resolving window ${live.start} at aura ` +
+        `${(observedAura / 100).toFixed(2)} vs strike ${(reference / 100).toFixed(2)} → outcome ${winner}`,
+    );
+    const ok = await this.chain.resolveAndSettle(live.oracle, receipt, winner);
+    if (ok) {
+      await this.setFlag(this.settledKey(handle.id, live.start));
+      this.ws.publishWindowResolved(handle.id, live.start, live.end, winner);
+      this.logger.log(
+        `@${handle.id}: early-settled window ${live.start} → outcome ${winner} (frozen)`,
+      );
+    }
+    return ok;
+  }
+
+  /**
+   * The handle's currently-tradable window: the grid slot first, then any
+   * off-grid/seeded window the indexer lists. `null` = nothing live. Throws only
+   * when the chain can't answer, so the caller can tell "closed" from "unknown".
+   */
+  private async findLiveWindow(
+    handle: AuraHandle,
+    nowSec: number,
+  ): Promise<LiveWindow | null> {
+    const { start } = slotBounds(nowSec * 1000, handle.windowMinutes);
+    const slotStart = Math.floor(start / 1000);
+    const gridOracle = await this.chain.oracleOf(handle.label, slotStart);
+    if (gridOracle === null) throw new Error(`oracleOf unknown for @${handle.label}`);
+    if (gridOracle !== "0x0000000000000000000000000000000000000000") {
+      const open = await this.chain.isOpen(gridOracle);
+      if (open === null) throw new Error(`isOpen unknown for ${gridOracle}`);
+      if (open) {
+        return {
+          oracle: gridOracle,
+          start: slotStart,
+          end: slotStart + handle.windowMinutes * 60,
+        };
+      }
+    }
+    // Seeded/off-grid windows are opened at "now", not at a slot boundary, so
+    // `oracleOf` can never find them — the indexer lists them.
+    const known = await this.indexer.openWindows().catch((): IndexerWindow[] => []);
+    for (const w of known) {
+      if (w.handleId.toLowerCase() !== handle.id.toLowerCase()) continue;
+      if (w.windowEnd + FREEZE_SECONDS < nowSec) continue; // past its maximum
+      const open = await this.chain.isOpen(w.oracle);
+      if (open === null) throw new Error(`isOpen unknown for ${w.oracle}`);
+      if (open) return { oracle: w.oracle, start: w.windowStart, end: w.windowEnd, rec: w };
+    }
+    return null;
   }
 
   /** The current slot plus the past slots still worth checking, newest first. */
@@ -355,15 +473,22 @@ export class WindowEngineService {
     windowStartSec: number,
     closeSec: number,
     reference: number,
+    closeOverride?: number,
   ): Promise<number> {
     if (outcomes.length === 2 && outcomes[0] === "YES" && outcomes[1] === "NO") {
-      const points = await this.series.points(
-        `aura:${handle.label}`,
-        "aura",
-        windowStartSec * 1000,
-        closeSec * 1000,
-      );
-      const close = points[points.length - 1]?.value ?? reference;
+      // The early-settle path passes the just-observed aura as `closeOverride`,
+      // so the winner is decided on the SAME number the receipt commits to even
+      // if the series write lags. The windowEnd path reads it from the series.
+      let close = closeOverride;
+      if (close === undefined) {
+        const points = await this.series.points(
+          `aura:${handle.label}`,
+          "aura",
+          windowStartSec * 1000,
+          closeSec * 1000,
+        );
+        close = points[points.length - 1]?.value ?? reference;
+      }
       return close >= reference ? 0 : 1;
     }
     // Multi-outcome: a GAIN market — the winner is the member handle that
@@ -394,6 +519,7 @@ export class WindowEngineService {
     win: { windowStart: number; windowEnd: number; outcomes: string[] },
     winner: number,
     reference: number,
+    closeOverride?: number,
   ): Promise<{
     handleId: string;
     windowStart: number;
@@ -415,7 +541,9 @@ export class WindowEngineService {
     );
     // The open reference committed to the receipt MUST be the same strike the
     // winner used — the on-chain Oracle/`MarketMaker.settle` mirrors this receipt.
-    const close = points[points.length - 1]?.value ?? reference;
+    // Early settle passes the observed close directly (the series write may not
+    // have landed yet); otherwise the last in-window point is the close.
+    const close = closeOverride ?? points[points.length - 1]?.value ?? reference;
     return {
       handleId: handle.id,
       windowStart: win.windowStart,

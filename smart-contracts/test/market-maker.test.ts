@@ -8,6 +8,8 @@ import {
   graduateHandle,
   uniformProbs,
   resolveWindow,
+  makeReceipt,
+  signReceipt,
 } from "./registry.test";
 
 const ORACLE_PK =
@@ -452,5 +454,97 @@ describe("MarketMaker (binary LMSR, Pool-backed)", () => {
     await ethers.provider.send("evm_mine", []);
     await market.finalize(woO);
     expect(await poolC.reserved(await woO.getAddress())).to.equal(0n);
+  });
+
+  // ------------------------------------------------------------------
+  // Early close (freeze-on-resolve): the window's FIRST aura observation
+  // is the close, so it resolves/settles before its scheduled end and
+  // freezes trading the moment the winner is public.
+  // ------------------------------------------------------------------
+
+  /** Submit an early resolution (no time travel past `windowEnd`). */
+  const resolveEarly = async (
+    handleId: string,
+    start: bigint,
+    woO: Contract,
+    direction = true,
+  ): Promise<void> => {
+    const receipt = makeReceipt(handleId, start, direction, start + 600n);
+    const sig = await signReceipt(oracle, woO, receipt);
+    await woO.connect(oracle).submitResolution(receipt, sig);
+  };
+
+  it("(a) resolves and settles a window BEFORE its scheduled windowEnd", async () => {
+    const start = await startOf();
+    await open(h("elon"), start, ["YES", "NO"], 85n * INDEX);
+    const woO = await wo(h("elon"), start);
+    await market.connect(alice).buy(woO, 0n, 100n * ONE, 0n);
+    const q = await market.shares(alice.address, await woO.getAddress(), 0n);
+
+    // The scheduled end (start + 600) is still ahead — resolve now.
+    const before = Number((await ethers.provider.getBlock("latest"))!.timestamp);
+    expect(before).to.be.lessThan(Number(start + 600n));
+    await resolveEarly(h("elon"), start, woO, true);
+    expect(await woO.windowStatus()).to.equal(2n); // RESOLVED
+
+    await market.connect(oracle).settle(woO, 0n);
+    expect((await market.windows(await woO.getAddress())).settled).to.equal(true);
+    expect((await market.windows(await woO.getAddress())).winningOutcome).to.equal(0n);
+
+    // Claims pay the winner immediately — no need to wait for windowEnd.
+    const bal = await usdc.balanceOf(alice.address);
+    await market.connect(alice).claim(woO, 0n);
+    expect((await usdc.balanceOf(alice.address)) - bal).to.equal(q);
+  });
+
+  it("(b)/(c) freezes trading on resolution, but a pre-resolution trade works", async () => {
+    const start = await startOf();
+    await open(h("elon"), start, ["YES", "NO"], 85n * INDEX, 200_000n * ONE);
+    const woO = await wo(h("elon"), start);
+
+    // (c) Trading is live before any resolution.
+    await market.connect(alice).buy(woO, 0n, 100n * ONE, 0n);
+    await market.connect(bob).buy(woO, 1n, 50n * ONE, 0n);
+    expect(
+      await market.shares(alice.address, await woO.getAddress(), 0n),
+    ).to.be.greaterThan(0n);
+
+    // (b) Resolve — but do NOT settle. Trading must already be frozen.
+    await resolveEarly(h("elon"), start, woO, true);
+    const afterResolve = await market.windows(await woO.getAddress());
+    expect(afterResolve.settled).to.equal(false);
+
+    await expectError(market.connect(bob).buy(woO, 0n, 10n * ONE, 0n), "WindowNotOpen");
+    await expectError(market.connect(alice).sell(woO, 0n, 1n, 0n), "WindowNotOpen");
+    // The ERC20/order-book transfer route is frozen by the same gate.
+    await expectError(market.connect(alice).transfer(bob.address, woO, 0n, 1n), "WindowNotOpen");
+  });
+
+  it("(e) settle still rejects a wrong winningOutcome and a never-opened window", async () => {
+    const start = await startOf();
+    await open(h("elon"), start, ["YES", "NO"], 85n * INDEX);
+    const woO = await wo(h("elon"), start);
+    await resolveEarly(h("elon"), start, woO, true); // direction true → YES (0)
+    await expectError(market.connect(oracle).settle(woO, 1n), "BadOutcome");
+
+    // A factory-deployed oracle the market never opened has no Window record.
+    const orphan = await factory
+      .connect(oracle)
+      .deployOracle.staticCall(h("elon"), start + 9_000n, "{}");
+    await factory.connect(oracle).deployOracle(h("elon"), start + 9_000n, "{}");
+    const orphanC = await ethers.getContractAt("Oracle", orphan);
+    await expectError(market.connect(oracle).settle(orphanC, 0n), "WindowNotOpened");
+  });
+
+  it("Oracle refuses a resolution before the window has opened", async () => {
+    const start = (await startOf()) + 3_600n; // opens an hour from now
+    await open(h("elon"), start, ["YES", "NO"], 85n * INDEX);
+    const woO = await wo(h("elon"), start);
+    const receipt = makeReceipt(h("elon"), start, true, start + 600n);
+    const sig = await signReceipt(oracle, woO, receipt);
+    await expectError(
+      woO.connect(oracle).submitResolution(receipt, sig),
+      "TooEarly",
+    );
   });
 });

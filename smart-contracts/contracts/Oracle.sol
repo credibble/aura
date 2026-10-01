@@ -28,10 +28,12 @@ contract Oracle is IAuraOracle {
     ///   "outcomes":["YES","NO"]}`. Off-chain indexers / the frontend read it.
     string public metadata;
 
-    /// The window's end (epoch seconds), confirmed by the oracle signer when the
-    /// market opens it. Immutable once set, so resolution cannot be submitted
-    /// before the window has actually ended. 0 = not confirmed (legacy/standalone
-    /// deployments, where no time gate can be inferred).
+    /// The window's scheduled end (epoch seconds), confirmed by the oracle
+    /// signer when the market opens it. It is a MAXIMUM, not a minimum: the
+    /// signer may resolve the moment the window's first in-window aura
+    /// observation exists (freeze-on-resolve), so resolution is no longer gated
+    /// on reaching it. 0 = not confirmed (legacy/standalone deployments, where
+    /// no time gate can be inferred).
     uint256 public windowEnd;
 
     WindowStatus private _status;
@@ -95,9 +97,12 @@ contract Oracle is IAuraOracle {
             revert Errors.BadWindow();
         if (receipt.windowEnd != 0 && windowEnd != 0 && receipt.windowEnd != windowEnd)
             revert Errors.BadWindow();
-        // Resolution is only valid once the window has actually ended. Standalone
-        // oracles that were never confirmed have no end to enforce.
-        if (windowEnd != 0 && block.timestamp < windowEnd) revert Errors.TooEarly();
+        // A window may resolve EARLY — the first in-window aura observation is
+        // the close (freeze-on-resolve) — but never before it has opened. A
+        // confirmed window knows its start; standalone oracles that were never
+        // confirmed have no bounds to enforce. There is deliberately no
+        // "not before windowEnd" gate any more.
+        if (windowEnd != 0 && block.timestamp < windowStart) revert Errors.TooEarly();
         if (signature.length != 65) revert Errors.BadSignatureLength();
         if (_status != WindowStatus.OPEN && _status != WindowStatus.FROZEN)
             revert Errors.WindowNotOpenOrFrozen();

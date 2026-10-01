@@ -292,3 +292,134 @@ describe("WindowEngineService — settlement reference is the strike", () => {
     expect(settles[0]!.receipt.indexOpen).toBe(4316);
   });
 });
+
+/**
+ * FREEZE-ON-RESOLVE: the aura worker calls `settleOnObservation` right after a
+ * tick. If the handle has a LIVE window, that observation IS the close — the
+ * window resolves/settles before its scheduled `windowEnd`, freezing trading the
+ * moment the winner is public. A window with no observation is left to VOID.
+ */
+function earlyHarness(opts: {
+  /** The indexer Window.strike (1e2). Omit to force the fallback path. */
+  strikeRecord?: number;
+  /** Whether the chain reports the window tradable. */
+  open?: boolean;
+  /** Points for the in-window range `[SLOT*1000, (SLOT+SPAN)*1000]`. */
+  inWindow?: SettlePoint[];
+  /** Points for the strike-reconstruction range (fallback sourcing only). */
+  prior?: SettlePoint[];
+}) {
+  const flags = new Map<string, string>();
+  const calls: string[] = [];
+  const settles: { oracle: string; receipt: Record<string, unknown>; winner: number }[] = [];
+  const redis = {
+    get: async (k: string) => flags.get(k) ?? null,
+    set: async (k: string, v: string) => {
+      flags.set(k, v);
+      return "OK";
+    },
+  };
+  const chain = {
+    ready: true,
+    oracleOf: async (_label: string, startSec: number) => (startSec === SLOT ? ORACLE : ZERO),
+    isOpen: async () => opts.open ?? true,
+    resolveAndSettle: async (
+      oracle: string,
+      receipt: Record<string, unknown>,
+      winner: number,
+    ) => {
+      calls.push("settle");
+      settles.push({ oracle, receipt, winner });
+      return true;
+    },
+  };
+  const indexer = {
+    openWindows: async () =>
+      opts.strikeRecord === undefined
+        ? []
+        : [
+            {
+              id: `${HANDLE.id}-${SLOT}`,
+              handleId: HANDLE.id,
+              oracle: ORACLE,
+              windowStart: SLOT,
+              windowEnd: SLOT + SPAN,
+              strike: opts.strikeRecord,
+              outcomes: ["YES", "NO"],
+              settled: false,
+            },
+          ],
+    previousSettledWindow: async () => null,
+    windowVolume: async () => 0n,
+  };
+  const points = async (
+    _sourceId: string,
+    _metric: string,
+    fromMs?: number,
+    toMs?: number,
+  ): Promise<SettlePoint[]> => {
+    if (fromMs === SLOT * 1000 && toMs === (SLOT + SPAN) * 1000) return opts.inWindow ?? [];
+    if (fromMs === SLOT * 1000 - LOOKBACK_MS && toMs === SLOT * 1000) return opts.prior ?? [];
+    return [];
+  };
+  const engine = new WindowEngineService(
+    chain as never,
+    indexer as never,
+    { publishWindowOpened: () => {}, publishWindowResolved: () => {} } as never,
+    { points } as never,
+    redis as never,
+    { get: () => undefined } as never,
+  );
+  return { engine, calls, settles };
+}
+
+describe("WindowEngineService — early close on the first in-window observation", () => {
+  it("early-settles a live window with the observed close against the strike (YES)", async () => {
+    const { engine, settles, calls } = earlyHarness({
+      strikeRecord: 4316,
+      inWindow: [{ value: 4400 }],
+    });
+    // The tick lands well before windowEnd (SLOT + 900).
+    const settled = await engine.settleOnObservation(HANDLE, 4400, NOW + 60_000);
+
+    expect(settled).toBe(true);
+    expect(calls).toContain("settle");
+    expect(settles).toHaveLength(1);
+    expect(settles[0]!.oracle).toBe(ORACLE);
+    expect(settles[0]!.winner).toBe(0); // 4400 ≥ 4316 → YES
+    expect(settles[0]!.receipt.indexClose).toBe(4400); // the OBSERVED close
+    expect(settles[0]!.receipt.expectation).toBe(4316); // the strike
+    expect(settles[0]!.receipt.indexOpen).toBe(4316);
+    expect(settles[0]!.receipt.direction).toBe(true);
+  });
+
+  it("early-settles below the strike as NO, using the observation as the close", async () => {
+    const { engine, settles } = earlyHarness({
+      strikeRecord: 4316,
+      inWindow: [{ value: 4230 }],
+    });
+    await engine.settleOnObservation(HANDLE, 4230, NOW + 60_000);
+    expect(settles[0]!.winner).toBe(1);
+    expect(settles[0]!.receipt.indexClose).toBe(4230);
+    expect(settles[0]!.receipt.direction).toBe(false);
+  });
+
+  it("does nothing when the handle has no live window", async () => {
+    const { engine, settles, calls } = earlyHarness({ open: false, strikeRecord: 4316 });
+    const settled = await engine.settleOnObservation(HANDLE, 4400, NOW + 60_000);
+    expect(settled).toBe(false);
+    expect(settles).toHaveLength(0);
+    expect(calls).not.toContain("settle");
+  });
+
+  it("reconstructs the strike from the series when the indexer record is absent", async () => {
+    const { engine, settles } = earlyHarness({
+      inWindow: [{ value: 4230 }],
+      prior: [{ value: 4400 }, { value: 4316 }],
+    });
+    await engine.settleOnObservation(HANDLE, 4230, NOW + 60_000);
+    expect(settles).toHaveLength(1);
+    expect(settles[0]!.winner).toBe(1); // 4230 < 4316
+    expect(settles[0]!.receipt.expectation).toBe(4316);
+  });
+});

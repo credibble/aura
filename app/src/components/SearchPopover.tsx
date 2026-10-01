@@ -98,7 +98,7 @@ export function SearchPopover({
           className={cn(
             iconOnly
               ? "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              : "flex w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-secondary/60 px-2.5 py-2 text-left transition-colors hover:border-primary/40 sm:px-3",
+              : "flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-secondary/60 px-2.5 text-left transition-colors hover:border-primary/40 sm:px-3",
             className,
           )}
         >

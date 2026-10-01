@@ -488,7 +488,7 @@ function TradePage() {
               <Link
                 to="/"
                 aria-label="Back to markets"
-                className="-ml-2 shrink-0 rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Link>
@@ -520,7 +520,7 @@ function TradePage() {
                       <button
                         type="button"
                         aria-label="About the aura index"
-                        className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                        className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <Info className="h-3.5 w-3.5" />
                       </button>
@@ -560,7 +560,7 @@ function TradePage() {
                           aria-pressed={on}
                           onClick={() => setChartMode(m === "Aura" ? "aura" : "prices")}
                           className={cn(
-                            "min-h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors",
+                            "min-h-10 rounded-lg px-2.5 text-xs font-semibold transition-colors",
                             on
                               ? "bg-secondary text-foreground"
                               : "text-muted-foreground hover:text-foreground",
@@ -577,7 +577,7 @@ function TradePage() {
                         type="button"
                         onClick={() => setRange(r.id)}
                         className={cn(
-                          "min-h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors",
+                          "min-h-10 rounded-lg px-2.5 text-xs font-semibold transition-colors",
                           range === r.id
                             ? "bg-secondary text-foreground"
                             : "text-muted-foreground hover:text-foreground",
@@ -645,7 +645,7 @@ function TradePage() {
                           type="button"
                           onClick={copyLink}
                           aria-label="Copy link"
-                          className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                          className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         >
                           <Link2 className="h-4 w-4" />
                         </button>

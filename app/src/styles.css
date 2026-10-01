@@ -214,6 +214,22 @@
   --warn: 43 85% 55%;
 }
 
+/* -----------------------------------------------------------------------------
+   Mobile top bar height. Below lg the Navbar is sticky at the very top: a 56px
+   row + the 42px category scroller + its 1px bottom border = 99px. Route sticky
+   bars and in-page scroll anchors offset by this so they sit *below* the bar
+   instead of tucking behind it. At lg the desktop rail replaces the top bar, so
+   the offset is 0 and the same utility resolves to the viewport top.
+   ----------------------------------------------------------------------------- */
+:root {
+  --app-topbar: 99px;
+}
+@media (min-width: 64rem) {
+  :root {
+    --app-topbar: 0px;
+  }
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));

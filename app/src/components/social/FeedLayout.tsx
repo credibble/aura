@@ -96,8 +96,13 @@ export function FeedLayout({
       >
         Skip to content
       </a>
-      {/* Mobile keeps the standard top navbar; desktop uses the icon rail */}
-      <div className="lg:hidden">
+      {/* Mobile keeps the standard top navbar; desktop uses the icon rail.
+          `contents` matters: a plain wrapper div is exactly as tall as the
+          header, and a sticky element can never escape a containing block that
+          is only its own height — so the wrapper made the "sticky" header scroll
+          away. `display: contents` removes the box (the header's containing
+          block becomes the tall shell), and `lg:hidden` still hides it. */}
+      <div className="contents lg:hidden">
         <Navbar />
       </div>
       {/* One shell width for every page. The frame is capped at 1440 and the
@@ -114,7 +119,7 @@ export function FeedLayout({
           id="main-content"
           tabIndex={-1}
           className={cn(
-            "min-h-screen w-full min-w-0 shrink border-x border-border outline-none",
+            "min-h-screen w-full min-w-0 shrink scroll-mt-[var(--app-topbar)] border-x border-border outline-none",
             contentWidth === "wide" ? "max-w-[1128px]" : "max-w-[768px]",
           )}
         >

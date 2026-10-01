@@ -180,7 +180,7 @@ export function ActivityChart({
 
       {hasStrike && (
         <span
-          className="num pointer-events-none absolute right-0.5 -translate-y-1/2 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
+          className="num pointer-events-none absolute right-0.5 -translate-y-1/2 rounded-full border px-2 py-0.5 text-xs font-semibold"
           style={{
             top: `${(strikeY / h) * 100}%`,
             color: strikeColor,

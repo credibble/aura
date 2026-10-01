@@ -49,7 +49,7 @@ export function SparkCard({ asset, className }: { asset: LiveAsset; className?: 
           size={34}
         />
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-[15px] font-semibold text-foreground">{asset.name}</div>
+          <div className="truncate text-sm font-semibold text-foreground">{asset.name}</div>
           <div className="num truncate text-xs text-muted-foreground">
             <UsdcAmount
               value={`${formatCompact(asset.volume)}`}
@@ -60,7 +60,7 @@ export function SparkCard({ asset, className }: { asset: LiveAsset; className?: 
           </div>
         </div>
         <div className="shrink-0 text-right leading-tight">
-          <div className="num text-[15px] font-semibold text-foreground">
+          <div className="num text-sm font-semibold text-foreground">
             {formatIndex(asset.index)}
           </div>
           <div className={cn("num text-xs font-semibold", up ? "text-up" : "text-down")}>

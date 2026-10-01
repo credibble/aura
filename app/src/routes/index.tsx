@@ -140,8 +140,10 @@ function ExplorePage() {
 
       {/* Sticky filter bar — categories left, search + sort pinned right.
           `top` clears the sticky mobile Navbar (--app-topbar = its height below
-          lg, 0 at lg where the desktop rail replaces it). */}
-      <div className="sticky top-[var(--app-topbar)] z-30 flex items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md sm:px-6">
+          lg, 0 at lg where the desktop rail replaces it). The ScrollRow wrapper
+          is `min-w-0` internally, so `flex-1` can shrink it and the bar no
+          longer overflows at tablet widths. */}
+      <div className="sticky top-[var(--app-topbar)] z-30 flex min-w-0 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md sm:px-6">
         <ScrollRow
           activeKey={cat}
           ariaLabel="Categories"
@@ -178,7 +180,7 @@ function ExplorePage() {
             <button
               type="button"
               aria-label="Sort markets"
-              className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-border/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="ml-auto flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/70 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <ArrowDownUp className="h-3.5 w-3.5" />
               {sort}

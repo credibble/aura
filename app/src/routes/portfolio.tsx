@@ -18,6 +18,7 @@ import { useTradeExecutor } from "@/lib/trade";
 import { cn } from "@/lib/utils";
 import { handleSlug } from "@/lib/handle-id";
 import { formatCents, formatCompact, formatUsd } from "@/lib/format";
+import { summarisePositions } from "@/lib/portfolio-summary";
 import { QueryError } from "@/components/QueryState";
 import { useHandleArtwork } from "@/queries/handles";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
@@ -184,13 +185,10 @@ function PortfolioPage() {
   const ordersTotal = ordersQuery.data?.total ?? 0;
   const orderPages = Math.max(1, Math.ceil(ordersTotal / ORDERS_PAGE_SIZE));
 
-  // The summary tracks OPEN exposure only.
-  const equity = openPositions.reduce((s, p) => s + p.shares * p.price, 0);
-  const cost = openPositions.reduce((s, p) => s + Math.max(0, p.cost), 0);
-  const pnl = equity - cost;
-  const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
-  const claimable = openPositions.reduce((s, p) => s + p.claimable, 0);
-  const wins = openPositions.filter((p) => p.cost > 0 && p.shares * p.price >= p.cost).length;
+  // The summary separates LIVE exposure from REALISED, unclaimed wins. Summing
+  // them counted a settled winner's payout as an unrealised gain and divided it
+  // by the combined cost basis of every open row. See lib/portfolio-summary.
+  const summary = useMemo(() => summarisePositions(openPositions), [openPositions]);
 
   if (!address) {
     return (
@@ -242,19 +240,28 @@ function PortfolioPage() {
       }
     >
       <div className="space-y-10">
-        {/* Summary — free-standing numbers, no cards */}
-        <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
-          <Stat label="Equity" value={<UsdcAmount value={formatUsd(equity)} size={16} />} />
+        {/* Summary — free-standing numbers, no cards. Unrealised and realised
+            are kept apart: the former is live exposure, the latter cash a
+            settled win is waiting to claim. */}
+        <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
+          <Stat label="Equity" value={<UsdcAmount value={formatUsd(summary.equity)} size={16} />} />
           <Stat
             label="Unrealised PnL"
-            value={
-              <UsdcAmount value={`${pnl >= 0 ? "+" : "-"}${formatUsd(Math.abs(pnl))}`} size={16} />
-            }
-            hint={`${pnlPct.toFixed(1)}%`}
-            tone={pnl >= 0 ? "up" : "down"}
+            value={<UsdcAmount value={signedUsd(summary.unrealised)} size={16} />}
+            hint={`${summary.unrealisedPct.toFixed(1)}%`}
+            tone={summary.unrealised >= 0 ? "up" : "down"}
           />
-          <Stat label="Claimable" value={<UsdcAmount value={formatUsd(claimable)} size={16} />} />
-          <Stat label="Positions" value={`${wins}/${openPositions.length || 0} up`} />
+          <Stat
+            label="Realised PnL"
+            value={<UsdcAmount value={signedUsd(summary.realised)} size={16} />}
+            hint={`${summary.realisedPct.toFixed(1)}%`}
+            tone={summary.realised >= 0 ? "up" : "down"}
+          />
+          <Stat
+            label="Claimable"
+            value={<UsdcAmount value={formatUsd(summary.claimable)} size={16} />}
+          />
+          <Stat label="Positions" value={`${summary.wins}/${summary.openCount || 0} up`} />
         </dl>
 
         {/* Positions — table (scrolls sideways on narrow screens) */}
@@ -522,6 +529,11 @@ function PortfolioPage() {
 
 function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+/** USDC with a leading sign only when the amount is non-zero. */
+function signedUsd(n: number): string {
+  return `${n > 0 ? "+" : n < 0 ? "-" : ""}${formatUsd(Math.abs(n))}`;
 }
 
 /** Quiet segmented control used for the Open/Closed tabs. */

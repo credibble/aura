@@ -47,6 +47,10 @@ export function AmountInput({
         placeholder={placeholder}
         aria-label={ariaLabel}
         autoFocus={autoFocus}
+        // `size={1}` caps the pre-hydration intrinsic width at ~1ch; the default
+        // 20-char input width is huge at text-5xl and briefly overflowed the
+        // page on first paint before the measuring effect set the exact width.
+        size={1}
         style={{ width: width || undefined }}
         className={cn(
           "min-w-[1ch] bg-transparent text-center outline-none placeholder:text-muted-foreground/40",

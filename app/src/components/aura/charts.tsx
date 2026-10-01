@@ -118,7 +118,7 @@ export function ActivityChart({
   return (
     <div ref={ref} className={cn("relative w-full", className)} style={{ height }}>
       {pts.length > 1 && (
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block overflow-visible">
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block w-full overflow-visible">
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={color} stopOpacity={0.32} />

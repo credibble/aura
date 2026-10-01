@@ -279,9 +279,11 @@ function PoolPage() {
         <Stat label="auraLP value" value={`${shareValue.toFixed(4)}`} />
       </div>
 
-      {/* Chart + deposit/withdraw, side by side */}
+      {/* Chart + deposit/withdraw, side by side. `min-w-0` lets the grid tracks
+          shrink below their content's intrinsic width — without it the chart
+          SVG's 600px intrinsic width forced the whole page to 634px. */}
       <div className="grid gap-4 px-4 pt-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <section className="rounded-2xl border border-border/70 bg-card p-4">
+        <section className="min-w-0 rounded-2xl border border-border/70 bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="text-xs text-muted-foreground">Pooled USDC</div>
@@ -297,7 +299,7 @@ function PoolPage() {
                   type="button"
                   onClick={() => setRange(r.id)}
                   className={cn(
-                    "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                    "min-h-10 rounded-lg px-2.5 text-xs font-semibold transition-colors",
                     range === r.id
                       ? "bg-secondary text-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -329,7 +331,7 @@ function PoolPage() {
         </section>
 
         {/* Deposit / withdraw — one segmented control, one amount, one action */}
-        <section className="rounded-2xl border border-border/70 bg-card p-4">
+        <section className="min-w-0 rounded-2xl border border-border/70 bg-card p-4">
           <div
             role="group"
             aria-label="Pool action"

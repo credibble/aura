@@ -44,6 +44,7 @@ contract Oracle is IAuraOracle {
         uint256 indexClose;
         bytes32 resolutionHash;
         uint256 resolvedAt;
+        bytes32 inputsHash;
     }
 
     modifier onlyOracle() {
@@ -97,6 +98,9 @@ contract Oracle is IAuraOracle {
             revert Errors.BadWindow();
         if (receipt.windowEnd != 0 && windowEnd != 0 && receipt.windowEnd != windowEnd)
             revert Errors.BadWindow();
+        // A window with no usable strike ("Will aura rise above 0.00?") resolves
+        // YES trivially. Reject it at the only place that can settle it.
+        if (receipt.indexOpen == 0) revert Errors.BadStrike();
         // A window may resolve EARLY — the first in-window aura observation is
         // the close (freeze-on-resolve) — but never before it has opened. A
         // confirmed window knows its start; standalone oracles that were never
@@ -124,14 +128,16 @@ contract Oracle is IAuraOracle {
             receipt.direction,
             receipt.indexClose,
             hash,
-            receipt.resolvedAt
+            receipt.resolvedAt,
+            receipt.inputsHash
         );
         emit WindowResolved(
             handleId,
             windowStart,
             receipt.direction,
             receipt.indexClose,
-            hash
+            hash,
+            receipt.inputsHash
         );
     }
 
@@ -159,6 +165,11 @@ contract Oracle is IAuraOracle {
     {
         Resolution storage r = _resolution;
         return (r.direction, r.indexClose, r.resolutionHash, r.resolvedAt);
+    }
+
+    /// The evidence hash the stored resolution committed to (0 = none).
+    function resolutionInputsHash() external view returns (bytes32) {
+        return _resolution.inputsHash;
     }
 
     /// EIP-712 digest for a receipt (verification aid for the relayer/tests).

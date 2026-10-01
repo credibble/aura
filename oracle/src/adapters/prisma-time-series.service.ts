@@ -45,9 +45,10 @@ export class PrismaTimeSeriesStore implements ITimeSeriesStore {
           metric,
           value: point.value,
           delta,
+          inputsHash: point.inputsHash,
           timestamp,
         },
-        update: { value: point.value, delta },
+        update: { value: point.value, delta, inputsHash: point.inputsHash },
       });
     } catch {
       this.appendLocal(sourceId, metric, withDelta);
@@ -166,7 +167,13 @@ function fromRow(r: {
   metric: string;
   value: number;
   delta: number | null;
+  inputsHash: string | null;
   timestamp: Date;
 }): MetricPoint {
-  return { timestamp: r.timestamp.getTime(), value: r.value, delta: r.delta ?? undefined };
+  return {
+    timestamp: r.timestamp.getTime(),
+    value: r.value,
+    delta: r.delta ?? undefined,
+    inputsHash: r.inputsHash ?? undefined,
+  };
 }

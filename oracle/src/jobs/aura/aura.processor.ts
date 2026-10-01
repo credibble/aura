@@ -58,7 +58,12 @@ export class AuraProcessor extends WorkerHost {
     // the market freezes before anyone can buy the now-known winner below par.
     const aura = await this.engine.compute(tick.handle, tick.now);
     if (aura) {
-      await this.windows.settleOnObservation(tick.handle, aura.aura, tick.now);
+      await this.windows.settleOnObservation(
+        tick.handle,
+        aura.aura,
+        tick.now,
+        aura.inputsHash,
+      );
     }
   }
 

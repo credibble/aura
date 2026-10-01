@@ -11,7 +11,7 @@ library ResolutionReceiptLib {
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
     bytes32 internal constant RESOLUTION_TYPEHASH = keccak256(
-        "ResolutionReceipt(bytes32 handleId,uint256 windowStart,uint256 windowEnd,uint256 s,uint256 expectation,int256 delta,uint256 indexOpen,uint256 indexClose,bool direction,uint32 itemCount,bytes32 outcomesHash,uint256 resolvedAt)"
+        "ResolutionReceipt(bytes32 handleId,uint256 windowStart,uint256 windowEnd,uint256 s,uint256 expectation,int256 delta,uint256 indexOpen,uint256 indexClose,bool direction,uint32 itemCount,bytes32 outcomesHash,uint256 resolvedAt,bytes32 inputsHash)"
     );
 
     function domainSeparator(uint256 chainId, address verifyingContract) internal pure returns (bytes32) {
@@ -41,7 +41,8 @@ library ResolutionReceiptLib {
                 receipt.direction,
                 receipt.itemCount,
                 receipt.outcomesHash,
-                receipt.resolvedAt
+                receipt.resolvedAt,
+                receipt.inputsHash
             )
         );
     }

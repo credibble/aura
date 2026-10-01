@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { Contract } from "ethers";
+import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import {
   makeReceipt,
   signReceipt,
@@ -98,6 +99,45 @@ describe("Oracle (per-window resolution authority)", () => {
     await expectError(
       wo.connect(oracle).submitResolution(receipt, sig),
       "WindowNotOpenOrFrozen",
+    );
+  });
+
+  it("carries + stores the evidence hash and emits it in WindowResolved", async () => {
+    const receipt = makeReceipt(h("btc"), ws, true);
+    const sig = await signReceipt(oracle, wo, receipt);
+    await expect(wo.connect(oracle).submitResolution(receipt, sig))
+      .to.emit(wo, "WindowResolved")
+      .withArgs(
+        receipt.handleId,
+        receipt.windowStart,
+        receipt.direction,
+        receipt.indexClose,
+        anyValue,
+        receipt.inputsHash,
+      );
+    expect(await wo.resolutionInputsHash()).to.equal(receipt.inputsHash);
+  });
+
+  it("rejects a resolution whose inputsHash was tampered with (signature covers it)", async () => {
+    const receipt = makeReceipt(h("btc"), ws, true);
+    const sig = await signReceipt(oracle, wo, receipt);
+    const tampered = { ...receipt, inputsHash: ethers.id("tampered") };
+    await expectError(
+      wo.connect(oracle).submitResolution(tampered, sig),
+      "InvalidSignature",
+    );
+  });
+
+  it("rejects a zero-strike receipt (degenerate 'rise above 0.00' window)", async () => {
+    const receipt = {
+      ...makeReceipt(h("btc"), ws, true),
+      indexOpen: 0n,
+      expectation: 0n,
+    };
+    const sig = await signReceipt(oracle, wo, receipt);
+    await expectError(
+      wo.connect(oracle).submitResolution(receipt, sig),
+      "BadStrike",
     );
   });
 

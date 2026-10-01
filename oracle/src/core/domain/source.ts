@@ -46,6 +46,12 @@ export interface MetricPoint {
    *  by the time-series store on append. Adapters emit absolute values; the
    *  delta is derived (deltaFollowers, deltaSales, deltaStars, deltaArticles…). */
   delta?: number;
+  /**
+   * For the aura series only: the evidence hash of the tick that produced this
+   * point (`hashTick`). Carried on the point so a window resolution can commit
+   * the close observation's evidence on-chain; absent for adapter metrics.
+   */
+  inputsHash?: string;
 }
 
 /** Adapter config — the JSON source string on the Handle, e.g.

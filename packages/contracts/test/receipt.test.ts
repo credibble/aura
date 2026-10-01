@@ -27,6 +27,7 @@ const sample: WindowResult = {
   itemCount: 142,
   proof: { social: 71, community: 66, media: 74, search: 69 },
   resolvedAt: 1_777_000_900_050,
+  inputsHash: "0x" + "ab".repeat(32),
 };
 
 describe("canonicalJson", () => {
@@ -63,6 +64,15 @@ describe("scaling", () => {
     expect(scaled.delta).toBe(42_500n);
     expect(scaled.itemCount).toBe(142);
     expect(scaled.direction).toBe(true);
+    expect(scaled.inputsHash.length).toBe(32);
+  });
+
+  it("treats a missing or malformed inputsHash as the zero hash", () => {
+    const { inputsHash: _drop, ...noHash } = sample;
+    expect(toScaledResolution(noHash).inputsHash).toEqual(new Uint8Array(32));
+    expect(toScaledResolution({ ...sample, inputsHash: "0x1234" }).inputsHash).toEqual(
+      new Uint8Array(32),
+    );
   });
 });
 

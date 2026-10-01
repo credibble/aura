@@ -57,7 +57,7 @@ function createRateLimiter(rps: number): <T>(fn: () => Promise<T>) => Promise<T>
  * exactly how every settle silently failed before.
  */
 const OracleAbi = parseAbi([
-  "function submitResolution((bytes32,uint256,uint256,uint256,uint256,int256,uint256,uint256,bool,uint32,bytes32,uint256) receipt, bytes signature)",
+  "function submitResolution((bytes32,uint256,uint256,uint256,uint256,int256,uint256,uint256,bool,uint32,bytes32,uint256,bytes32) receipt, bytes signature)",
   "function windowStatus() view returns (uint8)",
   "function windowEnd() view returns (uint256)",
 ]);
@@ -77,6 +77,7 @@ const RESOLUTION_TYPES = {
     { name: "itemCount", type: "uint32" },
     { name: "outcomesHash", type: "bytes32" },
     { name: "resolvedAt", type: "uint256" },
+    { name: "inputsHash", type: "bytes32" },
   ],
 } as const;
 
@@ -323,6 +324,7 @@ export class ChainGateway implements OnModuleInit {
       direction: boolean;
       itemCount: number;
       outcomesHash: string;
+      inputsHash: string;
     },
     winningOutcome: number,
   ): Promise<boolean> {
@@ -347,6 +349,7 @@ export class ChainGateway implements OnModuleInit {
           itemCount: Math.max(0, Math.floor(receipt.itemCount)),
           outcomesHash: receipt.outcomesHash as `0x${string}`,
           resolvedAt: BigInt(Math.floor(Date.now() / 1000)),
+          inputsHash: receipt.inputsHash as `0x${string}`,
         };
         // Domain mirrors ResolutionReceiptLib.domainSeparator exactly.
         const signature = await this.account.signTypedData({
@@ -379,6 +382,7 @@ export class ChainGateway implements OnModuleInit {
               message.itemCount,
               message.outcomesHash,
               message.resolvedAt,
+              message.inputsHash,
             ],
             signature,
           ],

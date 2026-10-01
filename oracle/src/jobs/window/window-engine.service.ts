@@ -18,6 +18,8 @@ import type { AuraHandle } from "../jobs.types";
 import { strikeFor, windowPriors, stepSeconds } from "./window-pricing";
 
 const FREEZE_SECONDS = 5;
+/** The zero bytes32 — the defensive inputsHash when no evidence is available. */
+const ZERO_HASH = `0x${"00".repeat(32)}`;
 /** Minimum window funding: 1,000 USDC (1e18 wei). */
 const MIN_FUNDING = 1_000n * 10n ** 18n;
 /** The pricing model's lookback for drift/volatility: the last 24h of ticks. */
@@ -186,6 +188,7 @@ export class WindowEngineService {
     handle: AuraHandle,
     observedAura: number,
     now: number,
+    inputsHash?: string,
   ): Promise<boolean> {
     if (!handle.graduated || !this.chain.ready) return false;
     const nowSec = Math.floor(now / 1000);
@@ -209,6 +212,14 @@ export class WindowEngineService {
     // Every market is binary; the labels are only cosmetic for the indexer.
     const outcomes = rec?.outcomes ?? ["YES", "NO"];
     const reference = await this.referenceFor(handle, rec, live.start);
+    // A zero strike would make "rise above 0.00" resolve YES trivially. Never
+    // settle against it; leave the window for the market's grace window to VOID.
+    if (reference <= 0) {
+      this.logger.error(
+        `@${handle.id}: window ${live.start} has an unusable strike (0) — leaving it to VOID`,
+      );
+      return false;
+    }
     const winner = await this.winnerFromReference(
       handle,
       outcomes,
@@ -223,6 +234,7 @@ export class WindowEngineService {
       winner,
       reference,
       observedAura,
+      inputsHash,
     );
     this.logger.log(
       `@${handle.id}: early-resolving window ${live.start} at aura ` +
@@ -329,6 +341,16 @@ export class WindowEngineService {
     );
     const series = history.map((p) => p.value);
     const strike = strikeFor(series, handle.aura);
+    // A window with no usable strike ("Will aura rise above 0.00?") is
+    // degenerate — it resolves YES trivially. Never open it. Flag the slot so
+    // the queue doesn't retry it forever.
+    if (strike <= 0) {
+      this.logger.error(
+        `@${handle.id}: no usable strike (aura history empty and aura 0) — skipping window ${startSec}`,
+      );
+      await this.setFlag(this.openKey(handle.id, startSec));
+      return;
+    }
     const priors = windowPriors({
       points: series,
       windowSec: Math.max(1, endSec - startSec),
@@ -409,6 +431,14 @@ export class WindowEngineService {
     // on-chain metadata); reconstruct it exactly as openSlot did when the record
     // hasn't landed.
     const reference = await this.referenceFor(handle, rec, windowStart);
+    // A zero strike ("rise above 0.00") would resolve YES trivially — never
+    // settle against it.
+    if (reference <= 0) {
+      this.logger.error(
+        `@${handle.id}: window ${windowStart} has an unusable strike (0) — leaving it to VOID`,
+      );
+      return;
+    }
 
     const winner = await this.winnerFromReference(
       handle,
@@ -520,6 +550,7 @@ export class WindowEngineService {
     winner: number,
     reference: number,
     closeOverride?: number,
+    inputsHashOverride?: string,
   ): Promise<{
     handleId: string;
     windowStart: number;
@@ -532,6 +563,7 @@ export class WindowEngineService {
     direction: boolean;
     itemCount: number;
     outcomesHash: string;
+    inputsHash: string;
   }> {
     const points = await this.series.points(
       `aura:${handle.label}`,
@@ -543,7 +575,18 @@ export class WindowEngineService {
     // winner used — the on-chain Oracle/`MarketMaker.settle` mirrors this receipt.
     // Early settle passes the observed close directly (the series write may not
     // have landed yet); otherwise the last in-window point is the close.
-    const close = closeOverride ?? points[points.length - 1]?.value ?? reference;
+    const closePoint = closeOverride === undefined ? points[points.length - 1] : undefined;
+    const close = closeOverride ?? closePoint?.value ?? reference;
+    // Commit the EVIDENCE behind the close observation. The early path carries
+    // the just-computed tick hash; the windowEnd path reads it off the closing
+    // series point (the aura engine stamps every point with its `hashTick`).
+    const inputsHash =
+      inputsHashOverride ?? closePoint?.inputsHash ?? ZERO_HASH;
+    if (inputsHash === ZERO_HASH) {
+      this.logger.warn(
+        `@${handle.id}: window ${win.windowStart} close has no evidence hash — committing zero`,
+      );
+    }
     return {
       handleId: handle.id,
       windowStart: win.windowStart,
@@ -562,6 +605,7 @@ export class WindowEngineService {
           win.outcomes.map((o, i) => `${i}:${o}`).join("|") || "aura",
         ),
       ),
+      inputsHash,
     };
   }
 

@@ -33,6 +33,10 @@ function build(opts: {
   open?: Record<string, boolean>;
   windows?: unknown[];
   openWindow?: () => Promise<boolean>;
+  /** Override the series points `openSlot` prices/strikes from. */
+  points?: () => { value: number }[];
+  /** Override the handle (e.g. aura 0 to exercise the zero-strike guard). */
+  handle?: AuraHandle;
 }) {
   const flags = new Map<string, string>();
   const calls: string[] = [];
@@ -73,7 +77,7 @@ function build(opts: {
     chain as never,
     indexer as never,
     { publishWindowOpened: () => {}, publishWindowResolved: () => {} } as never,
-    { points: async () => [{ value: 30 }, { value: 31 }] } as never,
+    { points: async () => opts.points?.() ?? [{ value: 30 }, { value: 31 }] } as never,
     redis as never,
     // No cadence configured in tests → the timing warning is inert.
     { get: () => undefined } as never,
@@ -117,6 +121,16 @@ describe("WindowEngineService", () => {
     expect(calls).toContain("open");
   });
 
+  it("does NOT open a degenerate zero-strike window (aura 0, no history)", async () => {
+    const zero: AuraHandle = { ...HANDLE, aura: 0 };
+    const { engine, calls } = build({
+      windows: [],
+      points: () => [{ value: 0 }],
+    });
+    await engine.tick(zero, NOW);
+    expect(calls).not.toContain("open");
+  });
+
   it("does not settle a window that is still inside the freeze buffer", async () => {
     const { engine, calls } = build({
       oracles: { [PREV]: ORACLE },
@@ -146,7 +160,7 @@ const IN_LO = PREV * 1000;
 const IN_HI = SLOT * 1000;
 const LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
-type SettlePoint = { value: number };
+type SettlePoint = { value: number; inputsHash?: string };
 
 function settleHarness(opts: {
   /** The indexer Window.strike (1e2). Omit to force the openSlot fallback. */
@@ -155,6 +169,8 @@ function settleHarness(opts: {
   inWindow: SettlePoint[];
   /** Points for the strike-reconstruction range (fallback sourcing only). */
   prior?: SettlePoint[];
+  /** Override the handle (aura 0 to exercise the zero-strike guard). */
+  handle?: AuraHandle;
 }) {
   const flags = new Map<string, string>();
   const calls: string[] = [];
@@ -227,6 +243,8 @@ function settleHarness(opts: {
 }
 
 describe("WindowEngineService — settlement reference is the strike", () => {
+  const EVIDENCE = `0x${"11".repeat(32)}`;
+
   it("resolves NO when the only in-window observation is below the strike", async () => {
     const { engine, settles } = settleHarness({
       strikeRecord: 4316,
@@ -268,7 +286,7 @@ describe("WindowEngineService — settlement reference is the strike", () => {
   it("commits the strike as the receipt's expectation and indexOpen", async () => {
     const { engine, settles } = settleHarness({
       strikeRecord: 4316,
-      inWindow: [{ value: 4230 }],
+      inWindow: [{ value: 4230, inputsHash: EVIDENCE }],
     });
     await engine.tick(HANDLE, NOW + 10_000).catch(() => undefined);
     const receipt = settles[0]!.receipt;
@@ -276,6 +294,22 @@ describe("WindowEngineService — settlement reference is the strike", () => {
     expect(receipt.indexOpen).toBe(4316);
     expect(receipt.indexClose).toBe(4230);
     expect(receipt.direction).toBe(false);
+    // indexClose/indexOpen are the on-chain-observable levels, and the close's
+    // evidence is committed into the receipt.
+    expect(receipt.inputsHash).toBe(EVIDENCE);
+  });
+
+  it("does NOT settle a zero-strike window — leaves it to VOID", async () => {
+    const zero: AuraHandle = { ...HANDLE, aura: 0 };
+    const { engine, calls, settles } = settleHarness({
+      // No indexer strike → reconstruct from the prior series (all zero).
+      inWindow: [{ value: 0, inputsHash: EVIDENCE }],
+      prior: [{ value: 0 }],
+      handle: zero,
+    });
+    await engine.tick(zero, NOW + 10_000).catch(() => undefined);
+    expect(settles).toHaveLength(0);
+    expect(calls).not.toContain("settle");
   });
 
   it("reconstructs the strike exactly as openSlot did when the indexer record is absent", async () => {
@@ -374,13 +408,15 @@ function earlyHarness(opts: {
 }
 
 describe("WindowEngineService — early close on the first in-window observation", () => {
+  const EVIDENCE = `0x${"22".repeat(32)}`;
+
   it("early-settles a live window with the observed close against the strike (YES)", async () => {
     const { engine, settles, calls } = earlyHarness({
       strikeRecord: 4316,
       inWindow: [{ value: 4400 }],
     });
     // The tick lands well before windowEnd (SLOT + 900).
-    const settled = await engine.settleOnObservation(HANDLE, 4400, NOW + 60_000);
+    const settled = await engine.settleOnObservation(HANDLE, 4400, NOW + 60_000, EVIDENCE);
 
     expect(settled).toBe(true);
     expect(calls).toContain("settle");
@@ -391,6 +427,8 @@ describe("WindowEngineService — early close on the first in-window observation
     expect(settles[0]!.receipt.expectation).toBe(4316); // the strike
     expect(settles[0]!.receipt.indexOpen).toBe(4316);
     expect(settles[0]!.receipt.direction).toBe(true);
+    // The tick's evidence hash is committed into the resolution receipt.
+    expect(settles[0]!.receipt.inputsHash).toBe(EVIDENCE);
   });
 
   it("early-settles below the strike as NO, using the observation as the close", async () => {

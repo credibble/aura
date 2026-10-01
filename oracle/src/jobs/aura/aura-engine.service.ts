@@ -52,6 +52,8 @@ export interface AuraTick {
   aura: number;
   /** Change vs the previous tick. */
   delta: number;
+  /** Evidence hash of this tick (`hashTick`) — committed into a resolution. */
+  inputsHash: string;
 }
 
 /**
@@ -128,7 +130,6 @@ export class AuraEngineService {
     // Prior tick context from the POSTGRES aura series (aura + delta) + the
     // last persisted summary — helps the model score continuously.
     const last = await this.series.latest(AURA_SERIES + handle.label, "aura");
-    const lastKnown = last?.value;
     const prevSummary = await this.cache.get<{ summary: string }>(this.summaryKey(handle.label));
     const previous: PreviousTick = {
       aura: last ? last.value / 100 : undefined,
@@ -166,7 +167,12 @@ export class AuraEngineService {
 
     // Applied to the latest known aura: the series close if we have one, else the
     // on-chain level (the AI's "last aura").
-    const base = lastKnown ?? onChain;
+    //
+    // ONE SERIES: the ON-CHAIN level is the only base. Anchoring on the private
+    // Postgres series (when it had drifted from the chain) is exactly what let a
+    // resolution settle against a value no participant could see on-chain. A
+    // third party reproduces the tick from `Handle.aura` + `AuraHistory`.
+    const base = onChain;
     let next = clampInt(Math.round((base * (100 + percent)) / 100), 0, 10_000);
     // POINTS FLOOR: aura is an integer at 1e2 scale, so even a single-digit
     // percent can round to ZERO on a low aura. A tick must always move at least
@@ -175,19 +181,11 @@ export class AuraEngineService {
     if (next === base) next = clampInt(base + direction, 0, 10_000);
     const delta = next - base;
 
-    // Absolute aura points on the 1e2 scale — the window engine reads the
-    // open/close levels off this series (binary: rise vs fall).
-    await this.series.append(`aura:${handle.label}`, "aura", {
-      timestamp: now,
-      value: next,
-      delta,
-    });
-
     // ── Audit trail ─────────────────────────────────────────────────────────
     // A tick moves a market price, so what it saw and what the model said must be
     // reconstructable later: one structured line per tick, with an inputsHash over
-    // the evidence and the raw reply. The same hash rides the WS push (and is the
-    // hook for committing it into a resolution receipt later).
+    // the evidence and the raw reply. The same hash is written into the aura
+    // series AND committed on-chain into a resolution receipt.
     const inputsHash = hashTick({
       handleId: handle.id,
       ts: now,
@@ -212,19 +210,42 @@ export class AuraEngineService {
       }`;
     const summary = memo.replace(/\s+/g, " ").trim().slice(0, 120);
 
-    if (next !== onChain) {
-      const ok = await this.chain.updateAura(handle.contract, next, summary);
-      if (!ok) {
-        this.logger.warn(`@${handle.label}: on-chain aura write failed (${onChain} → ${next})`);
-      }
+    // Write EVERY tick on-chain — even when `next === onChain` — so the on-chain
+    // `AuraHistory` and the oracle's series are the same sequence. A tick a
+    // participant cannot observe on-chain must not exist privately: if the write
+    // fails, drop the tick (no series point, no early settle) rather than let the
+    // private series drift ahead of the chain.
+    const ok = await this.chain.updateAura(handle.contract, next, summary);
+    if (!ok) {
+      this.logger.warn(
+        `@${handle.label}: on-chain aura write failed (${onChain} → ${next}) — tick dropped (no series point)`,
+      );
+      return null;
     }
+    if (next === onChain) {
+      // Deliberately NOT a no-op: the on-chain history now carries this point,
+      // which is what makes the two series (chain + oracle) identical.
+      this.logger.debug(
+        `@${handle.label}: aura unchanged at ${(next / 100).toFixed(2)} — still recorded on-chain`,
+      );
+    }
+
+    // Absolute aura points on the 1e2 scale — the window engine reads the
+    // open/close levels off this series (binary: rise vs fall), and commits the
+    // closing point's `inputsHash` into the resolution receipt.
+    await this.series.append(`aura:${handle.label}`, "aura", {
+      timestamp: now,
+      value: next,
+      delta,
+      inputsHash,
+    });
 
     this.ws.publishAura({ handleId: handle.id, aura: next, delta, summary, inputsHash, ts: now });
     // Persist the summary so the NEXT tick can pass it as prior-tick context.
     await this.cache.set(this.summaryKey(handle.label), { summary: scored.summary }, SENT_TTL_SECONDS);
     // No backend aura history: the indexer's aura records are the single
     // source of truth for a handle's aura series + summaries.
-    return { handleId: handle.id, label: handle.label, aura: next, delta };
+    return { handleId: handle.id, label: handle.label, aura: next, delta, inputsHash };
   }
 
   private summaryKey(label: string): { namespace: string; account: string; handle: string } {

@@ -169,6 +169,7 @@ export interface ReceiptValue {
   itemCount: number;
   outcomesHash: string;
   resolvedAt: bigint;
+  inputsHash: string;
 }
 
 export const RESOLUTION_TYPES = {
@@ -185,6 +186,7 @@ export const RESOLUTION_TYPES = {
     { name: "itemCount", type: "uint32" },
     { name: "outcomesHash", type: "bytes32" },
     { name: "resolvedAt", type: "uint256" },
+    { name: "inputsHash", type: "bytes32" },
   ],
 };
 
@@ -207,6 +209,7 @@ export function makeReceipt(
     itemCount: 142,
     outcomesHash: ethers.ZeroHash,
     resolvedAt: ws + 900_050n,
+    inputsHash: ethers.id(`input:${ws}:${direction}`),
   };
 }
 

@@ -30,6 +30,13 @@ export interface WindowResult {
   itemCount: number;
   proof: ProofSignals;
   resolvedAt: number;
+  /**
+   * keccak commitment to the evidence behind this resolution (the closing
+   * tick's item ids, base level, raw model reply and applied percent). Optional
+   * for producers that predate on-chain evidence commitment; treated as the
+   * zero hash so the EIP-712 hashStruct always has a 32-byte word.
+   */
+  inputsHash?: string;
 }
 
 /** A `WindowResult` plus its stable identity hash. */
@@ -68,7 +75,7 @@ export const EIP712_DOMAIN_NAME = "Aura Oracle";
 export const EIP712_DOMAIN_VERSION = "1";
 
 export const RESOLUTION_TYPE_STRING =
-  "ResolutionReceipt(bytes32 handleId,uint256 windowStart,uint256 windowEnd,uint256 s,uint256 expectation,int256 delta,uint256 indexOpen,uint256 indexClose,bool direction,uint32 itemCount,bytes32 outcomesHash,uint256 resolvedAt)";
+  "ResolutionReceipt(bytes32 handleId,uint256 windowStart,uint256 windowEnd,uint256 s,uint256 expectation,int256 delta,uint256 indexOpen,uint256 indexClose,bool direction,uint32 itemCount,bytes32 outcomesHash,uint256 resolvedAt,bytes32 inputsHash)";
 
 /**
  * On-chain handle id: the handle's UTF-8, left-aligned in a 32-byte word
@@ -96,6 +103,7 @@ export interface ScaledResolution {
   itemCount: number;
   outcomesHash: Uint8Array;
   resolvedAt: bigint;
+  inputsHash: Uint8Array;
 }
 
 export function scaleToBigInt(value: number): bigint {
@@ -109,6 +117,16 @@ export function outcomesHash(dominance: Record<string, number> | undefined): Uin
     .map(([id, share]) => `${id}:${Math.round(share * PRICE_SCALE)}`)
     .join("|");
   return keccak_256(entries);
+}
+
+/** A hex `bytes32` string → 32 bytes; anything malformed becomes the zero hash. */
+function bytes32FromHex(value: string | undefined): Uint8Array {
+  const out = new Uint8Array(32);
+  if (!value) return out;
+  const hex = value.startsWith("0x") ? value.slice(2) : value;
+  if (hex.length !== 64) return out;
+  for (let i = 0; i < 32; i++) out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
 }
 
 export function toScaledResolution(result: WindowResult): ScaledResolution {
@@ -125,6 +143,7 @@ export function toScaledResolution(result: WindowResult): ScaledResolution {
     itemCount: result.itemCount,
     outcomesHash: outcomesHash(result.outcomeDominance),
     resolvedAt: BigInt(result.resolvedAt),
+    inputsHash: bytes32FromHex(result.inputsHash),
   };
 }
 
@@ -198,6 +217,7 @@ export function hashStruct(r: ScaledResolution): Uint8Array {
     encodeIntegerWord(BigInt(r.itemCount)),
     r.outcomesHash,
     encodeIntegerWord(r.resolvedAt),
+    r.inputsHash,
   );
 }
 

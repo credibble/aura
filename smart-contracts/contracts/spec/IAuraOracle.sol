@@ -23,6 +23,11 @@ interface IAuraOracle {
         uint32 itemCount;
         bytes32 outcomesHash; // keccak commitment to the ordered outcome metadata (binary markets)
         uint256 resolvedAt;
+        /// keccak commitment to the evidence that produced this resolution —
+        /// the closing tick's item ids, base level, raw model reply and applied
+        /// percent (see `hashTick`). Committing it on-chain lets a third party
+        /// replay/verify the settlement, not just its outcome.
+        bytes32 inputsHash;
     }
 
     /// The on-chain lifecycle of a (handleId, windowStart) market window.
@@ -43,7 +48,7 @@ interface IAuraOracle {
 
     event WindowFrozen(bytes32 indexed handleId, uint256 windowStart);
 
-    event WindowResolved(bytes32 indexed handleId, uint256 windowStart, bool direction, uint256 indexClose, bytes32 resolutionHash);
+    event WindowResolved(bytes32 indexed handleId, uint256 windowStart, bool direction, uint256 indexClose, bytes32 resolutionHash, bytes32 inputsHash);
 
     event WindowVoided(bytes32 indexed handleId, uint256 windowStart, string reason);
 
@@ -63,6 +68,10 @@ interface IAuraOracle {
         external
         view
         returns (bool direction, uint256 indexClose, bytes32 resolutionHash, uint256 resolvedAt);
+
+    /// The evidence hash the stored resolution committed to (0 = none). Exposed
+    /// separately so `resolutionOf`'s ABI stays stable for existing readers.
+    function resolutionInputsHash() external view returns (bytes32);
 
     function receiptDigest(ResolutionReceipt calldata receipt) external view returns (bytes32);
 

@@ -35,6 +35,8 @@ library Errors {
     error AlreadySettled();
     error BadOutcome();
     error BadWindow();
+    /// A window whose strike is unusable (0 / no history) must never resolve.
+    error BadStrike();
 
     // --- signature -----------------------------------------------------
     error BadSignatureLength();

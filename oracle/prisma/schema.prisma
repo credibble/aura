@@ -19,13 +19,14 @@ datasource db {
 /// re-inserting the same bucket overwrites the value (idempotent ticks).
 /// `delta` = value vs the previous entry in the series (computed on append).
 model MetricPoint {
-  id        String   @id // `${sourceId}::${metric}::${timestamp}`
-  sourceId  String
-  metric    String
-  value     Float
-  delta     Float?
-  timestamp DateTime
-  createdAt DateTime @default(now())
+  id         String   @id // `${sourceId}::${metric}::${timestamp}`
+  sourceId   String
+  metric     String
+  value      Float
+  delta      Float?
+  inputsHash String? // aura series only: the producing tick's evidence hash
+  timestamp  DateTime
+  createdAt  DateTime @default(now())
 
   @@unique([sourceId, metric, timestamp])
   @@index([sourceId, metric])

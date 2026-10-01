@@ -182,7 +182,20 @@ export async function withAiSlot<T>(call: () => Promise<T>): Promise<T> {
 export async function kimiRequest(send: () => Promise<Response>): Promise<Response> {
   let lastError = "Kimi request failed";
   for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await withAiSlot(() => send());
+    let res: Response;
+    try {
+      res = await withAiSlot(() => send());
+    } catch (error) {
+      // A THROWN fetch (DNS blip, connection reset, the 300s timeout) is as
+      // transient as a 5xx but used to bypass this loop entirely, losing the
+      // tick. Retry it with the same backoff before giving up.
+      lastError = `Kimi request failed: ${(error as Error)?.message ?? String(error)}`;
+      if (attempt < 3) {
+        await sleep(1500 * 2 ** attempt);
+        continue;
+      }
+      break;
+    }
     if (res.ok) return res;
     const detail = await res.text();
     lastError = `Kimi HTTP ${res.status}: ${detail.slice(0, 200)}`;

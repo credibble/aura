@@ -2,20 +2,20 @@ import { describe, it, expect } from "vitest";
 import { parseSummary } from "../src/adapters/ai/llm/kimi-ai.model";
 
 /**
- * The AI's per-tick contract: a signed PERCENT (clamped to ±5) plus the SHORT
+ * The AI's per-tick contract: a signed PERCENT (clamped to ±20) plus the SHORT
  * memo that gets written on-chain as `Handle.updateAura`'s summary.
  */
 
 describe("parseSummary — percent", () => {
   it("reads the percent and its memo", () => {
-    const r = parseSummary('{"percent": -5, "summary": "injury doubt ahead of the derby"}');
-    expect(r.percent).toBe(-5);
+    const r = parseSummary('{"percent": -12, "summary": "injury doubt ahead of the derby"}');
+    expect(r.percent).toBe(-12);
     expect(r.summary).toBe("injury doubt ahead of the derby");
   });
 
-  it("clamps beyond the ±5 band and rounds to one decimal", () => {
-    expect(parseSummary('{"percent": -9.5, "summary": "x"}').percent).toBe(-5);
-    expect(parseSummary('{"percent": 42, "summary": "x"}').percent).toBe(5);
+  it("clamps beyond the ±20 band and rounds to one decimal", () => {
+    expect(parseSummary('{"percent": -30, "summary": "x"}').percent).toBe(-20);
+    expect(parseSummary('{"percent": 42, "summary": "x"}').percent).toBe(20);
     expect(parseSummary('{"percent": 1.24, "summary": "x"}').percent).toBe(1.2);
   });
 

@@ -54,21 +54,21 @@ describe("KimiAiModel — aura oracle (integer-only delta, one handle at a time)
     expect(await zero.interpret("ronaldo", groups())).toBe(0);
   });
 
-  it("parses one-decimal percents (the contract is a signed percent, ±5)", async () => {
-    const small = new KimiAiModel(config({ KIMI_API_KEY: "sk-test" }), stubFetch("+0.3"));
-    expect(await small.interpret("ronaldo", groups())).toBe(0.3);
-    const big = new KimiAiModel(config({ KIMI_API_KEY: "sk-test" }), stubFetch("1.2"));
-    expect(await big.interpret("ronaldo", groups())).toBe(1.2);
-    const neg = new KimiAiModel(config({ KIMI_API_KEY: "sk-test" }), stubFetch("-0.4"));
-    expect(await neg.interpret("ronaldo", groups())).toBe(-0.4);
-    // Sub-0.1 magnitudes round to 0 here; the ENGINE applies the ±0.2% floor.
+  it("parses one-decimal percents (the contract is a signed percent, ±20)", async () => {
+    const small = new KimiAiModel(config({ KIMI_API_KEY: "sk-test" }), stubFetch("+6.3"));
+    expect(await small.interpret("ronaldo", groups())).toBe(6.3);
+    const big = new KimiAiModel(config({ KIMI_API_KEY: "sk-test" }), stubFetch("12.2"));
+    expect(await big.interpret("ronaldo", groups())).toBe(12.2);
+    const neg = new KimiAiModel(config({ KIMI_API_KEY: "sk-test" }), stubFetch("-7.4"));
+    expect(await neg.interpret("ronaldo", groups())).toBe(-7.4);
+    // Sub-0.1 magnitudes round to 0 here; the ENGINE applies the ±5% floor.
     const dust = new KimiAiModel(config({ KIMI_API_KEY: "sk-test" }), stubFetch("+0.03"));
     expect(await dust.interpret("ronaldo", groups())).toBe(0);
   });
 
   it("clamps absurd deltas and tolerates whitespace", async () => {
     const model = new KimiAiModel(config({ KIMI_API_KEY: "sk-test" }), stubFetch("  +5000  "));
-    expect(await model.interpret("ronaldo", groups())).toBe(5); // ±5.00 display cap
+    expect(await model.interpret("ronaldo", groups())).toBe(20); // ±20.00 display cap
   });
 
   it("returns neutral 0 when unconfigured or there are no sources", async () => {

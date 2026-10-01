@@ -25,8 +25,8 @@ const AURA_SERIES = "aura:";
  * this band: a floor so the index always moves (no dead ticks) and a ceiling so
  * one tick can't reprice the whole market.
  */
-const MIN_AURA_PERCENT = 0.2;
-const MAX_AURA_PERCENT = 5;
+const MIN_AURA_PERCENT = 5;
+const MAX_AURA_PERCENT = 20;
 /** Evidence scaling floor/ceiling — see `evidenceWeight`. */
 const MIN_EVIDENCE_WEIGHT = 0.25;
 const REFERENCE_WEIGHTED_ITEMS = 4;
@@ -165,10 +165,10 @@ export class AuraEngineService {
     // on-chain level (the AI's "last aura").
     const base = lastKnown ?? onChain;
     let next = clampInt(Math.round((base * (100 + percent)) / 100), 0, 10_000);
-    // POINTS FLOOR: aura is an integer at 1e2 scale, so a percentage floor of 0.2%
-    // rounds to ZERO on a low aura (0.2% of 19.90 = 0.04 → 0). A tick must always
-    // move at least one unit, otherwise "never a dead tick" silently fails and a
-    // window can open and close on an unchanged series.
+    // POINTS FLOOR: aura is an integer at 1e2 scale, so even a single-digit
+    // percent can round to ZERO on a low aura. A tick must always move at least
+    // one unit, otherwise "never a dead tick" silently fails and a window can
+    // open and close on an unchanged series.
     if (next === base) next = clampInt(base + direction, 0, 10_000);
     const delta = next - base;
 

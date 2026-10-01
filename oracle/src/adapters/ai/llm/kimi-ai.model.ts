@@ -59,13 +59,13 @@ interface KimiResponse {
 const SCORING_RULES =
   "You are the Aura index oracle. For ONE handle you are given its recent source activity, grouped by source, and you must decide how much its aura moves this tick.\n" +
   "INPUT: each group has label, reliability (1-1000 credibility), engagement metrics (value + delta vs previous tick), item texts, optional context. Items referencing the handle are flagged <<MENTION>> — any textual reference (name, alias, trademark, clear indirect reference), even when the subject is not the actor.\n" +
-  "OUTPUT SCALE: a PERCENT change of the handle's current aura, signed, one decimal (e.g. +2.5, -0.4, 0). It is applied to the live level: an aura of 100 with -5% becomes 95.\n" +
-  "BANDS (percent): 0.2-0.5 TINY (a credible mention in a positive/spotlight context); 0.6-1.5 SMALL; 1.6-3 MODERATE (a solid positive development); 3.1-4 LARGE; 4.1-5 VERY LARGE (decisive, high-reliability events only). Symmetric negatives for bearish news. NEVER exceed ±5, never go below ±0.2 in magnitude — if the honest read is 'no real change', still answer the minimum ±0.2 in the direction of the residual signal.\n" +
+  "OUTPUT SCALE: a PERCENT change of the handle's current aura, signed, one decimal (e.g. +7.5, -12.4, 0). It is applied to the live level: an aura of 100 with -12% becomes 88.\n" +
+  "BANDS (percent): 5-8 MODEST (a credible mention in a positive/spotlight context); 8-12 MODERATE (a solid positive development); 12-16 LARGE; 16-20 VERY LARGE (decisive, high-reliability events only). Symmetric negatives for bearish news. NEVER exceed ±20, never go below ±5 in magnitude — if the honest read is 'no real change', still answer the minimum ±5 in the direction of the residual signal.\n" +
   "JUDGMENT: score SENTIMENT from item texts, not metric counts; account for every <<MENTION>> item (never dismiss it); weight 900+ sources strongly; treat fan accounts/rumors/low-credibility content weakly; ignore spam, bots, clickbait; honor per-source context; net conflicting signals; never exaggerate one item; never invent events.\n";
 
 const SYSTEM_PROMPT =
   SCORING_RULES +
-  "OUTPUT: reply with ONLY a signed percent to one decimal (e.g. +2.5, -0.4). No JSON, no text, no explanation.";
+  "OUTPUT: reply with ONLY a signed percent to one decimal (e.g. +7.5, -12.4). No JSON, no text, no explanation.";
 
 const SUMMARY_SYSTEM_PROMPT =
   SCORING_RULES +
@@ -171,7 +171,7 @@ export class KimiAiModel {
   /** Score the aura delta for ONE handle given its source groups. */
   async interpret(handleId: string, sources: SourceGroup[], previous?: PreviousTick): Promise<number> {
     const content = await this.run(handleId, sources, SYSTEM_PROMPT, false, previous);
-    // Same contract as the scoring path: a signed percent, clamped to ±5.
+    // Same contract as the scoring path: a signed percent, clamped to ±20.
     return clampPercent(parseDelta(content ?? ""));
   }
 
@@ -398,8 +398,8 @@ function parseDelta(content: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** How the AI's tick answer is parsed: a signed PERCENT, clamped to ±5. */
-const PERCENT_LIMIT = 5;
+/** How the AI's tick answer is parsed: a signed PERCENT, clamped to ±20. */
+const PERCENT_LIMIT = 20;
 /**
  * The summary is written ON-CHAIN as `Handle.updateAura`'s memo, so it is capped
  * hard — a long string is pure gas, and it has to read well in a chart tooltip.

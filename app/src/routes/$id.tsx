@@ -517,7 +517,11 @@ function TradePage() {
                   <span className="truncate">{cat?.label ?? "Market"}</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" aria-label="About the aura index">
+                      <button
+                        type="button"
+                        aria-label="About the aura index"
+                        className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                      >
                         <Info className="h-3.5 w-3.5" />
                       </button>
                     </TooltipTrigger>
@@ -556,7 +560,7 @@ function TradePage() {
                           aria-pressed={on}
                           onClick={() => setChartMode(m === "Aura" ? "aura" : "prices")}
                           className={cn(
-                            "rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                            "min-h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors",
                             on
                               ? "bg-secondary text-foreground"
                               : "text-muted-foreground hover:text-foreground",
@@ -573,7 +577,7 @@ function TradePage() {
                         type="button"
                         onClick={() => setRange(r.id)}
                         className={cn(
-                          "rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                          "min-h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors",
                           range === r.id
                             ? "bg-secondary text-foreground"
                             : "text-muted-foreground hover:text-foreground",
@@ -957,7 +961,7 @@ function HandleActions({
         type="button"
         onClick={() => toggleFollow(handle)}
         className={cn(
-          "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+          "min-h-11 rounded-full px-4 text-sm font-semibold transition-colors",
           following
             ? "border border-border text-foreground hover:border-down/60 hover:text-down"
             : "bg-foreground text-background hover:opacity-90",

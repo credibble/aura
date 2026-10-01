@@ -221,7 +221,7 @@ function SuggestedRow({ h }: { h: IndexerHandle }) {
         type="button"
         onClick={() => toggleFollow(handle)}
         className={cn(
-          "shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition-colors",
+          "min-h-11 shrink-0 rounded-full px-4 text-sm font-bold transition-colors",
           following
             ? "border border-border text-foreground hover:border-down/60 hover:text-down"
             : "bg-foreground text-background hover:bg-foreground/85",
@@ -307,7 +307,7 @@ export function RelevantPeopleCard({ marketId }: { marketId: string }) {
           type="button"
           onClick={() => toggleFollow(handle)}
           className={cn(
-            "shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition-colors",
+            "min-h-11 shrink-0 rounded-full px-4 text-sm font-bold transition-colors",
             following
               ? "border border-border text-foreground hover:border-down/60 hover:text-down"
               : "bg-foreground text-background hover:bg-foreground/85",

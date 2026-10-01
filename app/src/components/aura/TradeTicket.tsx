@@ -357,7 +357,7 @@ export function TradeTicket({ market }: { market: Market }) {
             type="button"
             onClick={() => nudgeLimit(d)}
             aria-label={`${d > 0 ? "Raise" : "Lower"} limit by ${Math.abs(d)} cents`}
-            className="num rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
+            className="num min-h-10 rounded-full bg-secondary px-3 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
           >
             {d > 0 ? `+${d}` : `−${Math.abs(d)}`}¢
           </button>
@@ -365,7 +365,7 @@ export function TradeTicket({ market }: { market: Market }) {
         <button
           type="button"
           onClick={() => setLimitPrice(String(liveCents))}
-          className="ml-auto rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
+          className="ml-auto min-h-10 rounded-full bg-secondary px-3 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
         >
           Market
         </button>
@@ -571,7 +571,7 @@ export function TradeTicket({ market }: { market: Market }) {
                     key={q}
                     type="button"
                     onClick={() => setAmount(String((Number(amount) || 0) + q))}
-                    className="min-h-9 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
+                    className="min-h-10 rounded-full bg-secondary px-3 text-xs font-semibold text-foreground/90 hover:bg-secondary/70"
                   >
                     +{q}
                   </button>
@@ -629,7 +629,7 @@ export function TradeTicket({ market }: { market: Market }) {
                       if (q === 100) void sellMax();
                       else void sellFraction(q);
                     }}
-                    className="min-h-9 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground/90 hover:bg-secondary/70 disabled:opacity-50"
+                    className="min-h-10 rounded-full bg-secondary px-3 text-xs font-semibold text-foreground/90 hover:bg-secondary/70 disabled:opacity-50"
                   >
                     {q === 100 ? "Max" : `${q}%`}
                   </button>

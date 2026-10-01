@@ -90,7 +90,7 @@ export function ConnectButton({
         type="button"
         onClick={() => void login()}
         className={cn(
-          "inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground hover:brightness-110",
+          "inline-flex h-11 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground hover:brightness-110",
           className,
         )}
       >
@@ -106,7 +106,8 @@ export function ConnectButton({
         <button
           type="button"
           className={cn(
-            "inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-secondary/70 px-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary",
+            "inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/70 px-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary",
+            "h-11 min-h-11",
             className,
           )}
         >

@@ -93,8 +93,8 @@ function RowArrow({
       aria-label={side === "start" ? "Scroll left" : "Scroll right"}
       className={cn(
         // The pill keeps a border + fill (they carry the hit area); the drop
-        // shadow was a third signal on a 32px control.
-        "absolute top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/90 text-foreground backdrop-blur transition-colors hover:bg-secondary",
+        // shadow was a third signal on a small control.
+        "absolute top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/90 text-foreground backdrop-blur transition-colors hover:bg-secondary",
         side === "start" ? "left-0.5" : "right-0.5",
         className,
       )}

@@ -18,15 +18,15 @@ export interface PostEvent extends FeedEvent {
   marketId: string;
   ai: boolean;
   createdAt: number;
-  /** FeedMedia[] â€” images/videos picked from the analysed sources (or uploaded). */
+  /** FeedMedia[] — images/videos picked from the analysed sources (or uploaded). */
   media: { kind: "image" | "video"; src: string; alt?: string }[];
-  /** FeedSource[] â€” the underlying source posts that fed the aggregate. */
+  /** FeedSource[] — the underlying source posts that fed the aggregate. */
   sources: { id: string; platform: string; account: string; text: string; ts: number; aura: number; stats?: string }[];
   /** Denormalized counters (Comment / Like / Repost tables). A key is present
    *  only when the platform actually reported that counter — an unreported one
    *  is absent, not 0. */
   stats: PostStats;
-  /** Viewer flags â€” only set when the request carries `?currentUser=0xâ€¦`. */
+  /** Viewer flags — only set when the request carries `?currentUser=0x”¦`. */
   likedByMe?: boolean;
   repostedByMe?: boolean;
   bookmarkedByMe?: boolean;
@@ -88,7 +88,7 @@ export class SocialService {
         update: {},
       });
     } catch {
-      /* Postgres down â€” local fallback handles it */
+      /* Postgres down — local fallback handles it */
     }
   }
 
@@ -164,7 +164,7 @@ export class SocialService {
         stats: reportedStats(row),
       });
     } catch {
-      /* not a Post row (or Postgres down) â€” no live counter to push */
+      /* not a Post row (or Postgres down) — no live counter to push */
     }
   }
 
@@ -191,7 +191,7 @@ export class SocialService {
   }
 
   /** Attach the viewer's liked/reposted/bookmarked flags to a page of posts
-   *  (batched â€” 3 queries per page, local-set fallback when Postgres is down). */
+   *  (batched — 3 queries per page, local-set fallback when Postgres is down). */
   private async decorate(
     items: PostEvent[],
     viewer: string | null,
@@ -354,7 +354,7 @@ export class SocialService {
     };
   }
 
-  /** A user-authored post (ai=false) â€” text + optional uploaded media[]. */
+  /** A user-authored post (ai=false) — text + optional uploaded media[]. */
   async createUserPost(input: {
     userId: string;
     handleId: string;
@@ -397,7 +397,7 @@ export class SocialService {
 
   // --- views -----------------------------------------------------------------
 
-  /** Record one post view (public â€” deduped client-side per session). Returns
+  /** Record one post view (public — deduped client-side per session). Returns
    *  the new count, or null when the post is missing / Postgres is down. */
   async incrementViews(id: string): Promise<number | null> {
     try {
@@ -434,7 +434,7 @@ export class SocialService {
           where: { targetId: postId, targetType: "feed" },
         });
       } catch {
-        /* best-effort â€” the FK cascade already removed comments/reposts/bookmarks */
+        /* best-effort — the FK cascade already removed comments/reposts/bookmarks */
       }
       this.publishSocial({ op: "post.deleted", postId, handleId: post.handleId });
       return true;
@@ -719,7 +719,7 @@ export class SocialService {
       push.id = row.id;
     } catch {
       this.logger.debug(
-        `Postgres unavailable â€” notification for ${userId} held locally`,
+        `Postgres unavailable — notification for ${userId} held locally`,
       );
     }
     // Live push: the gateway routes `notification.pushed` to this user's
@@ -765,12 +765,12 @@ export class SocialService {
     return followerIds;
   }
 
-  /** Short display form of an address â€” notification titles never show full 0xâ€¦s. */
+  /** Short display form of an address — notification titles never show full 0x”¦s. */
   private shortAddr(addr: string): string {
-    return addr.length > 12 ? `${addr.slice(0, 6)}â€¦${addr.slice(-4)}` : addr;
+    return addr.length > 12 ? `${addr.slice(0, 6)}”¦${addr.slice(-4)}` : addr;
   }
 
-  /** Notify a post's author of a like/repost â€” best-effort; skips AI posts
+  /** Notify a post's author of a like/repost — best-effort; skips AI posts
    *  (authorId null), missing posts and the author acting on their own post. */
   private async notifyPostAuthor(
     postId: string,
@@ -795,7 +795,7 @@ export class SocialService {
     }
   }
 
-  /** Notify a handle's owner that someone followed it â€” resolves the owner from
+  /** Notify a handle's owner that someone followed it — resolves the owner from
    *  the on-chain registry; skips unknown handles, self-follows and owner-less
    *  rows. Owner is lowercased to match the app's address convention. */
   private async notifyHandleOwner(handleId: string, followerId: string): Promise<void> {
@@ -869,7 +869,7 @@ export class SocialService {
         data: { read: true },
       });
     } catch {
-      /* Postgres unavailable â€” nothing to mark */
+      /* Postgres unavailable — nothing to mark */
     }
   }
 
@@ -978,7 +978,7 @@ export class SocialService {
     }
   }
 
-  /** A user's bookmarked posts (Saved), newest first, paginated â€” flags
+  /** A user's bookmarked posts (Saved), newest first, paginated — flags
    *  decorated since the viewer owns the list. */
   async bookmarkedPosts(
     userId: string,
@@ -1013,7 +1013,7 @@ export class SocialService {
   }
 
   /** A user's reposted posts (the Reposts tab), newest repost first,
-   *  paginated â€” viewer-decorated like the bookmarks list. */
+   *  paginated — viewer-decorated like the bookmarks list. */
   async repostedPosts(
     userId: string,
     page: number,
@@ -1049,7 +1049,7 @@ export class SocialService {
   // --- feed -----------------------------------------------------------------
 
   /** The user's following feed: full PostEvents for followed/subscribed
-   *  handles plus their own reposts â€” filtered, sorted, and paginated
+   *  handles plus their own reposts — filtered, sorted, and paginated
    *  server-side (the UI never client-side filters). */
   async followingFeed(
     userId: string,
@@ -1086,7 +1086,7 @@ export class SocialService {
         total,
       };
     } catch {
-      return { items: [], total: 0 }; /* Postgres down â€” empty feed */
+      return { items: [], total: 0 }; /* Postgres down — empty feed */
     }
   }
 

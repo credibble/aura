@@ -18,11 +18,11 @@ export const Route = createFileRoute("/feeds")({
   }),
   head: () => ({
     meta: [
-      { title: "Feeds â€” Aura" },
+      { title: "Feeds — Aura" },
       {
         name: "description",
         content:
-          "Every source digest the oracle publishes â€” what the internet is talking about now.",
+          "Every source digest the oracle publishes — what the internet is talking about now.",
       },
     ],
   }),
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/feeds")({
 
 /**
  * The oracle's published feeds. "For you" is every digest; "Following" is the
- * server-side feed of the handles you follow (wallet required). Reading only â€”
+ * server-side feed of the handles you follow (wallet required). Reading only —
  * markets are traded on each handle's page.
  */
 function FeedsPage() {
@@ -82,12 +82,12 @@ function FeedsPage() {
       <div className="px-4 pt-8 pb-4 sm:px-6">
         <h1 className="text-[26px] font-bold tracking-tight sm:text-3xl">Feeds</h1>
         <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-          What the internet is talking about right now â€” published by the oracle, sourced from the
+          What the internet is talking about right now — published by the oracle, sourced from the
           handles&apos; own feeds.
         </p>
       </div>
 
-      {/* Tabs â€” same pattern as the explore filters */}
+      {/* Tabs — same pattern as the explore filters */}
       <div className="sticky top-[92px] z-30 flex border-b border-border/70 bg-background/90 backdrop-blur-md lg:top-0">
         {(
           [
@@ -114,12 +114,12 @@ function FeedsPage() {
         ))}
       </div>
 
-      {/* Following needs a wallet â€” say so instead of showing an empty list */}
+      {/* Following needs a wallet — say so instead of showing an empty list */}
       {activeTab === "following" && !userId ? (
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-center">
           <p className="text-[15px] font-semibold">Connect a wallet</p>
           <p className="max-w-sm text-[13px] text-muted-foreground">
-            Your following feed follows your account â€” sign in to see the handles you subscribe
+            Your following feed follows your account — sign in to see the handles you subscribe
             to.
           </p>
           <button

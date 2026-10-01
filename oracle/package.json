@@ -1,7 +1,7 @@
 {
   "name": "@aura/oracle",
   "version": "0.1.0",
-  "description": "Aura oracle â€” internet data ingestion + AI sentiment + window resolution authority.",
+  "description": "Aura oracle — internet data ingestion + AI sentiment + window resolution authority.",
   "private": true,
   "scripts": {
     "build": "nest build",

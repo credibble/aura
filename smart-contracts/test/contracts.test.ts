@@ -57,7 +57,7 @@ describe("Full contract scenarios", () => {
     await ap.setMarketMaker(alice.address); // alice acts as a whitelisted market
     await poolC.connect(alice).reserve(await market.getAddress(), 400_000n * ONE); // oracle key
     expect(await poolC.idle()).to.equal(600_000n * ONE);
-    // 700,000 shares Ã— 1,000,000/1e9 â‰ˆ 700 USDC... withdraw enough to exceed idle.
+    // 700,000 shares Ã— 1,000,000/1e9 ≈ 700 USDC... withdraw enough to exceed idle.
     await expectError(poolC.connect(bob).withdraw(700_000_000n * ONE), "ReservedByMarkets");
     // Only the AddressesProvider's registered markets may back windows.
     await ap.setMarketMaker(bob.address); // alice is no longer a whitelisted market
@@ -96,7 +96,7 @@ describe("Full contract scenarios", () => {
     await handleC.connect(treasury).updateAura(5000n, "test");
     expect(await handleC.aura()).to.equal(5000n);
 
-    // Graduation requires â‰¥ 100 aura and is backend-only.
+    // Graduation requires ≥ 100 aura and is backend-only.
     await expectError(handleC.connect(alice).setGraduated(false), "NotCurator");
     await handleC.connect(treasury).setGraduated(false); // un-graduate allowed
     await handleC.connect(treasury).updateAura(10_000n, "graduated"); // 100.00

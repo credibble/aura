@@ -75,7 +75,7 @@ export class SocialService {
     @Optional()
     @Inject(IndexerHandleSync)
     private readonly indexer?: { handles(): Promise<OnChainHandleView[]> },
-    /** Durable publish path (outbox â†’ bus â†’ stream). Optional for tests. */
+    /** Durable publish path (outbox → bus → stream). Optional for tests. */
     @Optional()
     private readonly outbox?: OutboxService,
   ) {}

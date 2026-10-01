@@ -3,36 +3,36 @@
   "deployer": "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a",
   "relayer": "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a",
   "startBlocks": {
-    "usdc": 66989549,
-    "auraToken": 66989553,
-    "configurator": 66989558,
-    "addressesProvider": 66989566,
-    "marketRegistry": 66989570,
-    "feeCollector": 66989573,
-    "oracleFactory": 66989576,
-    "handleFactory": 66989581,
-    "pool": 66989585,
-    "revenueSharing": 66989588,
-    "marketMaker": 66989592,
-    "orderBook": 66989596
+    "usdc": 67368921,
+    "auraToken": 67368925,
+    "configurator": 67368929,
+    "addressesProvider": 67368932,
+    "marketRegistry": 67368935,
+    "feeCollector": 67368939,
+    "oracleFactory": 67368947,
+    "handleFactory": 67368952,
+    "pool": 67368957,
+    "revenueSharing": 67368961,
+    "marketMaker": 67368965,
+    "orderBook": 67368969
   },
-  "usdc": "0x49ddC76A09b045cE49ffD3aa62F178A494705d68",
-  "auraToken": "0xD21F6B560A2583628688FA8167dE0E7474E22c7A",
-  "configurator": "0x1F344fcf94f274CB8D718DEE10B97A80157674b5",
-  "addressesProvider": "0x5b52cEE12827A9Bcc88B0EfF366a83eFbDc5b2F7",
-  "marketRegistry": "0x499dEf97B668F5fDd748781E598061dFA6290a70",
-  "feeCollector": "0x7802E92814b388BDd240031c36f00964d9adA30a",
-  "oracleFactory": "0x39462B4b2D5Ba400d4faD293F54FeD5904b61956",
-  "handleFactory": "0x5A4F966dCc5F858039E0cFD773056f184376496c",
-  "pool": "0x6c6f0F5cBb510f78E2cd96f48D4166201F73dC6F",
-  "revenueSharing": "0x808b3c64F496c365B173739F8c124de4f23a019e",
-  "marketMaker": "0x6b3d9D88Ec43b04F42e2F872073036c9ce6A4Dee",
-  "orderBook": "0x0205f9fFC20d51CdB36c22E0D6dC901E6B9165e7",
+  "usdc": "0x1Bd291C342b0bC25ec0394969fBAb0B4A7230958",
+  "auraToken": "0xd5bB515B0B1055F4C07aa6fA77fB85518d0E6693",
+  "configurator": "0x9CCF586B0464fFD4801c8Bdd6c02771Fc901a839",
+  "addressesProvider": "0x8b66Ff9C3C4e80D77f4B82971058F41f124e2810",
+  "marketRegistry": "0x3C27Ce09094E9B36138188C14f5eAffDB16c99cb",
+  "feeCollector": "0x585079f9Df0Ea504F24D4Eb9f6a42c5C1a971660",
+  "oracleFactory": "0x7Ed9213B68CcE8E7613903BE62032387bD57F451",
+  "handleFactory": "0x40b547BD603BFA4b8Fa5883a909aAC5Dc2Fa00ab",
+  "pool": "0xA58336279558Ee45D793D420f4A15cd464f413a0",
+  "revenueSharing": "0x8a159b941F98c7Dfd8b3D4873DcF0bf380fa4E36",
+  "marketMaker": "0xDaC507eF3420384A55323104B97650bF8BA10A08",
+  "orderBook": "0x39F2D2Ad8711C86E7eC160a61ac98dE18B66D2a4",
   "handles": {
     "ronaldo": {
       "id": "0x726f6e616c646f00000000000000000000000000000000000000000000000000",
-      "contract": "0xaDA1A3bB4D0E82b066ad44146ad3F85071210d24",
-      "stake": "0x1c803D594C75B8828Daad1998A1BCAC72aa29771",
+      "contract": "0x88c13eE6d2c819AC053cE342BBDB28CE79BAEe9D",
+      "stake": "0xA812Fb6C3037556545e7dCe5295DD59F0De2297a",
       "categories": [
         3,
         1
@@ -40,7 +40,7 @@
       "aura": 3040,
       "graduated": true,
       "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg/330px-Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg",
-      "windowMinutes": 30,
+      "windowMinutes": 60,
       "sources": [
         "gnews-ronaldo",
         "x-ronaldo",
@@ -49,8 +49,8 @@
     },
     "messi": {
       "id": "0x6d65737369000000000000000000000000000000000000000000000000000000",
-      "contract": "0x8827186C9a19B7acAadae46A6b396d890BD81D60",
-      "stake": "0xA8c2EA144aAF625A85E945e9Ad0341E7a571AA4a",
+      "contract": "0x3F9f9B4eBEE6ec862834BFF935e7ab79E80715e9",
+      "stake": "0xB0C5EFbaB4646a8eD4b0fC3D5f7B004DD51F4B0d",
       "categories": [
         3,
         1
@@ -58,7 +58,7 @@
       "aura": 2875,
       "graduated": true,
       "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg/330px-Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg",
-      "windowMinutes": 30,
+      "windowMinutes": 60,
       "sources": [
         "gnews-messi",
         "x-messi",
@@ -67,15 +67,15 @@
     },
     "btc": {
       "id": "0x6274630000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x7c7e80530e5799180c183b245E1Ab4dF94E16d85",
-      "stake": "0x6e93eA1c081720297B863012207F9d255Dc54239",
+      "contract": "0x85198369DBD9F008a9B8B24E7d916479042afA71",
+      "stake": "0xd6587D440C162cf1b20f246405051a26b79aA686",
       "categories": [
         2
       ],
       "aura": 4150,
       "graduated": true,
       "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/330px-Bitcoin.svg.png",
-      "windowMinutes": 30,
+      "windowMinutes": 60,
       "sources": [
         "gnews-btc",
         "x-btc",
@@ -84,15 +84,15 @@
     },
     "eth": {
       "id": "0x6574680000000000000000000000000000000000000000000000000000000000",
-      "contract": "0xE6121Ee3D704e362B849214788a39A2fa9e3EF40",
-      "stake": "0xc67F2E9cDb74A46e86F5f520b1A863269B9B24Ed",
+      "contract": "0x9369267CE7C0F41A7755257A635985440D3cB60b",
+      "stake": "0x216DFCD428387CC471bA1e82e03cAf6c2a80c0cF",
       "categories": [
         2
       ],
       "aura": 3220,
       "graduated": true,
       "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/Eth-diamond-%28color%29.svg/330px-Eth-diamond-%28color%29.svg.png",
-      "windowMinutes": 30,
+      "windowMinutes": 60,
       "sources": [
         "gnews-eth",
         "x-eth",
@@ -101,15 +101,15 @@
     },
     "sol": {
       "id": "0x736f6c0000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x5104a68374B2e39b13CC4f7815BAf804E3e81E55",
-      "stake": "0xa83e9d4E939D9E3EDDf0Dc1048F82C2ec29283ce",
+      "contract": "0xc9B5B1160208e68724B403c1178A9f275F398FEb",
+      "stake": "0xAAa084Ff5655e219Df2C42096C6D6d7a0EbEEAC0",
       "categories": [
         2
       ],
       "aura": 2180,
       "graduated": true,
       "photo": "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png",
-      "windowMinutes": 30,
+      "windowMinutes": 60,
       "sources": [
         "gnews-sol",
         "x-sol",
@@ -118,8 +118,8 @@
     },
     "openai": {
       "id": "0x6f70656e61690000000000000000000000000000000000000000000000000000",
-      "contract": "0xAd8A455CA4377D06F9c98DBa1a99fb34ca0dBF85",
-      "stake": "0xa91C482047ba38efEDB579488aCe02B3007f2930",
+      "contract": "0x90d72d38DB9CE2B94a5709765245cAf78d816E8e",
+      "stake": "0x0282719Ef51BCe0D1EC1d1777662392136fA232b",
       "categories": [
         4,
         5
@@ -137,8 +137,8 @@
     },
     "tesla": {
       "id": "0x7465736c61000000000000000000000000000000000000000000000000000000",
-      "contract": "0x1443C91fBFCE591739a88700b1976Dc96466442B",
-      "stake": "0xd0D4e3ec66853Cf18fEe0F744b0Fa892D28A4041",
+      "contract": "0xBCAaeE25062Cc1c2466C4Ec2FdA6BB8655afF4b1",
+      "stake": "0x6291db347c221D4A071d390742444e68b1Bfd4B9",
       "categories": [
         5,
         1
@@ -156,8 +156,8 @@
     },
     "elon": {
       "id": "0x656c6f6e00000000000000000000000000000000000000000000000000000000",
-      "contract": "0x794a8327bD3634dFb4dB3D709A49eB3B392894fb",
-      "stake": "0x1C208bDa457392C1fdf81d8A3AdD97eFD82dBC15",
+      "contract": "0xf66D67e4a9aD09c98f74164174f0EaC805Fe4eC0",
+      "stake": "0xA8aa10C364eaDFAF28246AA214909bB32a83C3B7",
       "categories": [
         1,
         5
@@ -174,8 +174,8 @@
     },
     "trump": {
       "id": "0x7472756d70000000000000000000000000000000000000000000000000000000",
-      "contract": "0x3e6795a8283132DB9fab524993930ddEA039b236",
-      "stake": "0x14C7647F8370131bb2147113fdf0Fd3ec5457DB3",
+      "contract": "0x928C3a7aB457E96f0C64C910FF692ce801a2F14E",
+      "stake": "0xDe65A090d823fd18FC9Ed302aE420980bCB88E0C",
       "categories": [
         1
       ],
@@ -191,8 +191,8 @@
     },
     "taylor": {
       "id": "0x7461796c6f720000000000000000000000000000000000000000000000000000",
-      "contract": "0x3711c013e6C1CFd6Fd724906A4FA629e59FB7C1d",
-      "stake": "0x9b722EF6a9d96b482767830c7BB5416e8b1bdd53",
+      "contract": "0x0Ee0d239cf3e98c3746c34AaBc3302c397A3a907",
+      "stake": "0x78942b10900cC3A1991098246E5CeC60bD86b9A1",
       "categories": [
         7,
         1

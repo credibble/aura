@@ -78,7 +78,7 @@ function SavedPage() {
         </p>
       </div>
 
-      <div className="sticky top-[92px] z-30 flex border-b border-border/70 bg-background/90 backdrop-blur-md lg:top-0">
+      <div className="sticky top-[var(--app-topbar)] z-30 flex border-b border-border/70 bg-background/90 backdrop-blur-md">
         {(
           [
             ["saved", "Bookmarks", Bookmark],

@@ -87,8 +87,9 @@ function FeedsPage() {
         </p>
       </div>
 
-      {/* Tabs — same pattern as the explore filters */}
-      <div className="sticky top-[92px] z-30 flex border-b border-border/70 bg-background/90 backdrop-blur-md lg:top-0">
+      {/* Tabs — same pattern as the explore filters. `top` clears the sticky
+          mobile Navbar below lg (--app-topbar), and is 0 at lg. */}
+      <div className="sticky top-[var(--app-topbar)] z-30 flex border-b border-border/70 bg-background/90 backdrop-blur-md">
         {(
           [
             ["for-you", "For you"],

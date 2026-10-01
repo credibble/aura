@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
@@ -70,6 +70,16 @@ function ExplorePage() {
     }),
   );
   const isPending = query.isPending;
+  // The sticky bar reveals a search icon once the hero has scrolled away —
+  // while the hero's own search is on screen the icon would be a duplicate
+  // affordance, and on a 320px bar it competes with the sort control.
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setStuck(window.scrollY > 120);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   // Aura pushes only stream while the grid is on screen.
   const gate = usePollGate<HTMLDivElement>(qk.handles);
 
@@ -111,8 +121,10 @@ function ExplorePage() {
         </div>
       </div>
 
-      {/* Sticky filter bar — categories left, search + sort pinned right */}
-      <div className="sticky top-[92px] z-30 flex items-center gap-2 border-b border-border/70 bg-background/90 pr-4 backdrop-blur-md sm:pr-6 lg:top-0">
+      {/* Sticky filter bar — categories left, search + sort pinned right.
+          `top` clears the sticky mobile Navbar (--app-topbar = its height below
+          lg, 0 at lg where the desktop rail replaces it). */}
+      <div className="sticky top-[var(--app-topbar)] z-30 flex items-center gap-2 border-b border-border/70 bg-background/90 pr-4 backdrop-blur-md sm:pr-6">
         <ScrollRow
           activeKey={cat}
           ariaLabel="Categories"
@@ -129,7 +141,17 @@ function ExplorePage() {
           ))}
         </ScrollRow>
 
-        <div className="shrink-0">
+        {/* Appears once the hero is out of view. The wrapper keeps its space
+            (no layout shift) and `inert` takes the hidden button out of the tab
+            order so keyboard users can't focus an invisible control. */}
+        <div
+          className={cn(
+            "shrink-0 transition-all duration-200",
+            stuck ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0",
+          )}
+          aria-hidden={!stuck}
+          inert={!stuck}
+        >
           <SearchPopover iconOnly />
         </div>
 

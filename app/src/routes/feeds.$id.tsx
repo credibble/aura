@@ -107,7 +107,7 @@ function FeedDetailPage() {
 
   return (
     <FeedLayout sidebar={<FeedSearch />}>
-      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur-md sm:px-6 lg:top-0">
+      <div className="sticky top-[var(--app-topbar)] z-30 flex items-center gap-3 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur-md sm:px-6">
         <button
           type="button"
           onClick={() => navigate({ to: "/feeds" })}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
@@ -70,15 +70,29 @@ function ExplorePage() {
     }),
   );
   const isPending = query.isPending;
-  // The sticky bar reveals a search icon once the hero has scrolled away —
-  // while the hero's own search is on screen the icon would be a duplicate
-  // affordance, and on a 320px bar it competes with the sort control.
+  // The sticky bar reveals a search icon only once the hero's own search has
+  // fully left the viewport — a scroll distance cannot express that (the hero
+  // search is still on screen partway through any such threshold, so the two
+  // affordances would overlap). While the big search is anywhere in view the
+  // small one stays hidden; on a 320px bar it also competes with the sort
+  // control. `stuck` is "the hero search is gone".
   const [stuck, setStuck] = useState(false);
+  const heroSearchRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const onScroll = () => setStuck(window.scrollY > 120);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const el = heroSearchRef.current;
+    // No hero search in this layout: the small icon is the only search, so show
+    // it instead of leaving the state stale. (A CSS-hidden hero also reports a
+    // zero-intersection entry below, which lands on the same answer.)
+    if (!el) {
+      setStuck(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => setStuck(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
   // Aura pushes only stream while the grid is on screen.
   const gate = usePollGate<HTMLDivElement>(qk.handles);
@@ -108,7 +122,10 @@ function ExplorePage() {
           Everything has an $AURA
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">Spot it early. Trade it first.</p>
-        <div className="mx-auto mt-5 flex w-full max-w-md items-center justify-center gap-2">
+        <div
+          ref={heroSearchRef}
+          className="mx-auto mt-5 flex w-full max-w-md items-center justify-center gap-2"
+        >
           <FeedSearch />
           <HowItWorks>
             <button

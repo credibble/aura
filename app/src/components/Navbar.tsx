@@ -60,8 +60,11 @@ export function Navbar() {
         </div>
       </div>
 
-      <nav aria-label="Categories">
-        <ScrollRow activeKey={`${pathname}#${hash}`} className="gap-1 px-3 sm:px-4 lg:px-6">
+      <nav aria-label="Categories" className="px-3 sm:px-4 lg:px-6">
+        <ScrollRow
+          activeKey={`${pathname}#${hash}`}
+          className="-mx-3 gap-1 px-3 sm:-mx-4 sm:px-4 lg:-mx-6 lg:px-6"
+        >
           {browse.map((item) => {
             const Icon = item.icon;
             const on = active(pathname, item.to) && (item.to !== "/" || !hash);

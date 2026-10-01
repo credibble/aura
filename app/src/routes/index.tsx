@@ -141,11 +141,12 @@ function ExplorePage() {
       {/* Sticky filter bar — categories left, search + sort pinned right.
           `top` clears the sticky mobile Navbar (--app-topbar = its height below
           lg, 0 at lg where the desktop rail replaces it). */}
-      <div className="sticky top-[var(--app-topbar)] z-30 flex items-center gap-2 border-b border-border/70 bg-background/90 pr-4 backdrop-blur-md sm:pr-6">
+      <div className="sticky top-[var(--app-topbar)] z-30 flex items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md sm:px-6">
         <ScrollRow
           activeKey={cat}
           ariaLabel="Categories"
-          className="min-w-0 flex-1 gap-1 px-4 sm:px-6"
+          wrapperClassName="flex-1"
+          className="-ml-4 gap-1 px-4 sm:-ml-6 sm:px-6"
         >
           <CategoryChip label="All" active={cat === "all"} onClick={() => setCat("all")} />
           {CATEGORIES.map((c) => (

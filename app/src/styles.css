@@ -387,6 +387,13 @@ input[type="number"] {
   }
 }
 
+/* Horizontal chip rails: momentum on touch, and a swipe that reaches the end
+   does not chain its bounce to the page behind it. */
+@utility scroll-rail {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
 /* thin scrollbars for panels */
 @utility scroll-thin {
   scrollbar-width: thin;

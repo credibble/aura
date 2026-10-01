@@ -104,31 +104,63 @@ function RowArrow({
 }
 
 /**
- * Horizontal tab/chip row: scrollbar hidden, ends fade while content is
- * hidden, ‹ › arrows page through, and the `[data-active="true"]` child is
- * kept centered whenever `activeKey` changes.
+ * ‹ › arrows are a mouse affordance — paging a rail by clicking. Touch users
+ * already swipe, so on a coarse/no-hover pointer they would be dead controls
+ * parked over the chips. Render them only where a fine pointer can click them.
+ */
+function useHasFinePointer() {
+  const [fine, setFine] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => setFine(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return fine;
+}
+
+/**
+ * Horizontal tab/chip row: scrollbar hidden, momentum on touch, ends fade
+ * while content is hidden, ‹ › arrows (fine pointers only) page through, and
+ * the `[data-active="true"]` child is centered whenever `activeKey` changes.
+ *
+ * `className` styles the scrolling content box (gap, padding, the `-mx-* px-*`
+ * edge bleed); `wrapperClassName` styles the outer box, which is the flex item
+ * in a flex parent — it needs `min-w-0` (built in) plus `flex-1` to shrink and
+ * scroll instead of pushing the row past its container.
  */
 export function ScrollRow({
   children,
   className,
+  wrapperClassName,
   activeKey,
   ariaLabel,
 }: {
   children: ReactNode;
+  /** Scroller content box (gap/padding/edge bleed). */
   className?: string;
+  /** Outer box — set `flex-1` (and any align) when the row is a flex child. */
+  wrapperClassName?: string;
   /** Marker for the current tab — the row scrolls it into the center. */
   activeKey?: string;
   ariaLabel?: string;
 }) {
   const { ref, edges, measure } = useEdges("x");
+  const finePointer = useHasFinePointer();
 
   // Self-center the active tab (clamped to the row start for first items).
+  // `offsetLeft` is relative to the wrapper, so subtract the scroller's own
+  // offset to get the chip's position inside the content (the bleed slides it
+  // negative when the content box is wider than the wrapper).
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !activeKey) return;
     const active = el.querySelector<HTMLElement>('[data-active="true"]');
     if (!active) return;
-    const left = Math.max(0, active.offsetLeft - (el.clientWidth - active.offsetWidth) / 2);
+    const centered = active.offsetLeft - el.offsetLeft - (el.clientWidth - active.offsetWidth) / 2;
+    const max = Math.max(0, el.scrollWidth - el.clientWidth);
+    const left = Math.min(max, Math.max(0, centered));
     if (Math.abs(el.scrollLeft - left) < 1) return;
     el.scrollLeft = left;
     measure();
@@ -142,18 +174,21 @@ export function ScrollRow({
   };
 
   return (
-    <div className="relative">
+    <div className={cn("relative min-w-0", wrapperClassName)}>
       <div
         ref={ref}
         onScroll={measure}
         aria-label={ariaLabel}
         style={edgeMask(edges, "x")}
-        className={cn("scrollbar-hide flex items-center gap-2 overflow-x-auto", className)}
+        className={cn(
+          "scrollbar-hide scroll-rail flex flex-nowrap items-center gap-2 overflow-x-auto",
+          className,
+        )}
       >
         {children}
       </div>
-      {edges.start && <RowArrow side="start" onClick={() => page(-1)} />}
-      {edges.end && <RowArrow side="end" onClick={() => page(1)} />}
+      {finePointer && edges.start && <RowArrow side="start" onClick={() => page(-1)} />}
+      {finePointer && edges.end && <RowArrow side="end" onClick={() => page(1)} />}
     </div>
   );
 }

@@ -84,15 +84,23 @@ function dateLabel(ts: number): string {
 
 /** Backend PostEvent → the timeline's FeedPost. */
 export function toFeedPost(p: PostEvent): FeedPost {
-  const sources: FeedSource[] = (p.sources ?? []).map((s) => ({
-    id: s.id,
-    platform: (s.platform as FeedSource["platform"]) ?? "news",
-    account: s.account,
-    text: s.text,
-    ts: timeAgo(s.ts),
-    aura: s.aura,
-    stats: s.stats,
-  }));
+  // Dedupe the digested outlet rows by adapter id: legacy on-chain source
+  // duplicates surface here as two rows with the same id, which React keys on.
+  const seen = new Set<string>();
+  const sources: FeedSource[] = [];
+  for (const s of p.sources ?? []) {
+    if (seen.has(s.id)) continue;
+    seen.add(s.id);
+    sources.push({
+      id: s.id,
+      platform: (s.platform as FeedSource["platform"]) ?? "news",
+      account: s.account,
+      text: s.text,
+      ts: timeAgo(s.ts),
+      aura: s.aura,
+      stats: s.stats,
+    });
+  }
   const media: FeedPost["media"] = (p.media ?? []).map((m) =>
     m.kind === "video"
       ? { kind: "video" as const, src: m.src, alt: m.alt ?? "" }

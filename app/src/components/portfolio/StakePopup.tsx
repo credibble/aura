@@ -3,7 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Coins, Loader2, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useAuraContracts } from "@/lib/contracts";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { depositFeeBps, type HandleLink } from "@/lib/portfolio";
@@ -100,7 +106,8 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
     try {
       if (tab === "deposit") {
         const approve = await api.ensureAuraAllowance(stakeAddress, wei);
-        if (approve) toast.info("AURA approved", { description: "One-time approval for this vault." });
+        if (approve)
+          toast.info("AURA approved", { description: "One-time approval for this vault." });
         const dep = await api.stakeDeposit(stakeAddress, wei);
         toast.success(`Staked ${formatCompact(net)} AURA (${(feeBps / 100).toFixed(2)}% fee)`, {
           description: `confirmed ${dep.hash.slice(0, 10)}…`,
@@ -143,9 +150,9 @@ export function StakePopup({ handle, trigger }: { handle: HandleLink; trigger?: 
         <DialogTitle className="text-base font-semibold">
           {tab === "deposit" ? "Stake on" : "Withdraw from"} @{handle.name}
         </DialogTitle>
-        <p className="mt-1 text-[13px] text-muted-foreground">
+        <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
           Deposit fees and rewards lift the share price for every staker.
-        </p>
+        </DialogDescription>
 
         {/* Segmented control — quieter than tabs */}
         <div

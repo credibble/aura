@@ -85,13 +85,19 @@ export function formatMoney(n: number): string {
 }
 
 /**
- * The number part of a money figure — no `$`. Use with <UsdcAmount>, which puts
- * the USDC mark where the currency symbol used to be. K/M/B from 1,000 up.
+ * The number part of a USDC AMOUNT — no `$`. Use with <UsdcAmount>, which puts
+ * the USDC mark where the currency symbol used to be.
+ *
+ * USDC is a 6-decimals token but the UI shows at most 2, with no forced padding:
+ * a balance/deposit reads `1234.56`, `12.5`, `12`. K/M/B compacting is kept for
+ * genuinely large AGGREGATES (TVL, pool totals) — but only from 10,000 up, so a
+ * four-figure balance is never rounded to `1.2K`. Prices are not amounts; they
+ * keep `formatCents` (one decimal).
  */
 export function formatUsd(n: number): string {
   if (!Number.isFinite(n)) return "—";
-  if (Math.abs(n) < 1_000) {
-    return Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
+  if (Math.abs(n) < 10_000) {
+    return Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
   }
   return Intl.NumberFormat("en-US", {
     notation: "compact",

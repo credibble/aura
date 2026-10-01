@@ -57,17 +57,22 @@ function kindOf(platform: string): SourceKind {
   return "search";
 }
 
-type ParsedSource = { platform: string; name: string };
+type ParsedSource = { id: string; platform: string; name: string };
 
 /**
  * Parse one adapter source config (JSON string on the Handle entity) into a
  * platform + identifier for the row. Unparsable configs show their raw text —
  * real data either way, never synthesized.
+ *
+ * `id` is the config's `outlet` when present (the same id the adapters use), so
+ * rows can be deduped against legacy on-chain duplicates; a config without one
+ * falls back to its raw text, which is unique by construction.
  */
 function parseSource(raw: string): ParsedSource {
   try {
     const cfg = JSON.parse(raw) as Record<string, unknown>;
     const platform = typeof cfg.platform === "string" ? cfg.platform : "source";
+    const outlet = typeof cfg.outlet === "string" ? cfg.outlet : "";
     const ident =
       (typeof cfg.username === "string" && cfg.username) ||
       (typeof cfg.channel === "string" && cfg.channel) ||
@@ -78,9 +83,9 @@ function parseSource(raw: string): ParsedSource {
       (typeof cfg.feed === "string" && cfg.feed) ||
       (typeof cfg.url === "string" && cfg.url) ||
       "";
-    return { platform, name: ident ? `${platform} · ${ident}` : platform };
+    return { id: outlet || raw, platform, name: ident ? `${platform} · ${ident}` : platform };
   } catch {
-    return { platform: "source", name: raw };
+    return { id: raw, platform: "source", name: raw };
   }
 }
 
@@ -89,7 +94,9 @@ function parseSource(raw: string): ParsedSource {
  * on the Handle entity). Each expands on hover to reveal its identifier.
  */
 export function SourcesPanel({ sources, label }: { sources: string[]; label?: string }) {
-  const rows = sources.map(parseSource);
+  // Dedupe by the adapter `outlet` id: older seed runs could append a second
+  // config for the same outlet, and those legacy on-chain rows must render once.
+  const rows = [...new Map(sources.map(parseSource).map((s) => [s.id, s])).values()];
 
   return (
     <section aria-label="Sources">
@@ -101,11 +108,11 @@ export function SourcesPanel({ sources, label }: { sources: string[]; label?: st
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        {rows.map((s, i) => {
+        {rows.map((s) => {
           const kind = kindOf(s.platform);
           return (
             <span
-              key={`${s.name}-${i}`}
+              key={s.id}
               title={`${s.name} · ${KIND_LABEL[kind]}`}
               className={cn(
                 "group/row flex cursor-default items-center gap-0 rounded-full border border-border bg-secondary/50 py-1 pl-1 pr-1 transition-all duration-200 hover:bg-secondary group-hover/row:gap-2 group-hover/row:pr-3",

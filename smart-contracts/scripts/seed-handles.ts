@@ -242,6 +242,24 @@ const SEEDS: Seed[] = [
 const h = (s: string): string => ethers.encodeBytes32String(s);
 const ZERO = "0x0000000000000000000000000000000000000000";
 
+/** Read every source config currently stored on the handle (public array). */
+async function onChainSources(handle: Contract): Promise<string[]> {
+  const count = Number(await handle.sourcesCount());
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) out.push(String(await handle.sources(i)));
+  return out;
+}
+
+/** The adapter outlet id of a stored source JSON, or null when unparsable. */
+function outletOf(raw: string): string | null {
+  try {
+    const cfg = JSON.parse(raw) as { outlet?: unknown };
+    return typeof cfg.outlet === "string" ? cfg.outlet : null;
+  } catch {
+    return null;
+  }
+}
+
 async function main(): Promise<void> {
   const deployments = JSON.parse(readFileSync("deployments/deployments.json", "utf8"));
   const [deployer] = await ethers.getSigners();
@@ -331,10 +349,26 @@ async function main(): Promise<void> {
     ).wait();
 
     // --- sources: handle-scoped feeds, each with topic + context -----------------
-    // `addSource` skips an identical config on-chain, so this is idempotent.
+    // A re-run must never append a second config for an outlet already on the
+    // handle. `addSource` only skips an EXACT string match, and the seed's outlet
+    // naming has changed over time (`x-lionel-messi` → `x-messi`), so an old row
+    // and a new one are different strings for the same subject. Key by outlet:
+    // skip when the one stored config already matches, otherwise replace every
+    // stale/duplicate copy with the fresh one.
     let added = 0;
     for (const src of s.sources) {
-      await (await handle.connect(relayer).addSource(JSON.stringify({ platform: "rss", ...src }))).wait();
+      const next = JSON.stringify({ platform: "rss", ...src });
+      const current = await onChainSources(handle);
+      const same = current.filter((raw) => outletOf(raw) === src.outlet);
+      if (same.length === 1 && same[0] === next) continue;
+      // removeSource swaps the last element in, so rescan after each removal.
+      for (;;) {
+        const now = await onChainSources(handle);
+        const idx = now.findIndex((raw) => outletOf(raw) === src.outlet);
+        if (idx === -1) break;
+        await (await handle.connect(relayer).removeSource(idx)).wait();
+      }
+      await (await handle.connect(relayer).addSource(next)).wait();
       added += 1;
     }
 

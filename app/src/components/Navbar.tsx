@@ -122,7 +122,11 @@ function MobileNav() {
           <Menu className="h-5 w-5" />
         </button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 border-border bg-nav p-0">
+      <SheetContent
+        side="left"
+        className="w-72 border-border bg-nav p-0"
+        aria-describedby={undefined}
+      >
         <SheetTitle className="sr-only">Menu</SheetTitle>
         <div className="flex h-14 items-center border-b border-border px-4 text-lg font-bold">
           Aura

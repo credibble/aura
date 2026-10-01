@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ImagePlus, Loader2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { portfolio, type HandleLink } from "@/lib/portfolio";
@@ -90,9 +96,9 @@ export function EditProfileDialog({ handle }: { handle: HandleLink }) {
       </DialogTrigger>
       <DialogContent className="w-[min(92vw,380px)] max-w-[380px] gap-0 rounded-3xl border-border/70 bg-card p-5 sm:rounded-3xl">
         <DialogTitle className="text-base font-semibold">Edit profile</DialogTitle>
-        <p className="mt-1 text-[13px] text-muted-foreground">
+        <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
           The handle people see everywhere. Uploaded and signed by Aura — no gas.
-        </p>
+        </DialogDescription>
 
         {/* Photo — a file, previewed in place */}
         <div className="mt-4 flex items-center gap-3">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evidenceWeight, hashTick, countLine } from "../src/jobs/aura/aura-engine.service";
+import { evidenceWeight, appliedPercent, hashTick, countLine } from "../src/jobs/aura/aura-engine.service";
 
 /**
  * The deterministic half of a tick: how much the AI's magnitude is trusted, the
@@ -37,6 +37,28 @@ describe("evidenceWeight", () => {
     const flood = evidenceWeight([{ weight: 200, items: items(8) }]);
     const credible = evidenceWeight([{ weight: 1000, items: items(3) }]);
     expect(flood).toBeLessThan(credible);
+  });
+});
+
+describe("appliedPercent — the applied move stays inside ±5–20%", () => {
+  it("floors a weak-evidence move at the minimum magnitude", () => {
+    // 5% × 0.25 = 1.25 before the re-clamp; the applied move must still be 5.
+    expect(appliedPercent(5, 0.25)).toBe(5);
+    expect(appliedPercent(-5, 0.25)).toBe(-5);
+  });
+
+  it("caps the applied move at the maximum even for an absurd AI answer", () => {
+    expect(appliedPercent(50, 1)).toBe(20);
+    expect(appliedPercent(-99, 1)).toBe(-20);
+  });
+
+  it("lets evidence modulate WITHIN the band", () => {
+    expect(appliedPercent(20, 0.5)).toBe(10);
+    expect(appliedPercent(12, 1)).toBe(12);
+  });
+
+  it("never yields a dead (zero) tick", () => {
+    expect(appliedPercent(0, 0.25)).toBe(5);
   });
 });
 

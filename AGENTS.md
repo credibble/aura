@@ -178,7 +178,7 @@ One tick, and what constrains it:
 | Build signals: normalized `volume` + `engagement` + item texts + per-source `context`/`topic` | `AuraEngineService.signalFor` | yes |
 | AI answer: **direction + magnitude (percent, ±5–20) + memo** | `KimiAiModel.scoreWithSummary` | no (the only non-deterministic step) |
 | Evidence weight: credibility-weighted item volume × reach, clamped to [0.25, 1] | `evidenceWeight` | yes |
-| Applied move: `percent × evidenceWeight`, AI band ±5–20%, **points floor ≥ 1 unit** | `AuraEngineService.tick` | yes |
+| Applied move: AI magnitude (band ±5–20%) × evidenceWeight, then the APPLIED move re-clamped to ±5–20%; **points floor ≥ 1 unit** | `AuraEngineService.appliedPercent` | yes |
 | Memo → on-chain (`Handle.updateAura`) + audit hash → WS | `ChainGateway`, `publishAura` | yes |
 
 - **The model never decides size alone.** Its magnitude is advisory and scaled by

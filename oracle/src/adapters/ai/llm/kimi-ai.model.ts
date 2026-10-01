@@ -232,9 +232,13 @@ export class KimiAiModel {
         })
         .join("\n");
 
-    const tools = this.webSearch?.enabled
-      ? [WEB_SEARCH_TOOL, CURRENT_TIME_TOOL]
-      : undefined;
+    // ── Kimi web search is DISABLED for now ────────────────────────────────
+    // Offering the tool made the model spend an extra tool round-trip (a second
+    // Kimi completion) on most scoring ticks, and the organisation's single
+    // in-flight slot can't afford that while ten handles compete for it. Only
+    // `current_time` is offered; to restore search, put `WEB_SEARCH_TOOL` back
+    // here (the `execTool` branch and `KimiWebSearchService` are untouched).
+    const tools = this.webSearch?.enabled ? [CURRENT_TIME_TOOL] : undefined;
     const messages: KimiMessage[] = [
       { role: "system", content: systemPrompt },
       { role: "user", content: user },

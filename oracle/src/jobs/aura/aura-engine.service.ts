@@ -153,13 +153,16 @@ export class AuraEngineService {
     // ADVISORY: `evidenceWeight` scales it by how much real signal actually
     // arrived (weighted item volume × engagement), so a confident-sounding answer
     // off one weak item can't move the index as far as a broad, high-reach story.
-    // Both the band and the weight are deterministic — the model is never the
-    // last word on size.
+    // The APPLIED move is then itself clamped inside [MIN, MAX]: evidence
+    // modulates WITHIN the band but can never push the move below the floor or
+    // above the ceiling. Both the band and the weight are deterministic — the
+    // model never decides size alone.
     const weight = evidenceWeight(signals);
     const rawPercent = scored.percent;
+    // Direction is also needed by the points floor below; `appliedPercent` owns
+    // the magnitude.
     const direction = rawPercent < 0 ? -1 : 1;
-    const banded = Math.min(MAX_AURA_PERCENT, Math.max(MIN_AURA_PERCENT, Math.abs(rawPercent)));
-    const percent = round1(direction * banded * weight);
+    const percent = appliedPercent(rawPercent, weight);
 
     // Applied to the latest known aura: the series close if we have one, else the
     // on-chain level (the AI's "last aura").
@@ -382,6 +385,21 @@ export function evidenceWeight(
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
+}
+
+/**
+ * The tick's applied percent: the AI's direction, its magnitude scaled by
+ * evidence, then re-clamped so the MOVE ITSELF sits inside [MIN_AURA_PERCENT,
+ * MAX_AURA_PERCENT]. Evidence modulates WITHIN the band — a weak read moves the
+ * floor, a broad high-reach story up to the ceiling — but can never push the
+ * move below the floor or above the ceiling.
+ */
+export function appliedPercent(rawPercent: number, weight: number): number {
+  const direction = rawPercent < 0 ? -1 : 1;
+  const aiMagnitude = Math.min(MAX_AURA_PERCENT, Math.max(MIN_AURA_PERCENT, Math.abs(rawPercent)));
+  const scaled = aiMagnitude * weight;
+  const magnitude = Math.min(MAX_AURA_PERCENT, Math.max(MIN_AURA_PERCENT, scaled));
+  return round1(direction * magnitude);
 }
 
 /**

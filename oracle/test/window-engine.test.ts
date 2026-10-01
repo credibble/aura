@@ -134,3 +134,161 @@ describe("WindowEngineService", () => {
     await expect(engine.tick(HANDLE, NOW)).rejects.toThrow(/openWindow failed/);
   });
 });
+
+/**
+ * Settlement must resolve against the window's STRIKE (the level at open), not
+ * the first observation INSIDE the window. The aura only ticks when fresh
+ * evidence arrives, so a window usually holds 0 or 1 observations; comparing
+ * `close >= points[0]` made every single-observation window resolve YES (42/42
+ * in production).
+ */
+const IN_LO = PREV * 1000;
+const IN_HI = SLOT * 1000;
+const LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
+type SettlePoint = { value: number };
+
+function settleHarness(opts: {
+  /** The indexer Window.strike (1e2). Omit to force the openSlot fallback. */
+  strikeRecord?: number;
+  /** Points for the in-window range `[PREV*1000, SLOT*1000]`. */
+  inWindow: SettlePoint[];
+  /** Points for the strike-reconstruction range (fallback sourcing only). */
+  prior?: SettlePoint[];
+}) {
+  const flags = new Map<string, string>();
+  const calls: string[] = [];
+  const settles: { oracle: string; receipt: Record<string, unknown>; winner: number }[] = [];
+  const redis = {
+    get: async (k: string) => flags.get(k) ?? null,
+    set: async (k: string, v: string) => {
+      flags.set(k, v);
+      return "OK";
+    },
+  };
+  const chain = {
+    ready: true,
+    oracleOf: async (_label: string, startSec: number) => (startSec === PREV ? ORACLE : ZERO),
+    isOpen: async () => false,
+    openWindow: async () => {
+      calls.push("open");
+      return true;
+    },
+    resolveAndSettle: async (
+      oracle: string,
+      receipt: Record<string, unknown>,
+      winner: number,
+    ) => {
+      calls.push("settle");
+      settles.push({ oracle, receipt, winner });
+      return true;
+    },
+  };
+  const indexer = {
+    openWindows: async () =>
+      opts.strikeRecord === undefined
+        ? []
+        : [
+            {
+              id: `${HANDLE.id}-${PREV}`,
+              handleId: HANDLE.id,
+              oracle: ORACLE,
+              windowStart: PREV,
+              windowEnd: SLOT,
+              strike: opts.strikeRecord,
+              outcomes: ["YES", "NO"],
+              settled: false,
+            },
+          ],
+    previousSettledWindow: async () => null,
+    windowVolume: async () => 0n,
+  };
+  // The series store is queried for several ranges; only the in-window and the
+  // strike-reconstruction ranges matter to settlement.
+  const points = async (
+    _sourceId: string,
+    _metric: string,
+    fromMs?: number,
+    toMs?: number,
+  ): Promise<SettlePoint[]> => {
+    if (fromMs === IN_LO && toMs === IN_HI) return opts.inWindow;
+    if (fromMs === IN_LO - LOOKBACK_MS && toMs === IN_LO) return opts.prior ?? [];
+    return [];
+  };
+  const engine = new WindowEngineService(
+    chain as never,
+    indexer as never,
+    { publishWindowOpened: () => {}, publishWindowResolved: () => {} } as never,
+    { points } as never,
+    redis as never,
+    { get: () => undefined } as never,
+  );
+  return { engine, calls, settles };
+}
+
+describe("WindowEngineService — settlement reference is the strike", () => {
+  it("resolves NO when the only in-window observation is below the strike", async () => {
+    const { engine, settles } = settleHarness({
+      strikeRecord: 4316,
+      inWindow: [{ value: 4230 }], // the elon case: falling series
+    });
+    await engine.tick(HANDLE, NOW + 10_000).catch(() => undefined);
+    expect(settles).toHaveLength(1);
+    expect(settles[0]!.winner).toBe(1); // NO — not YES (regression)
+  });
+
+  it("resolves YES when the close is above the strike", async () => {
+    const { engine, settles } = settleHarness({
+      strikeRecord: 4316,
+      inWindow: [{ value: 4400 }],
+    });
+    await engine.tick(HANDLE, NOW + 10_000).catch(() => undefined);
+    expect(settles[0]!.winner).toBe(0);
+  });
+
+  it("resolves YES when the close equals the strike (the documented 'at or above')", async () => {
+    const { engine, settles } = settleHarness({
+      strikeRecord: 4316,
+      inWindow: [{ value: 4316 }],
+    });
+    await engine.tick(HANDLE, NOW + 10_000).catch(() => undefined);
+    expect(settles[0]!.winner).toBe(0);
+  });
+
+  it("leaves a zero-observation window unresolved (VOID), never a default YES", async () => {
+    const { engine, calls, settles } = settleHarness({
+      strikeRecord: 4316,
+      inWindow: [], // no aura tick inside the window
+    });
+    await engine.tick(HANDLE, NOW + 10_000).catch(() => undefined);
+    expect(settles).toHaveLength(0);
+    expect(calls).not.toContain("settle");
+  });
+
+  it("commits the strike as the receipt's expectation and indexOpen", async () => {
+    const { engine, settles } = settleHarness({
+      strikeRecord: 4316,
+      inWindow: [{ value: 4230 }],
+    });
+    await engine.tick(HANDLE, NOW + 10_000).catch(() => undefined);
+    const receipt = settles[0]!.receipt;
+    expect(receipt.expectation).toBe(4316);
+    expect(receipt.indexOpen).toBe(4316);
+    expect(receipt.indexClose).toBe(4230);
+    expect(receipt.direction).toBe(false);
+  });
+
+  it("reconstructs the strike exactly as openSlot did when the indexer record is absent", async () => {
+    const { engine, settles } = settleHarness({
+      // no strikeRecord → no indexer window record → fallback reconstruction
+      inWindow: [{ value: 4230 }],
+      // openSlot's strikeFor() takes the LAST point in the pricing lookback.
+      prior: [{ value: 4400 }, { value: 4316 }],
+    });
+    await engine.tick(HANDLE, NOW + 10_000).catch(() => undefined);
+    expect(settles).toHaveLength(1);
+    expect(settles[0]!.winner).toBe(1); // 4230 < 4316
+    expect(settles[0]!.receipt.expectation).toBe(4316);
+    expect(settles[0]!.receipt.indexOpen).toBe(4316);
+  });
+});

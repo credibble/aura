@@ -34,6 +34,7 @@ const WINDOW_QUERY = `
     oracle
     windowStart
     windowEnd
+    strike
     outcomes
     settled
   }
@@ -46,6 +47,8 @@ export interface IndexerWindow {
   oracle: string;
   windowStart: number;
   windowEnd: number;
+  /** The aura level the window was priced from at open (1e2) — the YES strike. */
+  strike: number;
   outcomes: string[];
   settled: boolean;
 }
@@ -297,6 +300,7 @@ function normalizeWindows(rows: unknown[]): IndexerWindow[] {
       oracle: String(r.oracle ?? ""),
       windowStart: Number(r.windowStart ?? "0"),
       windowEnd: Number(r.windowEnd ?? "0"),
+      strike: Number(r.strike ?? "0"),
       outcomes: Array.isArray(r.outcomes) ? r.outcomes.map(String) : [],
       settled: Boolean(r.settled ?? false),
     }))

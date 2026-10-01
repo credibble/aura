@@ -29,8 +29,9 @@ const PRIOR_LOOKBACK_MS = 24 * 60 * 60 * 1000;
  *    first RETIRES the slot that just closed, then opens the new one;
  *  - SETTLE: every recent slot whose oracle exists and is no longer open is
  *    resolved + settled. The winner comes from the aura series — binary: YES (0)
- *    wins iff the aura close ≥ the aura at open; multi-outcome: the member that
- *    gained the most aura (close − open);
+ *    wins iff the aura close ≥ the window's STRIKE (the level at open); the
+ *    strike comes from the indexer record, or is reconstructed exactly as at
+ *    open. Multi-outcome: the member that gained the most aura (close − open);
  *  - OPEN: the current slot's window, only when the handle has NO live window.
  *
  * ALL of that is decided from the CHAIN (`OracleFactory.oracleOf` +
@@ -270,10 +271,12 @@ export class WindowEngineService {
     // aura ticks has no measurement to settle on; settling it would resolve YES on
     // an unchanged series (a systematic bias in quiet periods). Leave it: the
     // market's grace window VOIDs it and `redeemVoid` refunds every trader.
+    // The SAME bounds the winner uses (`[windowStart, windowEnd]`) — the guard and
+    // the decision must see exactly the same observations.
     const observed = await this.series.points(
       `aura:${handle.label}`,
       "aura",
-      (windowStart + 1) * 1000,
+      windowStart * 1000,
       windowEnd * 1000,
     );
     if (observed.length < 1) {
@@ -283,10 +286,27 @@ export class WindowEngineService {
       return;
     }
 
-    const winner = await this.winnerFromReference(handle, outcomes, windowStart, windowEnd);
+    // The STRIKE the question and Window.strike both carry — the reference the
+    // winner is measured against. Prefer the indexer record (it mirrors the
+    // on-chain metadata); reconstruct it exactly as openSlot did when the record
+    // hasn't landed.
+    const reference = await this.referenceFor(handle, rec, windowStart);
+
+    const winner = await this.winnerFromReference(
+      handle,
+      outcomes,
+      windowStart,
+      windowEnd,
+      reference,
+    );
     // The market settles ONLY from an Oracle resolution now, so the receipt is
-    // built from the same series the winner came from and submitted first.
-    const receipt = await this.windowReceipt(handle, { windowStart, windowEnd, outcomes }, winner);
+    // built from the same strike + series the winner came from and submitted first.
+    const receipt = await this.windowReceipt(
+      handle,
+      { windowStart, windowEnd, outcomes },
+      winner,
+      reference,
+    );
     this.logger.log(
       `@${handle.id}: resolving window ${windowStart} → outcome ${winner} (${oracle})`,
     );
@@ -298,11 +318,43 @@ export class WindowEngineService {
     }
   }
 
-  /** Binary windows: YES (0) wins iff the aura close ≥ the aura at open. */
-  private async winnerFromReference(    handle: AuraHandle,
+  /**
+   * The window's STRIKE — the aura level at open that the question text and the
+   * indexer's `Window.strike` both carry. The indexer record mirrors the on-chain
+   * metadata, so prefer it; when the record hasn't landed, reconstruct it exactly
+   * as `openSlot` did: the last series point in the pricing lookback up to open.
+   */
+  private async referenceFor(
+    handle: AuraHandle,
+    rec: IndexerWindow | undefined,
+    windowStartSec: number,
+  ): Promise<number> {
+    if (rec && Number.isFinite(rec.strike) && rec.strike > 0) return rec.strike;
+    const prior = await this.series.points(
+      `aura:${handle.label}`,
+      "aura",
+      windowStartSec * 1000 - PRIOR_LOOKBACK_MS,
+      windowStartSec * 1000,
+    );
+    return strikeFor(prior.map((p) => p.value), handle.aura);
+  }
+
+  /**
+   * Binary windows: YES (0) wins iff the aura close ≥ the window's STRIKE (the
+   * level at open) — NOT the first in-window observation. The aura only ticks
+   * when fresh evidence arrives, so a 60-minute window usually holds 0 or 1
+   * observations; with exactly one, `close >= points[0]` was vacuously true and
+   * every window resolved YES.
+   *
+   * An empty series never reaches here — `settleWindow` leaves it to VOID. The
+   * fallback to `reference` only keeps this function total.
+   */
+  private async winnerFromReference(
+    handle: AuraHandle,
     outcomes: string[],
     windowStartSec: number,
     closeSec: number,
+    reference: number,
   ): Promise<number> {
     if (outcomes.length === 2 && outcomes[0] === "YES" && outcomes[1] === "NO") {
       const points = await this.series.points(
@@ -311,9 +363,8 @@ export class WindowEngineService {
         windowStartSec * 1000,
         closeSec * 1000,
       );
-      const open = points[0]?.value ?? handle.aura;
-      const close = points[points.length - 1]?.value ?? open;
-      return close >= open ? 0 : 1;
+      const close = points[points.length - 1]?.value ?? reference;
+      return close >= reference ? 0 : 1;
     }
     // Multi-outcome: a GAIN market — the winner is the member handle that
     // gained the most aura (close − open) over the window (each outcome is a
@@ -342,6 +393,7 @@ export class WindowEngineService {
     handle: AuraHandle,
     win: { windowStart: number; windowEnd: number; outcomes: string[] },
     winner: number,
+    reference: number,
   ): Promise<{
     handleId: string;
     windowStart: number;
@@ -361,16 +413,17 @@ export class WindowEngineService {
       win.windowStart * 1000,
       win.windowEnd * 1000,
     );
-    const open = points[0]?.value ?? handle.aura;
-    const close = points[points.length - 1]?.value ?? open;
+    // The open reference committed to the receipt MUST be the same strike the
+    // winner used — the on-chain Oracle/`MarketMaker.settle` mirrors this receipt.
+    const close = points[points.length - 1]?.value ?? reference;
     return {
       handleId: handle.id,
       windowStart: win.windowStart,
       windowEnd: win.windowEnd,
       s: close,
-      expectation: open,
-      delta: close - open,
-      indexOpen: open,
+      expectation: reference,
+      delta: close - reference,
+      indexOpen: reference,
       indexClose: close,
       // The receipt's `direction` is the binary truth (0 = YES wins); the market
       // derives its index from it for 2-outcome windows.

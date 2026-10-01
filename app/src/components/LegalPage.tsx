@@ -55,7 +55,11 @@ export function LegalPage({
 
         <div className="mt-8 space-y-8">
           {sections.map((s, i) => (
-            <section key={s.heading} id={`section-${i + 1}`} className="scroll-mt-20">
+            <section
+              key={s.heading}
+              id={`section-${i + 1}`}
+              className="scroll-mt-[calc(var(--app-topbar)+1.25rem)]"
+            >
               <h2 className="text-lg font-bold tracking-tight">
                 {i + 1}. {s.heading}
               </h2>

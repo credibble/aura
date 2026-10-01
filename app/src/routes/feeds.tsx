@@ -70,7 +70,7 @@ function FeedsPage() {
           <FeedSearch />
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <h2 className="text-sm font-semibold">What feeds are</h2>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               The oracle reads every source a handle connects, scores the buzz, and publishes one
               digest. Each entry below lists the outlets it was built from.
             </p>
@@ -79,9 +79,9 @@ function FeedsPage() {
         </>
       }
     >
-      <div className="px-4 pt-8 pb-4 sm:px-6">
-        <h1 className="text-[26px] font-bold tracking-tight sm:text-3xl">Feeds</h1>
-        <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+      <div className="px-4 pt-8 pb-5 sm:px-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">Feeds</h1>
+        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
           What the internet is talking about right now — published by the oracle, sourced from the
           handles&apos; own feeds.
         </p>
@@ -117,16 +117,16 @@ function FeedsPage() {
 
       {/* Following needs a wallet — say so instead of showing an empty list */}
       {activeTab === "following" && !userId ? (
-        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-center">
-          <p className="text-[15px] font-semibold">Connect a wallet</p>
-          <p className="max-w-sm text-[13px] text-muted-foreground">
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 px-4 text-center">
+          <p className="text-sm font-semibold">Connect a wallet</p>
+          <p className="max-w-sm text-sm text-muted-foreground">
             Your following feed follows your account — sign in to see the handles you subscribe
             to.
           </p>
           <button
             type="button"
             onClick={() => void login()}
-            className="mt-1 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+            className="mt-2 min-h-11 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
           >Sign in</button>
         </div>
       ) : (
@@ -143,12 +143,12 @@ function FeedsPage() {
               posts.map((p) => <FeedItem key={p.id} post={p} />)}
             {!query.isPending && !query.isError && posts.length === 0 && (
               <div className="px-4 py-16 text-center sm:px-6">
-                <p className="text-[15px] font-semibold">
+                <p className="text-sm font-semibold">
                   {activeTab === "following"
                     ? "Nothing from your handles yet"
                     : "No feeds published yet"}
                 </p>
-                <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">
+                <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
                   {activeTab === "following"
                     ? "Follow a handle from its page and its digests land here."
                     : "Digests appear as soon as a handle's sources report activity."}

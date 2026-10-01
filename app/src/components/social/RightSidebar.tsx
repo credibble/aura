@@ -30,11 +30,9 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 }
 
 function CardTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="px-4 pt-3 pb-2 text-xl font-extrabold tracking-tight text-foreground">
-      {children}
-    </h2>
-  );
+  // One title scale for the rail. The weight carries it — `tracking-tight` on an
+  // extrabold heading was a third signal for the same emphasis.
+  return <h2 className="px-4 pt-3 pb-2 text-lg font-bold text-foreground">{children}</h2>;
 }
 
 export function FeedSearch() {
@@ -55,16 +53,16 @@ export function EarnCard() {
     <Card>
       <CardTitle>Earn</CardTitle>
       <div className="px-4 pb-4">
-        <p className="text-[15px] leading-snug text-muted-foreground">
+        <p className="text-sm leading-snug text-muted-foreground">
           Provide liquidity in USDC and earn steady yield from every window traded on Aura.
         </p>
-        <div className="mt-3 flex items-center gap-4 rounded-xl bg-secondary/60 px-3 py-2">
+        <div className="mt-4 flex items-center gap-4 rounded-xl bg-secondary/60 px-3 py-2">
           <div>
             <p className="num flex items-center gap-1 text-lg font-bold leading-none text-foreground">
               <UsdcIcon size={14} />
               {formatUsd(tvl)}
             </p>
-            <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
               USDC pooled
             </p>
           </div>
@@ -74,14 +72,14 @@ export function EarnCard() {
               <UsdcIcon size={14} />
               {formatUsd(volume)}
             </p>
-            <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
               Total volume
             </p>
           </div>
         </div>
         <Link
           to="/"
-          className="mt-3 block w-full rounded-full bg-primary px-4 py-2 text-center text-sm font-bold text-primary-foreground transition-all hover:brightness-110"
+          className="mt-4 block w-full rounded-full bg-primary px-4 py-2.5 text-center text-sm font-bold text-primary-foreground transition-all hover:brightness-110"
         >
           Explore markets
         </Link>
@@ -103,7 +101,7 @@ export function TodayNewsCard() {
           type="button"
           aria-label="Dismiss"
           onClick={() => setHidden(true)}
-          className="mr-3 mt-3 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="mr-2 mt-2 grid h-9 w-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -116,10 +114,10 @@ export function TodayNewsCard() {
             params={{ id: n.id }}
             className="block px-4 py-3 transition-colors hover:bg-secondary/40"
           >
-            <p className="text-[15px] font-bold leading-snug text-foreground hover:underline">
+            <p className="text-sm font-bold leading-snug text-foreground hover:underline">
               {n.summary}
             </p>
-            <p className="mt-1 text-[13px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {n.ts} · {CATEGORY_MAP[n.category]?.label ?? n.category}
               {hasCount(n.stats?.reposts) || hasCount(n.stats?.likes)
                 ? ` · ${formatCompact((n.stats?.reposts ?? 0) + (n.stats?.likes ?? 0))} reactions`
@@ -145,7 +143,7 @@ export function HappeningCard() {
           type="button"
           aria-label="Dismiss"
           onClick={() => setHidden(true)}
-          className="mr-3 mt-3 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="mr-2 mt-2 grid h-9 w-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -157,10 +155,10 @@ export function HappeningCard() {
             className="group flex items-start justify-between gap-2 px-4 py-3 transition-colors hover:bg-secondary/40"
           >
             <Link to="/post/$id" params={{ id: h.id }} className="min-w-0">
-              <p className="text-[13px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {h.handle} · {h.ts}
               </p>
-              <p className="truncate text-[15px] font-bold leading-snug text-foreground group-hover:underline">
+              <p className="truncate text-sm font-bold leading-snug text-foreground group-hover:underline">
                 {h.summary}
               </p>
             </Link>
@@ -170,7 +168,7 @@ export function HappeningCard() {
               onClick={() =>
                 toast.info(h.summary, { description: `Open ${h.handle} to trade it.` })
               }
-              className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
@@ -209,14 +207,14 @@ function SuggestedRow({ h }: { h: IndexerHandle }) {
       <div className="min-w-0 flex-1 leading-tight">
         <Link {...href} className="block min-w-0">
           <span className="flex items-center gap-1">
-            <span className="truncate text-[15px] font-bold text-foreground hover:underline">
+            <span className="truncate text-sm font-bold text-foreground hover:underline">
               {name}
             </span>
             {h.verified && (
               <BadgeCheck className="h-4 w-4 shrink-0 text-link" aria-label="Verified market" />
             )}
           </span>
-          <span className="block truncate text-[15px] text-muted-foreground">{handle}</span>
+          <span className="block truncate text-sm text-muted-foreground">{handle}</span>
         </Link>
       </div>
       <button
@@ -250,7 +248,7 @@ export function WhoToFollowCard() {
       </div>
       <Link
         to="/"
-        className="block w-full px-4 py-3 text-left text-[15px] text-link transition-colors hover:bg-secondary/40"
+        className="block w-full px-4 py-3 text-left text-sm text-link transition-colors hover:bg-secondary/40"
       >
         Show more
       </Link>
@@ -292,7 +290,7 @@ export function RelevantPeopleCard({ marketId }: { marketId: string }) {
           <span className="flex items-center gap-1">
             <Link
               {...href}
-              className="truncate text-[15px] font-bold text-foreground hover:underline"
+              className="truncate text-sm font-bold text-foreground hover:underline"
             >
               {name}
             </Link>
@@ -300,8 +298,8 @@ export function RelevantPeopleCard({ marketId }: { marketId: string }) {
               <BadgeCheck className="h-4 w-4 shrink-0 text-link" aria-label="Verified market" />
             )}
           </span>
-          <span className="block truncate text-[15px] text-muted-foreground">{handle}</span>
-          <span className="block truncate text-[13px] text-muted-foreground/80">
+          <span className="block truncate text-sm text-muted-foreground">{handle}</span>
+          <span className="block truncate text-xs text-muted-foreground/80">
             Aura market · {h ? `${Number(h.aura) / 100} aura` : "aura market"}
           </span>
         </div>
@@ -329,7 +327,7 @@ export function SidebarFooter() {
     { label: "Privacy", to: "/privacy" },
   ];
   return (
-    <nav className="flex flex-wrap gap-x-3 gap-y-1 px-1 pb-6 text-[13px] text-muted-foreground/70">
+    <nav className="flex flex-wrap gap-x-3 gap-y-1 px-1 pb-6 text-xs text-muted-foreground/70">
       {links.map((l) => (
         <Link key={l.label} to={l.to} className="hover:underline">
           {l.label}

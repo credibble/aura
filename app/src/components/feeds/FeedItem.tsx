@@ -90,7 +90,7 @@ export function FeedItem({
               params={{ id: slug }}
               className={cn(
                 "relative z-20 truncate font-semibold hover:underline",
-                compact ? "text-[13px]" : "text-sm",
+                compact ? "text-sm" : "text-sm",
               )}
             >
               {post.name}
@@ -106,12 +106,12 @@ export function FeedItem({
           </div>
         </div>
         {compact ? (
-          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">Read →</span>
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">Read →</span>
         ) : (
           <Link
             to="/$id"
             params={{ id: slug }}
-            className="relative z-20 shrink-0 rounded-full border border-border/70 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="relative z-20 flex min-h-9 shrink-0 items-center rounded-full border border-border/70 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             Trade
           </Link>
@@ -120,8 +120,8 @@ export function FeedItem({
 
       <h3
         className={cn(
-          "mt-3 font-semibold leading-snug",
-          compact ? "mt-2 text-[14px]" : "text-[15px]",
+          "font-semibold leading-snug",
+          compact ? "mt-3 text-sm" : "mt-4 text-base",
         )}
       >
         <AuraText text={post.summary} />
@@ -131,7 +131,7 @@ export function FeedItem({
         <div
           className={cn(
             "space-y-1.5 leading-relaxed text-muted-foreground",
-            compact ? "mt-1 text-[13px]" : "mt-1.5 text-[14px]",
+            compact ? "mt-1.5 text-sm" : "mt-2 text-sm",
           )}
         >
           {body.map((line, i) => (
@@ -147,7 +147,7 @@ export function FeedItem({
                 e.stopPropagation();
                 setExpanded((v) => !v);
               }}
-              className="relative z-20 text-[13px] font-medium text-primary transition-colors hover:underline"
+              className="relative z-20 text-sm font-medium text-primary transition-colors hover:underline"
             >
               {expanded ? "Show less" : "Read more"}
             </button>
@@ -194,21 +194,21 @@ export function FeedItem({
       )}
 
       {sources.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-4 flex flex-wrap gap-1.5">
           {sources.map((s) => (
             <span
               key={s.id}
               title={s.text}
               className={cn(
-                "truncate rounded-full border border-border/70 text-[11px] text-muted-foreground",
-                compact ? "max-w-[180px] px-2 py-0.5 text-[10px]" : "max-w-[220px] px-2.5 py-1",
+                "truncate rounded-full border border-border/70 text-xs text-muted-foreground",
+                compact ? "max-w-[180px] px-2 py-1" : "max-w-[220px] px-2.5 py-1",
               )}
             >
               {s.account || s.platform}
             </span>
           ))}
           {post.sources.length > sources.length && (
-            <span className="rounded-full px-2.5 py-1 text-[11px] text-muted-foreground">
+            <span className="rounded-full px-2.5 py-1 text-xs text-muted-foreground">
               +{post.sources.length - sources.length}
             </span>
           )}
@@ -219,7 +219,7 @@ export function FeedItem({
       <div
         className={cn(
           "relative z-20 flex items-center gap-5 text-muted-foreground",
-          compact ? "mt-2 text-[11px]" : "mt-3 text-xs",
+          compact ? "mt-3 text-xs" : "mt-4 text-xs",
         )}
       >
         <button

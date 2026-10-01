@@ -16,6 +16,7 @@ import {
 import type { Address } from "viem";
 import { toast } from "sonner";
 import type { Market } from "@/lib/aura-markets";
+import { marketWindowState } from "@/lib/window-state";
 import {
   useTradeExecutor,
   explainRevert,
@@ -162,10 +163,10 @@ export function TradeTicket({ market }: { market: Market }) {
   const priceCents = outcome.pct;
   const priceUsd = priceCents / 100;
 
-  // One ticking clock for the ticket. `now` advances each second so `live` and
-  // `awaitingSettle` flip at the deadline without any other event, and the same
-  // value drives the countdown below — one source of truth, no second timer.
-  // Aligned to the second boundary so the digits never skip.
+  // One ticking clock for the ticket. `now` advances each second so the window
+  // state flips at the deadline without any other event, and the same value
+  // drives the countdown below — one source of truth, no second timer. Aligned
+  // to the second boundary so the digits never skip.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -178,8 +179,12 @@ export function TradeTicket({ market }: { market: Market }) {
     return () => clearTimeout(timer);
   }, []);
 
-  const live = !market.settled && market.windowEnd > now;
-  const awaitingSettle = !market.settled && market.windowEnd <= now;
+  // A window is tradable only while it is open; past its end it is not, whether
+  // it is still settling or headed for VOID (the oracle leaves an
+  // observation-less window to the chain's grace deadline). One helper decides
+  // all three states so the label and the gate agree.
+  const windowState = marketWindowState(market, now);
+  const live = windowState === "trading";
 
   const estShares = useMemo(() => {
     const n = Number(amount) || 0;
@@ -640,11 +645,15 @@ export function TradeTicket({ market }: { market: Market }) {
           )}
 
           {/* Trading deadline. The countdown shares the ticket's one clock, so
-              the readout and the live/awaiting flip agree; `windowStart` lets it
+              the readout and the window-state flip agree; `windowStart` lets it
               pick a shape from the window's length instead of the time left. */}
           <div className="mt-4 flex items-center justify-between gap-3">
             <span className="text-xs font-medium text-muted-foreground">
-              {awaitingSettle ? "Awaiting settlement" : "Trading open"}
+              {windowState === "voiding"
+                ? "No activity — will void"
+                : windowState === "awaiting"
+                  ? "Awaiting settlement"
+                  : "Trading open"}
             </span>
             <Countdown
               windowEnd={market.windowEnd}
@@ -654,7 +663,7 @@ export function TradeTicket({ market }: { market: Market }) {
             />
           </div>
 
-          {!awaitingSettle &&
+          {windowState === "trading" &&
             mode !== "tap" && (
               <button
                 type="button"

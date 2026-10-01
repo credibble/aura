@@ -1,13 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Compass, Droplets, Menu, Rss, Trophy, Wallet, Activity } from "lucide-react";
+import { Compass, Droplets, Rss, Trophy, Wallet, Activity } from "lucide-react";
 import { ChainChip } from "@/components/aura/ChainChip";
 import { SearchPopover } from "@/components/SearchPopover";
 import { ConnectButton } from "@/components/ConnectButton";
 import { HowItWorks } from "@/components/HowItWorks";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { HandleSwitcher } from "@/components/portfolio/HandleSwitcher";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollRow } from "@/components/ScrollRow";
 import { CATEGORIES } from "@/lib/aura-data";
 import { cn } from "@/lib/utils";
@@ -36,7 +35,6 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-nav/95 backdrop-blur">
       <div className="mx-auto flex h-14 items-center gap-3 px-3 sm:px-4 lg:px-6">
-        <MobileNav />
         <Link to="/" className="flex shrink-0 items-center gap-2">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
             <Activity className="h-4 w-4" strokeWidth={2.6} />
@@ -110,51 +108,3 @@ export function Navbar() {
   );
 }
 
-function MobileNav() {
-  const [open, setOpen] = useState(false);
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <button
-          className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground lg:hidden"
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      </SheetTrigger>
-      <SheetContent
-        side="left"
-        className="w-72 border-border bg-nav p-0"
-        aria-describedby={undefined}
-      >
-        <SheetTitle className="sr-only">Menu</SheetTitle>
-        <div className="flex h-14 items-center border-b border-border px-4 text-lg font-bold">
-          Aura
-        </div>
-        <div className="flex flex-col gap-1 p-3">
-          {browse.map((item) => (
-            <Link
-              key={item.label}
-              to={item.to}
-              onClick={() => setOpen(false)}
-              className="rounded-md px-3 py-2 text-sm hover:bg-secondary"
-            >
-              {item.label}
-            </Link>
-          ))}
-          {CATEGORIES.map((c) => (
-            <Link
-              key={c.id}
-              to="/"
-              hash={c.id}
-              onClick={() => setOpen(false)}
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              {c.label}
-            </Link>
-          ))}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}

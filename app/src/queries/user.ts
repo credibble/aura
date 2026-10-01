@@ -3,7 +3,7 @@
  * resting orders and trade history (positions are derived from real trades;
  * nothing is synthesized). All read directly from the indexer.
  */
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { gql } from "@/lib/graphql";
 import { useIndexerLive } from "@/lib/indexer-ws";
 import { qk } from "./keys";
@@ -111,6 +111,8 @@ export type OpenOrder = {
   price: string;
   size: string;
   filled: string;
+  /** ACTIVE | FILLED | CANCELLED. */
+  status: string;
   expiresAt: string;
   createdAt: string;
   window: {
@@ -132,7 +134,7 @@ export function openOrdersOptions(address: string | undefined) {
         await gql<{ Order: OpenOrder[] }>(
           `query($maker: String!) {
             Order(where: { maker_id: { _eq: $maker }, status: { _eq: "ACTIVE" } }, order_by: { createdAt: desc }, limit: 100) {
-              id outcome side price size filled expiresAt createdAt
+              id outcome side price size filled status expiresAt createdAt
               window { id question outcomes windowEnd oracle handle { id } }
             }
           }`,
@@ -152,11 +154,55 @@ export function useOpenOrdersLive(address: string | undefined): boolean {
     queryKey: qk.openOrders(maker ?? ""),
     query: `subscription($maker: String!) {
       Order(where: { maker_id: { _eq: $maker }, status: { _eq: "ACTIVE" } }, order_by: { createdAt: desc }, limit: 100) {
-        id outcome side price size filled expiresAt createdAt
+        id outcome side price size filled status expiresAt createdAt
         window { id question outcomes windowEnd oracle handle { id } }
       }
     }`,
     variables: { maker },
     enabled: !!address,
+  });
+}
+
+export type OrderTab = "open" | "closed";
+
+/** Rows per page in the portfolio's numbered order tables. */
+export const ORDERS_PAGE_SIZE = 8;
+
+/**
+ * One numbered page of the wallet's orders.
+ *
+ * The page itself is a real indexer slice (`limit`/`offset`). Envio exposes no
+ * COUNT/`_aggregate` (verified against the live schema), so the exact total for
+ * the pager comes from a second id-only field in the SAME round trip — cheap
+ * for a single wallet. Closed = anything not ACTIVE (FILLED | CANCELLED).
+ */
+export function ordersPageOptions(
+  address: string | undefined,
+  tab: OrderTab,
+  page: number,
+  pageSize = ORDERS_PAGE_SIZE,
+) {
+  const maker = address?.toLowerCase() ?? "";
+  const status = tab === "open" ? `{ _eq: "ACTIVE" }` : `{ _neq: "ACTIVE" }`;
+  const offset = (Math.max(1, page) - 1) * pageSize;
+  const fields = `id outcome side price size filled status expiresAt createdAt
+    window { id question outcomes windowEnd oracle handle { id } }`;
+  return queryOptions({
+    queryKey: qk.ordersPage(maker, tab, page),
+    queryFn: async () => {
+      const data = await gql<{ page: OpenOrder[]; all: { id: string }[] }>(
+        `query Orders($maker: String!) {
+          page: Order(where: { maker_id: { _eq: $maker }, status: ${status} }, order_by: { createdAt: desc }, limit: ${pageSize}, offset: ${offset}) {
+            ${fields}
+          }
+          all: Order(where: { maker_id: { _eq: $maker }, status: ${status} }, limit: 1000) { id }
+        }`,
+        { maker },
+      );
+      return { items: data.page ?? [], total: (data.all ?? []).length };
+    },
+    enabled: !!address,
+    staleTime: 5_000,
+    placeholderData: keepPreviousData,
   });
 }

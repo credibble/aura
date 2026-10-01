@@ -48,4 +48,8 @@ export const qk = {
   userHandles: (address: string) => ["user-handles", address] as const,
   positions: (address: string) => ["positions", address] as const,
   openOrders: (address: string) => ["open-orders", address] as const,
+  /** One numbered page of the wallet's orders for a tab (shares the open-orders
+   *  prefix so the reconnect resync invalidates every page too). */
+  ordersPage: (address: string, tab: "open" | "closed", page: number) =>
+    ["open-orders", address, tab, page] as const,
 } as const;

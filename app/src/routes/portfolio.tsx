@@ -1,7 +1,15 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, ArrowDownRight, Droplets, LogIn, Wallet } from "lucide-react";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  ChevronLeft,
+  ChevronRight,
+  Droplets,
+  LogIn,
+  Wallet,
+} from "lucide-react";
 import { PageShell } from "@/components/PageShell";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { useAuraAuth } from "@/lib/aura-auth";
@@ -15,10 +23,12 @@ import { useHandleArtwork } from "@/queries/handles";
 import { UsdcAmount } from "@/components/aura/UsdcIcon";
 import { Skeleton } from "@/components/ui/skeletons";
 import {
-  openOrdersOptions,
+  ORDERS_PAGE_SIZE,
+  ordersPageOptions,
   positionsOptions,
   useOpenOrdersLive,
   usePositionsLive,
+  type OrderTab,
   type PositionTrade,
 } from "@/queries/user";
 
@@ -28,6 +38,9 @@ export const Route = createFileRoute("/portfolio")({
   }),
   component: PortfolioPage,
 });
+
+/** Rows per page in each positions tab. */
+const POSITIONS_PAGE_SIZE = 8;
 
 type ViewPosition = {
   key: string;
@@ -48,6 +61,8 @@ type ViewPosition = {
   winning: number | null;
   /** Settled winning shares still unclaimed — redeemable 1 USDC per share. */
   claimable: number;
+  /** No remaining exposure: sold out, claimed, voided, or lost at settlement. */
+  closed: boolean;
 };
 
 /** Aggregate the trade history into one position row per (window, outcome). */
@@ -75,6 +90,7 @@ function derivePositions(rows: PositionTrade[]): ViewPosition[] {
         settled: t.window.settled,
         winning: t.window.winningOutcome,
         claimable: 0,
+        closed: false,
         costAcc: 0,
       };
       byKey.set(key, row);
@@ -93,6 +109,11 @@ function derivePositions(rows: PositionTrade[]): ViewPosition[] {
     } else if (t.kind === "CLAIM") {
       row.shares -= shares;
       row.costAcc -= Number(t.proceeds) / 1e18;
+    } else if (t.kind === "VOID") {
+      // Void refunds carry proceeds but zero shares (see the indexer's
+      // VoidRedeemed handler) — book the money, not a phantom share burn.
+      row.shares -= shares;
+      row.costAcc -= Number(t.proceeds) / 1e18;
     } else if (t.kind === "TRANSFER_OUT") {
       // Order-book fills move shares through MarketMaker.transferFrom, which the
       // indexer records as a transfer pair — the claim follows the shares.
@@ -107,14 +128,17 @@ function derivePositions(rows: PositionTrade[]): ViewPosition[] {
   }
   const out: ViewPosition[] = [];
   for (const row of byKey.values()) {
-    if (row.shares <= 0) continue;
-    if (row.settled) {
-      // Losing settled shares are void; winning ones await a claim.
-      if (row.winning !== row.outcomeIdx) continue;
-      row.claimable = row.shares;
-      row.price = 1;
+    if (row.settled && row.winning !== null) {
+      // Settled: winning shares are worth 1, losing shares are worth 0.
+      row.price = row.winning === row.outcomeIdx ? 1 : 0;
     }
-    row.entry = row.costAcc > 0 ? row.costAcc / row.shares : 0;
+    const settledWinning = row.settled && row.winning === row.outcomeIdx;
+    if (settledWinning && row.shares > 0) row.claimable = row.shares;
+    // Open = a live position: shares held on an unsettled window, OR winning
+    // settled shares still awaiting their claim. Everything else has no
+    // remaining exposure and belongs in the Closed tab.
+    row.closed = !(row.shares > 0 && (!row.settled || settledWinning));
+    row.entry = row.shares > 0 && row.costAcc > 0 ? row.costAcc / row.shares : 0;
     row.cost = row.costAcc;
     out.push(row);
   }
@@ -127,24 +151,46 @@ function PortfolioPage() {
   const exec = useTradeExecutor();
   const artwork = useHandleArtwork();
 
+  const [posTab, setPosTab] = useState<"open" | "closed">("open");
+  const [posPage, setPosPage] = useState(1);
+  const [ordTab, setOrdTab] = useState<OrderTab>("open");
+  const [ordPage, setOrdPage] = useState(1);
+
+  // Positions are aggregated from the wallet's full trade history (a position
+  // needs every trade for its window, so the pages are sliced after deriving).
   const positionsQuery = useQuery(positionsOptions(address ?? undefined));
-  const ordersQuery = useQuery(openOrdersOptions(address ?? undefined));
+  // Orders page straight from the indexer with a real limit/offset per page.
+  const ordersQuery = useQuery(ordersPageOptions(address ?? undefined, ordTab, ordPage));
   // The wallet's positions + resting orders are indexer-streamed.
   usePositionsLive(address ?? undefined);
   useOpenOrdersLive(address ?? undefined);
 
-  const positions = useMemo(
+  const allPositions = useMemo(
     () => derivePositions(positionsQuery.data ?? []),
     [positionsQuery.data],
   );
-  const orders = ordersQuery.data ?? [];
+  const openPositions = useMemo(() => allPositions.filter((p) => !p.closed), [allPositions]);
+  const closedPositions = useMemo(() => allPositions.filter((p) => p.closed), [allPositions]);
 
-  const equity = positions.reduce((s, p) => s + p.shares * p.price, 0);
-  const cost = positions.reduce((s, p) => s + Math.max(0, p.cost), 0);
+  const shownPositions = posTab === "open" ? openPositions : closedPositions;
+  const posPages = Math.max(1, Math.ceil(shownPositions.length / POSITIONS_PAGE_SIZE));
+  const posPageClamped = Math.min(posPage, posPages);
+  const pagedPositions = shownPositions.slice(
+    (posPageClamped - 1) * POSITIONS_PAGE_SIZE,
+    posPageClamped * POSITIONS_PAGE_SIZE,
+  );
+
+  const orders = ordersQuery.data?.items ?? [];
+  const ordersTotal = ordersQuery.data?.total ?? 0;
+  const orderPages = Math.max(1, Math.ceil(ordersTotal / ORDERS_PAGE_SIZE));
+
+  // The summary tracks OPEN exposure only.
+  const equity = openPositions.reduce((s, p) => s + p.shares * p.price, 0);
+  const cost = openPositions.reduce((s, p) => s + Math.max(0, p.cost), 0);
   const pnl = equity - cost;
   const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
-  const claimable = positions.reduce((s, p) => s + p.claimable, 0);
-  const wins = positions.filter((p) => p.cost > 0 && p.shares * p.price >= p.cost).length;
+  const claimable = openPositions.reduce((s, p) => s + p.claimable, 0);
+  const wins = openPositions.filter((p) => p.cost > 0 && p.shares * p.price >= p.cost).length;
 
   if (!address) {
     return (
@@ -168,7 +214,9 @@ function PortfolioPage() {
             onClick={() => void login()}
             className="mt-1 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-all hover:brightness-110"
           >
-            <LogIn className="h-4 w-4" />Sign in</button>
+            <LogIn className="h-4 w-4" />
+            Sign in
+          </button>
         </div>
       </PageShell>
     );
@@ -206,200 +254,249 @@ function PortfolioPage() {
             tone={pnl >= 0 ? "up" : "down"}
           />
           <Stat label="Claimable" value={<UsdcAmount value={formatUsd(claimable)} size={16} />} />
-          <Stat label="Positions" value={`${wins}/${positions.length || 0} up`} />
+          <Stat label="Positions" value={`${wins}/${openPositions.length || 0} up`} />
         </dl>
 
-        {/* Open positions — table (scrolls sideways on narrow screens) */}
+        {/* Positions — table (scrolls sideways on narrow screens) */}
         <section>
-          <h2 className="text-sm font-semibold">Open positions</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabBar
+              value={posTab}
+              onChange={(v) => {
+                setPosTab(v);
+                setPosPage(1);
+              }}
+              tabs={[
+                { id: "open", label: "Open positions" },
+                { id: "closed", label: "Closed positions" },
+              ]}
+            />
+          </div>
           <div className="mt-3 overflow-x-auto">
             <div className="min-w-[620px]">
               <div className="grid grid-cols-[1fr_84px_92px] items-center gap-3 border-b border-border/70 pb-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[1fr_96px_96px_110px_100px] sm:gap-4">
-              <span>Market</span>
-              <span className="hidden sm:block">Outcome</span>
-              <span className="hidden text-right sm:block">Shares</span>
-              <span className="text-right">Value</span>
-              <span className="text-right">PnL</span>
-            </div>
+                <span>Market</span>
+                <span className="hidden sm:block">Outcome</span>
+                <span className="hidden text-right sm:block">Shares</span>
+                <span className="text-right">Value</span>
+                <span className="text-right">PnL</span>
+              </div>
 
-            {positionsQuery.isPending &&
-              [0, 1].map((i) => (
-                <div key={i} className="py-3.5" aria-hidden="true">
-                  <Skeleton className="h-4 w-full" />
-                </div>
-              ))}
-
-            {positionsQuery.isError && (
-              <QueryError
-                what="your positions"
-                onRetry={() => void positionsQuery.refetch()}
-                className="my-4 border-0"
-              />
-            )}
-
-            {!positionsQuery.isPending &&
-              !positionsQuery.isError &&
-              positions.map((p) => {
-                const value = p.shares * p.price;
-                const rowPnl = value - Math.max(0, p.cost);
-                return (
-                  <div
-                    key={p.key}
-                    className="grid grid-cols-[1fr_84px_92px] items-center gap-3 border-b border-border/50 py-3.5 text-[13px] transition-colors last:border-0 hover:bg-secondary/25 sm:grid-cols-[1fr_96px_96px_110px_100px] sm:gap-4"
-                  >
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <AssetAvatar
-                        asset={{
-                          id: p.handleId,
-                          symbol: p.handle.replace("@", "").toUpperCase().slice(0, 4),
-                          color: "hsl(var(--primary))",
-                          name: p.handle,
-                          ...artwork(p.handle),
-                        }}
-                        size={30}
-                      />
-                      <Link
-                        to="/$id"
-                        params={{ id: handleSlug({ id: p.handleId, name: p.handle }) }}
-                        className="truncate font-medium hover:underline"
-                      >
-                        {p.handle}
-                      </Link>
-                    </span>
-                    <span className="hidden truncate text-muted-foreground sm:block">
-                      {p.outcomeLabel}
-                      {p.entry > 0 && <span className="num"> @ {formatCents(p.entry)}</span>}
-                    </span>
-                    <span className="num hidden text-right text-muted-foreground sm:block">
-                      {formatCompact(p.shares)}
-                    </span>
-                    <span className="flex justify-end">
-                      <UsdcAmount value={formatUsd(value)} size={12} />
-                    </span>
-                    <span
-                      className={cn(
-                        "flex items-center justify-end gap-0.5 text-right",
-                        rowPnl >= 0 ? "text-up" : "text-down",
-                      )}
-                    >
-                      {p.claimable > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void exec.claim(
-                              { oracle: p.oracle, handleId: p.handleId, windowId: p.windowId },
-                              p.outcomeIdx,
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-full bg-link px-3 py-1 text-[11px] font-semibold text-white transition-all hover:brightness-110"
-                        >
-                          Claim <UsdcAmount value={formatUsd(p.claimable)} size={11} />
-                        </button>
-                      ) : (
-                        <>
-                          {rowPnl >= 0 ? (
-                            <ArrowUpRight className="h-3 w-3" />
-                          ) : (
-                            <ArrowDownRight className="h-3 w-3" />
-                          )}
-                          {formatUsd(Math.abs(rowPnl))}
-                        </>
-                      )}
-                    </span>
+              {positionsQuery.isPending &&
+                [0, 1].map((i) => (
+                  <div key={i} className="py-3.5" aria-hidden="true">
+                    <Skeleton className="h-4 w-full" />
                   </div>
-                );
-              })}
+                ))}
 
-            {!positionsQuery.isPending && !positionsQuery.isError && positions.length === 0 && (
-              <p className="py-6 text-[13px] text-muted-foreground">
-                No open positions — buy shares on any market to see them here.
-              </p>
-            )}
+              {positionsQuery.isError && (
+                <QueryError
+                  what="your positions"
+                  onRetry={() => void positionsQuery.refetch()}
+                  className="my-4 border-0"
+                />
+              )}
+
+              {!positionsQuery.isPending &&
+                !positionsQuery.isError &&
+                pagedPositions.map((p) => {
+                  const value = p.closed ? 0 : p.shares * p.price;
+                  // Closed rows report REALISED PnL: proceeds received minus cost.
+                  const rowPnl = p.closed ? -p.cost : value - Math.max(0, p.cost);
+                  return (
+                    <div
+                      key={p.key}
+                      className="grid grid-cols-[1fr_84px_92px] items-center gap-3 border-b border-border/50 py-3.5 text-[13px] transition-colors last:border-0 hover:bg-secondary/25 sm:grid-cols-[1fr_96px_96px_110px_100px] sm:gap-4"
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <AssetAvatar
+                          asset={{
+                            id: p.handleId,
+                            symbol: p.handle.replace("@", "").toUpperCase().slice(0, 4),
+                            color: "hsl(var(--primary))",
+                            name: p.handle,
+                            ...artwork(p.handle),
+                          }}
+                          size={30}
+                        />
+                        <Link
+                          to="/$id"
+                          params={{ id: handleSlug({ id: p.handleId, name: p.handle }) }}
+                          className="truncate font-medium hover:underline"
+                        >
+                          {p.handle}
+                        </Link>
+                      </span>
+                      <span className="hidden truncate text-muted-foreground sm:block">
+                        {p.outcomeLabel}
+                        {p.entry > 0 && <span className="num"> @ {formatCents(p.entry)}</span>}
+                      </span>
+                      <span className="num hidden text-right text-muted-foreground sm:block">
+                        {p.closed ? "—" : formatCompact(p.shares)}
+                      </span>
+                      <span className="flex justify-end">
+                        {p.closed ? (
+                          <span className="num text-muted-foreground">—</span>
+                        ) : (
+                          <UsdcAmount value={formatUsd(value)} size={12} />
+                        )}
+                      </span>
+                      <span
+                        className={cn(
+                          "flex items-center justify-end gap-0.5 text-right",
+                          rowPnl >= 0 ? "text-up" : "text-down",
+                        )}
+                      >
+                        {p.claimable > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void exec.claim(
+                                { oracle: p.oracle, handleId: p.handleId, windowId: p.windowId },
+                                p.outcomeIdx,
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-full bg-link px-3 py-1 text-[11px] font-semibold text-white transition-all hover:brightness-110"
+                          >
+                            Claim <UsdcAmount value={formatUsd(p.claimable)} size={11} />
+                          </button>
+                        ) : (
+                          <>
+                            {rowPnl >= 0 ? (
+                              <ArrowUpRight className="h-3 w-3" />
+                            ) : (
+                              <ArrowDownRight className="h-3 w-3" />
+                            )}
+                            {formatUsd(Math.abs(rowPnl))}
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+
+              {!positionsQuery.isPending &&
+                !positionsQuery.isError &&
+                shownPositions.length === 0 && (
+                  <p className="py-6 text-[13px] text-muted-foreground">
+                    {posTab === "open"
+                      ? "No open positions — buy shares on any market to see them here."
+                      : "No closed positions yet."}
+                  </p>
+                )}
             </div>
           </div>
+          <Pager page={posPageClamped} pages={posPages} onPage={setPosPage} />
         </section>
 
-        {/* Open orders — table */}
+        {/* Orders — table */}
         <section>
-          <h2 className="text-sm font-semibold">Open orders</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabBar
+              value={ordTab}
+              onChange={(v) => {
+                setOrdTab(v);
+                setOrdPage(1);
+              }}
+              tabs={[
+                { id: "open", label: "Open orders" },
+                { id: "closed", label: "Closed orders" },
+              ]}
+            />
+          </div>
           <div className="mt-3 overflow-x-auto">
             <div className="min-w-[620px]">
               <div className="grid grid-cols-[1fr_84px_72px] items-center gap-3 border-b border-border/70 pb-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[64px_1fr_120px_90px_76px] sm:gap-4">
-              <span className="hidden sm:block">Side</span>
-              <span>Market</span>
-              <span className="hidden sm:block">Outcome</span>
-              <span className="text-right">Size @ price</span>
-              <span className="text-right">Cancel</span>
-            </div>
-
-            {ordersQuery.isPending && (
-              <div className="py-3" aria-hidden="true">
-                <Skeleton className="h-4 w-full" />
+                <span className="hidden sm:block">Side</span>
+                <span>Market</span>
+                <span className="hidden sm:block">Outcome</span>
+                <span className="text-right">Size @ price</span>
+                <span className="text-right">{ordTab === "closed" ? "Status" : "Cancel"}</span>
               </div>
-            )}
 
-            {ordersQuery.isError && (
-              <QueryError
-                what="your open orders"
-                onRetry={() => void ordersQuery.refetch()}
-                className="my-4 border-0"
-              />
-            )}
-
-            {!ordersQuery.isPending &&
-              !ordersQuery.isError &&
-              orders.map((o) => (
-                <div
-                  key={o.id}
-                  className="grid grid-cols-[1fr_84px_72px] items-center gap-3 border-b border-border/50 py-3 text-[13px] transition-colors last:border-0 hover:bg-secondary/25 sm:grid-cols-[64px_1fr_120px_90px_76px] sm:gap-4"
-                >
-                  <span
-                    className={cn(
-                      "hidden w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize sm:block",
-                      o.side ? "bg-up/15 text-up" : "bg-down/15 text-down",
-                    )}
-                  >
-                    {o.side ? "buy" : "sell"}
-                  </span>
-                  <Link
-                    to="/$id"
-                    params={{ id: handleSlug(o.window.handle.id) }}
-                    className="min-w-0 truncate font-medium hover:underline"
-                  >
-                    {o.window.question}
-                  </Link>
-                  <span className="hidden truncate text-muted-foreground sm:block">
-                    {o.window.outcomes[o.outcome] ?? `#${o.outcome}`}
-                  </span>
-                  <span className="num text-right text-muted-foreground">
-                    {formatCompact(Number(o.size) / 1e18)}{" "}
-                    @ {formatCents(Number(o.price) / 1e18)}
-                  </span>
-                  <span className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void exec.cancelOrder(
-                          {
-                            oracle: o.window.oracle,
-                            handleId: o.window.handle.id,
-                            windowId: o.window.id,
-                          },
-                          o.id,
-                        )
-                      }
-                      className="shrink-0 rounded-full border border-border/70 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-down/60 hover:text-down"
-                    >
-                      Cancel
-                    </button>
-                  </span>
+              {ordersQuery.isPending && (
+                <div className="py-3" aria-hidden="true">
+                  <Skeleton className="h-4 w-full" />
                 </div>
-              ))}
-            {!ordersQuery.isPending && orders.length === 0 && (
-              <p className="py-6 text-[13px] text-muted-foreground">No open orders.</p>
-            )}
+              )}
+
+              {ordersQuery.isError && (
+                <QueryError
+                  what={ordTab === "open" ? "your open orders" : "your closed orders"}
+                  onRetry={() => void ordersQuery.refetch()}
+                  className="my-4 border-0"
+                />
+              )}
+
+              {!ordersQuery.isPending &&
+                !ordersQuery.isError &&
+                orders.map((o) => (
+                  <div
+                    key={o.id}
+                    className="grid grid-cols-[1fr_84px_72px] items-center gap-3 border-b border-border/50 py-3 text-[13px] transition-colors last:border-0 hover:bg-secondary/25 sm:grid-cols-[64px_1fr_120px_90px_76px] sm:gap-4"
+                  >
+                    <span
+                      className={cn(
+                        "hidden w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize sm:block",
+                        o.side ? "bg-up/15 text-up" : "bg-down/15 text-down",
+                      )}
+                    >
+                      {o.side ? "buy" : "sell"}
+                    </span>
+                    <Link
+                      to="/$id"
+                      params={{ id: handleSlug(o.window.handle.id) }}
+                      className="min-w-0 truncate font-medium hover:underline"
+                    >
+                      {o.window.question}
+                    </Link>
+                    <span className="hidden truncate text-muted-foreground sm:block">
+                      {o.window.outcomes[o.outcome] ?? `#${o.outcome}`}
+                    </span>
+                    <span className="num text-right text-muted-foreground">
+                      {formatCompact(Number(o.size) / 1e18)} @ {formatCents(Number(o.price) / 1e18)}
+                    </span>
+                    <span className="flex justify-end">
+                      {ordTab === "closed" ? (
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize",
+                            o.status === "FILLED"
+                              ? "bg-up/15 text-up"
+                              : "bg-secondary text-muted-foreground",
+                          )}
+                        >
+                          {o.status.toLowerCase()}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void exec.cancelOrder(
+                              {
+                                oracle: o.window.oracle,
+                                handleId: o.window.handle.id,
+                                windowId: o.window.id,
+                              },
+                              o.id,
+                            )
+                          }
+                          className="shrink-0 rounded-full border border-border/70 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-down/60 hover:text-down"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              {!ordersQuery.isPending && !ordersQuery.isError && orders.length === 0 && (
+                <p className="py-6 text-[13px] text-muted-foreground">
+                  {ordTab === "open" ? "No open orders." : "No closed orders yet."}
+                </p>
+              )}
             </div>
           </div>
+          <Pager page={ordPage} pages={orderPages} onPage={setOrdPage} />
         </section>
 
         {/* Liquidity lives on its own page */}
@@ -425,6 +522,114 @@ function PortfolioPage() {
 
 function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+/** Quiet segmented control used for the Open/Closed tabs. */
+function TabBar<T extends string>({
+  value,
+  onChange,
+  tabs,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  tabs: { id: T; label: string }[];
+}) {
+  return (
+    <div role="tablist" className="flex gap-1 rounded-xl bg-secondary/50 p-1">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={value === t.id}
+          onClick={() => onChange(t.id)}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors",
+            value === t.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+          )}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Numbered pager — page N is a real query slice (`limit`/`offset`), not a scroll
+ * window. Shows `1 … 4 5 6 … 12` with prev/next and the current page marked.
+ */
+function Pager({
+  page,
+  pages,
+  onPage,
+}: {
+  page: number;
+  pages: number;
+  onPage: (page: number) => void;
+}) {
+  if (pages <= 1) return null;
+  const current = Math.min(page, pages);
+  const items = pageItems(current, pages);
+  const stepBtn =
+    "grid h-8 w-8 place-items-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
+  return (
+    <nav aria-label="Pagination" className="mt-4 flex items-center justify-center gap-1">
+      <button
+        type="button"
+        aria-label="Previous page"
+        disabled={current <= 1}
+        onClick={() => onPage(current - 1)}
+        className={stepBtn}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      {items.map((item, i) =>
+        item === "…" ? (
+          <span key={`gap-${i}`} className="px-1 text-xs text-muted-foreground" aria-hidden="true">
+            …
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            aria-current={item === current ? "page" : undefined}
+            onClick={() => onPage(item)}
+            className={cn(
+              "num h-8 min-w-8 rounded-md px-2 text-xs font-semibold transition-colors",
+              item === current
+                ? "bg-primary text-primary-foreground"
+                : "border border-border/70 text-muted-foreground hover:bg-secondary hover:text-foreground",
+            )}
+          >
+            {item}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        aria-label="Next page"
+        disabled={current >= pages}
+        onClick={() => onPage(current + 1)}
+        className={stepBtn}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </nav>
+  );
+}
+
+/** `1 … 4 5 6 … 12` — first, last, and a window around the current page. */
+function pageItems(page: number, pages: number): (number | "…")[] {
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+  const items: (number | "…")[] = [1];
+  const start = Math.max(2, page - 1);
+  const end = Math.min(pages - 1, page + 1);
+  if (start > 2) items.push("…");
+  for (let p = start; p <= end; p++) items.push(p);
+  if (end < pages - 1) items.push("…");
+  items.push(pages);
+  return items;
 }
 
 function Stat({

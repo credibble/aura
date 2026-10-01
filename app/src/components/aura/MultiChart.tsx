@@ -291,7 +291,7 @@ export function MultiChart({
             const step = Math.max(1, Math.ceil(s.data.length / 14));
             return (
               <g key={s.label + id}>
-                {s.data.map((v, i) =>
+                {s.data.map((_v, i) =>
                   i % step === 0 ? (
                     <circle
                       key={i}

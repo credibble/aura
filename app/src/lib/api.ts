@@ -7,6 +7,7 @@
  * `POST /auth/login` (EIP-191 signMessage → HS256 token), stored per address.
  */
 import { API_BASE } from "./privy";
+import { isJwtStale } from "./jwt-stale";
 
 const JWT_KEY = "aura.jwt";
 
@@ -34,6 +35,15 @@ export function setJwt(token: string | null): void {
  */
 export function clearJwt(): void {
   setJwt(null);
+}
+
+/**
+ * True when the stored oracle token cannot serve the next call: missing,
+ * malformed, or expiring within `skewSeconds` (default 60). Thin wrapper over
+ * `isJwtStale` that defaults to the token on this device.
+ */
+export function jwtStale(token: string | null = getJwt(), skewSeconds = 60): boolean {
+  return isJwtStale(token, skewSeconds);
 }
 
 /** Best-effort server-side session revoke. Never throws. */
@@ -64,6 +74,9 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    // 401 = the bearer is dead (expired/revoked): drop it so the next guarded
+    // call re-mints instead of replaying a token the oracle will keep rejecting.
+    if (res.status === 401) clearJwt();
     throw new Error(`Aura API ${res.status}: ${text.slice(0, 300)}`);
   }
   const json = (await res.json()) as T & Envelope<T>;

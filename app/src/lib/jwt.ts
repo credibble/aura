@@ -3,7 +3,7 @@
  * for the connected address before a POST/DELETE against the social API.
  */
 import { useCallback, useContext } from "react";
-import { getJwt, loginWithAddress } from "./api";
+import { jwtStale, loginWithAddress } from "./api";
 import { AuraAuthContext } from "./aura-auth";
 
 export function useEnsureJwt(): () => Promise<void> {
@@ -12,7 +12,9 @@ export function useEnsureJwt(): () => Promise<void> {
     if (!ctx) throw new Error("Not signed in");
     const address = ctx.auth.address;
     if (!address) throw new Error("Connect a wallet first");
-    if (getJwt()) return;
+    // Re-mint when the token is absent OR stale — presence alone is not enough
+    // (the 24 h oracle TTL would otherwise replay a dead bearer until 401).
+    if (!jwtStale()) return;
     await loginWithAddress(address, ctx.signMessage);
   }, [ctx]);
 }

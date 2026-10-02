@@ -2,7 +2,12 @@
 
 export async function apiGetJson(url: string, headers?: Record<string, string>): Promise<unknown> {
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  if (!res.ok) {
+    // The body carries the real reason ("credits depleted", rate-limit detail);
+    // without it a billing outage looks identical to "no items".
+    const detail = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${detail.slice(0, 200)} for ${url}`);
+  }
   return (await res.json()) as unknown;
 }
 

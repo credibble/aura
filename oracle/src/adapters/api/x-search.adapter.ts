@@ -1,5 +1,6 @@
 import type { AdapterCredentials, AdapterSample, MetricDef, SourceConfig } from "../../core/domain/source";
 import type { RawDatum } from "../../core/domain/source-item";
+import { Logger } from "@nestjs/common";
 import { BaseSource } from ".././base-source";
 import { apiGetJson, bucketStart } from ".././http";
 
@@ -54,6 +55,7 @@ const API = "https://api.x.com/2";
  * yields nothing rather than inventing data.
  */
 export class XSearchAdapter extends BaseSource {
+  private readonly logger = new Logger(XSearchAdapter.name);
   readonly platform = "x";
   readonly variant = "search";
   readonly weight = 720; // 1-1000 credibility — platform chatter, ranked by author
@@ -174,9 +176,11 @@ export class XSearchAdapter extends BaseSource {
         },
         items,
       };
-    } catch {
-      // 401/429/network — an empty sample keeps the tick alive without inventing
-      // engagement. The health surface shows the source as unconfigured/failing.
+    } catch (error) {
+      // 401/402/429/network — an empty sample keeps the tick alive without
+      // inventing engagement, but the REASON must be visible: a depleted X API
+      // balance otherwise looks exactly like "no tweets today".
+      this.logger.warn(`${this.label(config)}: ${(error as Error).message}`);
       return { points: {} };
     }
   }

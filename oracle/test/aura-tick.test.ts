@@ -38,9 +38,19 @@ const SOURCE: Source = {
   label: "BBC Sport",
 };
 
-function build(opts: { onChain: number; updateOk?: boolean; seriesLast?: number }) {
+function build(opts: {
+  onChain: number;
+  updateOk?: boolean;
+  seriesLast?: number;
+  /** Persisted engine state (`baseline`/`baseline_center` metrics). */
+  baselineLast?: number;
+  centerLast?: number;
+  /** Aura series history the engine seeds the center from. */
+  history?: { value: number }[];
+}) {
   const updates: { aura: number; summary: string }[] = [];
   const appends: { value: number; delta: number; inputsHash?: string }[] = [];
+  const allAppends: { metric: string; value: number }[] = [];
   const published: unknown[] = [];
 
   const chain = {
@@ -58,14 +68,25 @@ function build(opts: { onChain: number; updateOk?: boolean; seriesLast?: number 
   const fetcher = { fetch: async () => [ITEM] };
   const ai = { scoreWithSummary: async () => ({ percent: 6, summary: "memo" }) };
   const series = {
-    latest: async () =>
-      opts.seriesLast === undefined
-        ? null
-        : { value: opts.seriesLast, delta: 0, timestamp: 0 },
-    append: async (_s: string, _m: string, p: { value: number; delta: number; inputsHash?: string }) => {
-      appends.push(p);
+    latest: async (_s: string, metric: string) => {
+      if (metric === "aura" && opts.seriesLast !== undefined)
+        return { value: opts.seriesLast, delta: 0, timestamp: 0 };
+      if (metric === "baseline" && opts.baselineLast !== undefined)
+        return { value: opts.baselineLast, delta: 0, timestamp: 0 };
+      if (metric === "baseline_center" && opts.centerLast !== undefined)
+        return { value: opts.centerLast, delta: 0, timestamp: 0 };
+      return null;
     },
-    points: async () => [],
+    append: async (
+      _s: string,
+      metric: string,
+      p: { value: number; delta?: number; inputsHash?: string },
+    ) => {
+      allAppends.push({ metric, value: p.value });
+      // The `aura` metric is the chain mirror the original tests assert on.
+      if (metric === "aura") appends.push({ value: p.value, delta: p.delta ?? 0, inputsHash: p.inputsHash });
+    },
+    points: async () => opts.history ?? [],
   };
   const registry = { sourcesForHandle: async () => [SOURCE] };
   const ws = { publishAura: (m: unknown) => published.push(m) };
@@ -81,7 +102,7 @@ function build(opts: { onChain: number; updateOk?: boolean; seriesLast?: number 
     series as never,
     registry as never,
   );
-  return { engine, updates, appends, published };
+  return { engine, updates, appends, allAppends, published };
 }
 
 describe("AuraEngineService — one series (on-chain is the source of truth)", () => {
@@ -101,8 +122,9 @@ describe("AuraEngineService — one series (on-chain is the source of truth)", (
   });
 
   it("still writes on-chain when the level is unchanged (history stays complete)", async () => {
-    // At the ceiling a +ve move clamps back to the current level: `next === onChain`.
-    const { engine, updates, appends } = build({ onChain: 10_000 });
+    // A persisted baseline at the ceiling: the +ve band move is clamped back to
+    // the current level, so `next === onChain`.
+    const { engine, updates, appends } = build({ onChain: 10_000, baselineLast: 10_000, centerLast: 10_000 });
     const tick = await engine.compute(HANDLE, 1_700_000_000_000);
 
     expect(tick!.aura).toBe(10_000);
@@ -110,14 +132,34 @@ describe("AuraEngineService — one series (on-chain is the source of truth)", (
     expect(appends).toHaveLength(1); // and the series still advanced
   });
 
+  it("recovers from the ceiling instead of pinning (the saturation bug)", async () => {
+    // No persisted state: the center is seeded from the handle's aura history
+    // (its opening level), NOT the saturated current level, so a +ve bias can no
+    // longer hold the index at MAX.
+    const { engine, updates, appends, allAppends } = build({
+      onChain: 10_000,
+      history: [{ value: 3_550 }], // the handle opened at 35.50
+    });
+    const tick = await engine.compute(HANDLE, 1_700_000_000_000);
+
+    expect(tick!.aura).toBeLessThan(10_000); // moved off the ceiling
+    expect(tick!.aura).toBeGreaterThan(3_550);
+    expect(updates[0]!.aura).toBe(tick!.aura);
+    expect(appends).toHaveLength(1);
+    // Engine state is persisted for the next tick (baseline + seeded center).
+    expect(allAppends.find((a) => a.metric === "baseline")).toBeDefined();
+    expect(allAppends.find((a) => a.metric === "baseline_center")?.value).toBe(3_550);
+  });
+
   it("anchors the next level on the ON-CHAIN value, not a drifted private series", async () => {
     // The private series says 9999 but the chain says 1000 — the chain wins.
     const { engine, updates } = build({ onChain: 1_000, seriesLast: 9_999 });
     const tick = await engine.compute(HANDLE, 1_700_000_000_000);
 
-    // +5% of 1000 = 1050, NOT +5% of 9999.
-    expect(tick!.aura).toBe(1050);
-    expect(updates[0]!.aura).toBe(1050);
+    // The +5% band move on 1000, reverted by 20% on the fresh deviation:
+    // 1000 + 0.8 × 5% × 1000 = 1040 — and definitely NOT anything near 9999.
+    expect(tick!.aura).toBe(1040);
+    expect(updates[0]!.aura).toBe(1040);
   });
 
   it("drops the tick (no series point, no early settle) when the on-chain write fails", async () => {

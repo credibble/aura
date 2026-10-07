@@ -87,6 +87,12 @@ export const envSchema = z.object({
   SOURCE_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   /** Aura history window N (points fed to the AI). */
   AURA_HISTORY_N: z.coerce.number().int().positive().default(10),
+  /** Aura level model — bounded, mean-reverting index (see aura-engine.service.ts).
+   *  `L = baseline + deviation`; these tune the deviation band and the baseline. */
+  AURA_DEVIATION_MAX: z.coerce.number().positive().default(2_500),
+  AURA_REVERSION: z.coerce.number().min(0).max(0.95).default(0.2),
+  AURA_BASELINE_ETA: z.coerce.number().min(0).max(1).default(0.01),
+  AURA_BASELINE_ANCHOR: z.coerce.number().min(0).max(1).default(0.02),
   /** Window job cadence (ms) — how often the scheduler fans out to every
    *  graduated handle to open/settle its current slot. Keep it far below the
    *  handle window length (windowMinutes) so a slot is never missed. */

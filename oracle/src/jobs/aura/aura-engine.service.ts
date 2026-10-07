@@ -31,6 +31,59 @@ const MAX_AURA_PERCENT = 20;
 const MIN_EVIDENCE_WEIGHT = 0.25;
 const REFERENCE_WEIGHTED_ITEMS = 4;
 
+/**
+ * ── Bounded, mean-reverting level ────────────────────────────────────────────
+ *
+ * The aura is modelled as `level L = baseline B + deviation D` instead of a
+ * single accumulating number. `B` is the handle's slow "regime" level and `D`
+ * is bounded sentiment around it, so a run of directional ticks can never
+ * ratchet the index into a wall:
+ *
+ *  - the AI's percent enters the DEVIATION update (as a level-proportional
+ *    kick), never the level directly — `L` is only ever reconstructed as `B + D`.
+ *    A purely multiplicative `D ← D·(1 + p/100)` is absorbed at `D = 0`, which
+ *    is exactly where a fresh handle starts, so the kick is scaled by the level
+ *    instead; that is what keeps `D = 0` non-absorbing.
+ *  - every tick reverts a fixed fraction of `D` toward zero, so a shock fades
+ *    within a few market windows instead of compounding;
+ *  - `B` is a slow EMA of `L`, itself pulled toward a per-handle center seeded
+ *    from the handle's first observed aura. The center is what makes the fix
+ *    work under a *biased* model: with no anchor, `B` integrates the mean of
+ *    `D` (≈ eta·D* per tick) and re-saturates within a week; with it, `B`'s
+ *    offset is bounded (`≈ eta/anchor · D`).
+ *
+ * At the 10-minute AI-tick cadence the constants give a ~45-min deviation
+ * half-life and a ~17 h baseline time constant.
+ */
+
+/** On-chain ceiling (1e2 — `Handle.MAX_AURA`, 100.00 display). */
+const AURA_MAX = 10_000;
+/** Half-width of the deviation band (1e2): ±25.00 display points. Wide enough
+ *  for sentiment swings to move the index, small enough that the level cannot
+ *  accumulate into (or pin against) the ceiling. */
+export const AURA_DEVIATION_MAX = 2_500;
+/**
+ * Fraction of the deviation reverted per tick (0.20 at the 10-min cadence →
+ * ~45-min half-life). A single shock fades within a few windows, so the index
+ * stays responsive instead of trending; large enough that a persistent positive
+ * AI bias cannot outrun the reversion.
+ */
+export const AURA_REVERSION = 0.2;
+/** Baseline EMA rate `eta` toward the level: 0.01/tick ≈ 100 ticks ≈ 16.7 h at
+ *  the 10-min cadence — the 12–24 h "slow regime" the design calls for. */
+export const AURA_BASELINE_ETA = 0.01;
+/**
+ * Baseline pull toward its per-handle center. Deliberately a little faster than
+ * `eta`, so under a biased AI the baseline settles at a bounded offset
+ * (`≈ eta/anchor · D`, ≤ ~half the band) rather than drifting. This is the
+ * constant that stops the *baseline* from being the next ratchet.
+ */
+export const AURA_BASELINE_ANCHOR = 0.02;
+/** Margin (in half-bands) kept between the anchor and the ceiling, so
+ *  `baseline + D` cannot trivially reach `AURA_MAX` even for a handle first
+ *  observed near the top. */
+const AURA_CENTER_WALL_MARGIN = 2;
+
 /** One source's scored signal for a handle (grouped for the AI). */
 export interface AuraSignal {
   sourceId: string;
@@ -93,6 +146,16 @@ export class AuraEngineService {
     return this.config.get<number>("AURA_AI_MIN_INTERVAL_MS") ?? 60_000;
   }
 
+  /** Bounded mean-reverting level parameters — see the constants above. */
+  private auraLevelParams(): AuraLevelParams {
+    return {
+      deviationMax: this.config.get<number>("AURA_DEVIATION_MAX") ?? AURA_DEVIATION_MAX,
+      reversion: this.config.get<number>("AURA_REVERSION") ?? AURA_REVERSION,
+      eta: this.config.get<number>("AURA_BASELINE_ETA") ?? AURA_BASELINE_ETA,
+      anchor: this.config.get<number>("AURA_BASELINE_ANCHOR") ?? AURA_BASELINE_ANCHOR,
+    };
+  }
+
   /** Collect a handle's signals (source fetch + metrics) — read-only helper for
    *  debugging/tests; no aura write or WS. */
   async signals(handle: AuraHandle, now: number): Promise<AuraSignal[]> {
@@ -137,6 +200,29 @@ export class AuraEngineService {
       summary: prevSummary?.summary,
     };
 
+    // ── Bounded mean-reverting level state (L = B + D) ────────────────────────
+    // `D` is derived from the on-chain level; only `B` (a slow EMA) and its
+    // per-handle center are persisted. The center is seeded ONCE from the
+    // handle's first observed aura — not from the current (possibly saturated)
+    // level — so a handle pinned at the ceiling recovers to its established
+    // regime instead of staying pinned. When no history exists (a brand-new
+    // handle) the on-chain level IS its debut baseline.
+    const persistedBaseline = await this.series.latest(AURA_SERIES + handle.label, "baseline");
+    const persistedCenter = await this.series.latest(AURA_SERIES + handle.label, "baseline_center");
+    const levelParams = this.auraLevelParams();
+    let baseline: number;
+    let center: number;
+    if (persistedBaseline) {
+      baseline = persistedBaseline.value;
+      center = persistedCenter?.value ?? baseline;
+    } else {
+      const history = await this.series.points(AURA_SERIES + handle.label, "aura");
+      const genesis = history.length > 0 ? history[0]!.value : onChain;
+      const anchorCeiling = Math.max(0, AURA_MAX - AURA_CENTER_WALL_MARGIN * levelParams.deviationMax);
+      center = clampInt(genesis, 0, anchorCeiling);
+      baseline = center;
+    }
+
     const scored = await this.ai.scoreWithSummary(
       handle.label,
       signals.map((s): SourceGroup => ({
@@ -160,26 +246,19 @@ export class AuraEngineService {
     // model never decides size alone.
     const weight = evidenceWeight(signals);
     const rawPercent = scored.percent;
-    // Direction is also needed by the points floor below; `appliedPercent` owns
-    // the magnitude.
-    const direction = rawPercent < 0 ? -1 : 1;
     const percent = appliedPercent(rawPercent, weight);
 
-    // Applied to the latest known aura: the series close if we have one, else the
-    // on-chain level (the AI's "last aura").
-    //
     // ONE SERIES: the ON-CHAIN level is the only base. Anchoring on the private
     // Postgres series (when it had drifted from the chain) is exactly what let a
     // resolution settle against a value no participant could see on-chain. A
     // third party reproduces the tick from `Handle.aura` + `AuraHistory`.
-    const base = onChain;
-    let next = clampInt(Math.round((base * (100 + percent)) / 100), 0, 10_000);
-    // POINTS FLOOR: aura is an integer at 1e2 scale, so even a single-digit
-    // percent can round to ZERO on a low aura. A tick must always move at least
-    // one unit, otherwise "never a dead tick" silently fails and a window can
-    // open and close on an unchanged series.
-    if (next === base) next = clampInt(base + direction, 0, 10_000);
-    const delta = next - base;
+    //
+    // The move is bounded and mean-reverting: the AI's percent nudges the
+    // deviation `D = L − B`, which reverts each tick, and `B` follows the level
+    // slowly. See `applyAuraLevel`.
+    const update = applyAuraLevel(onChain, percent, { baseline, center }, levelParams);
+    const next = update.level;
+    const delta = update.delta;
 
     // ── Audit trail ─────────────────────────────────────────────────────────
     // A tick moves a market price, so what it saw and what the model said must be
@@ -189,7 +268,7 @@ export class AuraEngineService {
     const inputsHash = hashTick({
       handleId: handle.id,
       ts: now,
-      base,
+      base: onChain,
       itemIds: signals.flatMap((s) => s.items.slice(0, 8)),
       rawReply: scored.percent,
       percent,
@@ -239,6 +318,19 @@ export class AuraEngineService {
       delta,
       inputsHash,
     });
+    // Persist the engine's bounded-level state alongside the aura series. The
+    // `aura` metric above remains the exact chain mirror; these are engine state
+    // (a `baseline` row per tick, the constant `baseline_center` only at seed).
+    await this.series.append(AURA_SERIES + handle.label, "baseline", {
+      timestamp: now,
+      value: update.baseline,
+    });
+    if (!persistedBaseline) {
+      await this.series.append(AURA_SERIES + handle.label, "baseline_center", {
+        timestamp: now,
+        value: center,
+      });
+    }
 
     this.ws.publishAura({ handleId: handle.id, aura: next, delta, summary, inputsHash, ts: now });
     // Persist the summary so the NEXT tick can pass it as prior-tick context.
@@ -421,6 +513,82 @@ export function appliedPercent(rawPercent: number, weight: number): number {
   const scaled = aiMagnitude * weight;
   const magnitude = Math.min(MAX_AURA_PERCENT, Math.max(MIN_AURA_PERCENT, scaled));
   return round1(direction * magnitude);
+}
+
+/** Tuning knobs for {@link applyAuraLevel} (all overridable via env). */
+export interface AuraLevelParams {
+  /** Deviation half-width (1e2). */
+  deviationMax: number;
+  /** Fraction of the deviation reverted per tick. */
+  reversion: number;
+  /** Baseline EMA rate toward the level. */
+  eta: number;
+  /** Baseline pull toward its center. */
+  anchor: number;
+}
+
+export const DEFAULT_AURA_LEVEL_PARAMS: AuraLevelParams = {
+  deviationMax: AURA_DEVIATION_MAX,
+  reversion: AURA_REVERSION,
+  eta: AURA_BASELINE_ETA,
+  anchor: AURA_BASELINE_ANCHOR,
+};
+
+/** The two pieces of persisted engine state the level update needs (1e2). */
+export interface AuraLevelState {
+  /** Slow EMA baseline of the level. */
+  baseline: number;
+  /** Fixed per-handle anchor the baseline reverts to. */
+  center: number;
+}
+
+/** A tick's resulting level, next baseline, and the signed change. */
+export interface AuraLevelUpdate {
+  level: number;
+  baseline: number;
+  delta: number;
+}
+
+/**
+ * One bounded, mean-reverting aura step (`L' = B + D'`). Pure and deterministic
+ * so a tick can be replayed and the week-long simulation can share the exact
+ * code path the engine runs.
+ *
+ *     D  = clamp(L − B, ±D_MAX)
+ *     D' = clamp((D + L·p/100)·(1 − reversion), ±D_MAX)
+ *     L' = clamp(B + D', 0, AURA_MAX)
+ *     B' = clamp(B + eta·(L' − B) + anchor·(center − B), 0, AURA_MAX)
+ *
+ * The AI's percent is applied to the CURRENT LEVEL and only ever lands in `D`.
+ * Scaling the kick by `L` (rather than by `D`) is load-bearing: a purely
+ * multiplicative update on `D` is absorbed at `D = 0` (0 × anything stays 0) and
+ * the index would freeze on its first tick.
+ */
+export function applyAuraLevel(
+  level: number,
+  percent: number,
+  state: AuraLevelState,
+  params: AuraLevelParams = DEFAULT_AURA_LEVEL_PARAMS,
+): AuraLevelUpdate {
+  const deviation = clampInt(level - state.baseline, -params.deviationMax, params.deviationMax);
+  const kicked = deviation + (level * percent) / 100;
+  const nextDeviation = clampInt(
+    kicked * (1 - params.reversion),
+    -params.deviationMax,
+    params.deviationMax,
+  );
+  let next = clampInt(state.baseline + nextDeviation, 0, AURA_MAX);
+  // Display-rounding guard only (NOT a growth engine): at the 1e2 scale a small
+  // percent can round to zero, so a tick still moves one unit — otherwise
+  // "never a dead tick" fails and a window can open and close unchanged.
+  if (next === level) next = clampInt(level + (percent < 0 ? -1 : 1), 0, AURA_MAX);
+
+  const baseline = clampInt(
+    state.baseline + params.eta * (next - state.baseline) + params.anchor * (state.center - state.baseline),
+    0,
+    AURA_MAX,
+  );
+  return { level: next, baseline, delta: next - level };
 }
 
 /**

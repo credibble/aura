@@ -3,36 +3,36 @@
   "deployer": "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a",
   "relayer": "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a",
   "startBlocks": {
-    "usdc": 67368921,
-    "auraToken": 67368925,
-    "configurator": 67368929,
-    "addressesProvider": 67368932,
-    "marketRegistry": 67368935,
-    "feeCollector": 67368939,
-    "oracleFactory": 67368947,
-    "handleFactory": 67368952,
-    "pool": 67368957,
-    "revenueSharing": 67368961,
-    "marketMaker": 67368965,
-    "orderBook": 67368969
+    "usdc": 69583081,
+    "auraToken": 69583085,
+    "configurator": 69583089,
+    "addressesProvider": 69583093,
+    "marketRegistry": 69583098,
+    "feeCollector": 69583102,
+    "oracleFactory": 69583107,
+    "handleFactory": 69583116,
+    "pool": 69583122,
+    "revenueSharing": 69583126,
+    "marketMaker": 69583133,
+    "orderBook": 69583139
   },
-  "usdc": "0x1Bd291C342b0bC25ec0394969fBAb0B4A7230958",
-  "auraToken": "0xd5bB515B0B1055F4C07aa6fA77fB85518d0E6693",
-  "configurator": "0x9CCF586B0464fFD4801c8Bdd6c02771Fc901a839",
-  "addressesProvider": "0x8b66Ff9C3C4e80D77f4B82971058F41f124e2810",
-  "marketRegistry": "0x3C27Ce09094E9B36138188C14f5eAffDB16c99cb",
-  "feeCollector": "0x585079f9Df0Ea504F24D4Eb9f6a42c5C1a971660",
-  "oracleFactory": "0x7Ed9213B68CcE8E7613903BE62032387bD57F451",
-  "handleFactory": "0x40b547BD603BFA4b8Fa5883a909aAC5Dc2Fa00ab",
-  "pool": "0xA58336279558Ee45D793D420f4A15cd464f413a0",
-  "revenueSharing": "0x8a159b941F98c7Dfd8b3D4873DcF0bf380fa4E36",
-  "marketMaker": "0xDaC507eF3420384A55323104B97650bF8BA10A08",
-  "orderBook": "0x39F2D2Ad8711C86E7eC160a61ac98dE18B66D2a4",
+  "usdc": "0x1Da0B77AaC1dfe6Dd8f4Ed059806E5851D790114",
+  "auraToken": "0x1251e625c2ae59DD894855ec0Ca37e0062DB1f49",
+  "configurator": "0x7786aD851c27e9535141C338ffE27E45ec34878A",
+  "addressesProvider": "0x3Dfe4F73cB23F25A509Fb178d07d39448827F67d",
+  "marketRegistry": "0x82b7E7117971Cd50EDEA8491a4d89a17Aaa6FE56",
+  "feeCollector": "0xA5a3D93C35b25B8E2cc3f68fa5c3a92a173236F1",
+  "oracleFactory": "0x4A35cd1A6bD28550274DA4B58301F5BF408C2A14",
+  "handleFactory": "0xE429f58A91363ddd8594bc5329caa693aaEBd5d4",
+  "pool": "0x0370B0Cc3753872611aE356EC19fE170b12a7009",
+  "revenueSharing": "0xAF27b7bd91EAc4a021B405fa95aF5A3e43b0baE4",
+  "marketMaker": "0xa87Ba8FB523F4B4e7C1A114D40b3d93629929e41",
+  "orderBook": "0xcDB8b8C8de5C3726A2df78E6FdAA5736Ea1525a9",
   "handles": {
     "ronaldo": {
       "id": "0x726f6e616c646f00000000000000000000000000000000000000000000000000",
-      "contract": "0x88c13eE6d2c819AC053cE342BBDB28CE79BAEe9D",
-      "stake": "0xA812Fb6C3037556545e7dCe5295DD59F0De2297a",
+      "contract": "0xDfc95e1A1061436ADbf693388097fB9ee84BA549",
+      "stake": "0xCd8bf711e3111c8a0fAE0ebdE9D0154861D24EBb",
       "categories": [
         3,
         1
@@ -49,8 +49,8 @@
     },
     "messi": {
       "id": "0x6d65737369000000000000000000000000000000000000000000000000000000",
-      "contract": "0x3F9f9B4eBEE6ec862834BFF935e7ab79E80715e9",
-      "stake": "0xB0C5EFbaB4646a8eD4b0fC3D5f7B004DD51F4B0d",
+      "contract": "0x6095Aa04AAD1857B88d2eB6Ce759265FB7C7E8AF",
+      "stake": "0x46378Bf88B35d288406eC6D7cA199f0FCb249f59",
       "categories": [
         3,
         1
@@ -67,8 +67,8 @@
     },
     "btc": {
       "id": "0x6274630000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x85198369DBD9F008a9B8B24E7d916479042afA71",
-      "stake": "0xd6587D440C162cf1b20f246405051a26b79aA686",
+      "contract": "0x0c0d02c13A29A5E74a43c1aebeADfdcf7B5ccA51",
+      "stake": "0x25f4CdD25F7F312AA56de694eD098C1219BFd344",
       "categories": [
         2
       ],
@@ -84,8 +84,8 @@
     },
     "eth": {
       "id": "0x6574680000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x9369267CE7C0F41A7755257A635985440D3cB60b",
-      "stake": "0x216DFCD428387CC471bA1e82e03cAf6c2a80c0cF",
+      "contract": "0xb87A33D0e5Faa421B682bC49D8374443C7701F6F",
+      "stake": "0x11a7769c5F77Ca38518dCc8E1E368d7979d1d201",
       "categories": [
         2
       ],
@@ -101,8 +101,8 @@
     },
     "sol": {
       "id": "0x736f6c0000000000000000000000000000000000000000000000000000000000",
-      "contract": "0xc9B5B1160208e68724B403c1178A9f275F398FEb",
-      "stake": "0xAAa084Ff5655e219Df2C42096C6D6d7a0EbEEAC0",
+      "contract": "0x299E6647Bc5f99a1bC35157e8B98B8c4cF7765E4",
+      "stake": "0x9CC7df800B54F9607798a1f6812f6cC9c31dF650",
       "categories": [
         2
       ],
@@ -118,8 +118,8 @@
     },
     "openai": {
       "id": "0x6f70656e61690000000000000000000000000000000000000000000000000000",
-      "contract": "0x90d72d38DB9CE2B94a5709765245cAf78d816E8e",
-      "stake": "0x0282719Ef51BCe0D1EC1d1777662392136fA232b",
+      "contract": "0x33070aB3B926EAFDD26c0CebB7Cd28B141a53aBD",
+      "stake": "0x28E02E5bc39e9d59C8F46Aca63c8730277e87431",
       "categories": [
         4,
         5
@@ -137,8 +137,8 @@
     },
     "tesla": {
       "id": "0x7465736c61000000000000000000000000000000000000000000000000000000",
-      "contract": "0xBCAaeE25062Cc1c2466C4Ec2FdA6BB8655afF4b1",
-      "stake": "0x6291db347c221D4A071d390742444e68b1Bfd4B9",
+      "contract": "0x8A9488a5A9D84D6EA6cacd98D45A7fe51CA8d4a7",
+      "stake": "0x17098a3bC5e149B053791a0ca9D173d22382cA85",
       "categories": [
         5,
         1
@@ -156,8 +156,8 @@
     },
     "elon": {
       "id": "0x656c6f6e00000000000000000000000000000000000000000000000000000000",
-      "contract": "0xf66D67e4a9aD09c98f74164174f0EaC805Fe4eC0",
-      "stake": "0xA8aa10C364eaDFAF28246AA214909bB32a83C3B7",
+      "contract": "0xdDd326C2e93bc176D4C599728650AFc1FB662CEF",
+      "stake": "0xE4639962be3f5e44726b94C3Fa79b4aFA38ca872",
       "categories": [
         1,
         5
@@ -174,8 +174,8 @@
     },
     "trump": {
       "id": "0x7472756d70000000000000000000000000000000000000000000000000000000",
-      "contract": "0x928C3a7aB457E96f0C64C910FF692ce801a2F14E",
-      "stake": "0xDe65A090d823fd18FC9Ed302aE420980bCB88E0C",
+      "contract": "0x380F257E9110e5b08e5bd9Fcfa3C916FE95BbaFc",
+      "stake": "0x87c11DE3b947DDbecB4F217f7C0D9FaC1d3F39c7",
       "categories": [
         1
       ],
@@ -191,8 +191,8 @@
     },
     "taylor": {
       "id": "0x7461796c6f720000000000000000000000000000000000000000000000000000",
-      "contract": "0x0Ee0d239cf3e98c3746c34AaBc3302c397A3a907",
-      "stake": "0x78942b10900cC3A1991098246E5CeC60bD86b9A1",
+      "contract": "0x329B33D1351eaaA8e54C5f4af1DD96c03824D9a0",
+      "stake": "0xE93FF22b18dc52607588Eac4D813632D2a44a56e",
       "categories": [
         7,
         1

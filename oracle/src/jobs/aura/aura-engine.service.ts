@@ -7,6 +7,7 @@ import { ChainGateway } from "../chain/chain-gateway.service";
 import { WsBroadcastService } from "../ws/ws-broadcast.service";
 import { KimiAiModel, type SourceGroup, type PreviousTick } from "../../adapters/ai/llm/kimi-ai.model";
 import { padToN, clampInt } from "../utils";
+import { MIN_AURA_PERCENT, MAX_AURA_PERCENT } from "./aura-band";
 import { TIME_SERIES_STORE, AI_MODEL, SOURCE_REGISTRY } from "../../core/ports/tokens";
 import type { ITimeSeriesStore } from "../../core/ports/time-series-store";
 import type { SourceRegistry } from "../../core/ports/source-registry";
@@ -20,13 +21,6 @@ const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** Redis TTL for the "already sent to the AI" set (matches the fresh window). */
 const SENT_TTL_SECONDS = 24 * 60 * 60;
 const AURA_SERIES = "aura:";
-/**
- * The AI's per-tick move is a PERCENT of the handle's current aura, clamped to
- * this band: a floor so the index always moves (no dead ticks) and a ceiling so
- * one tick can't reprice the whole market.
- */
-const MIN_AURA_PERCENT = 5;
-const MAX_AURA_PERCENT = 20;
 /** Evidence scaling floor/ceiling — see `evidenceWeight`. */
 const MIN_EVIDENCE_WEIGHT = 0.25;
 const REFERENCE_WEIGHTED_ITEMS = 4;

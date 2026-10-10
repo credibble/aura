@@ -1,6 +1,7 @@
 ﻿import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { kimiRequest } from "../../adapters/ai/llm/kimi-limiter";
+import { isDebugMode, sampleWebResults } from "../../config/debug";
 
 export interface WebResult {
   title: string;
@@ -37,6 +38,11 @@ export class KimiWebSearchService {
 
   /** Search the web for live facts; returns [] on any failure (tool is optional). */
   async search(query: string, maxResults = this.maxResults): Promise<WebResult[]> {
+    // DEBUG_MODE: no network at all — a marked sample result stands in.
+    if (isDebugMode()) {
+      this.logger.warn("[debug] search short-circuited — returning a sample (no network).");
+      return sampleWebResults(query);
+    }
     if (!this.apiKey) {
       this.logger.warn("MOONSHOT_API_KEY not set — web search unavailable.");
       return [];

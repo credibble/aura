@@ -2,6 +2,7 @@
 import { ConfigService } from "@nestjs/config";
 import { AI_FETCH } from "../../../core/ports/tokens";
 import { KimiWebSearchService } from "../../../jobs/ai/kimi-web-search.service";
+import { isDebugMode, sampleAuraPercent, sampleAuraSummary } from "../../../config/debug";
 import { kimiRequest } from "./kimi-limiter";
 
 export type AiFetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -170,6 +171,14 @@ export class KimiAiModel {
 
   /** Score the aura delta for ONE handle given its source groups. */
   async interpret(handleId: string, sources: SourceGroup[], previous?: PreviousTick): Promise<number> {
+    // DEBUG_MODE: no provider call at all — a random in-band percent stands in.
+    if (isDebugMode()) {
+      const percent = sampleAuraPercent();
+      this.logger.log(
+        `[debug] interpret sampled ${percent >= 0 ? "+" : ""}${percent}% for @${handleId} (no AI call)`,
+      );
+      return percent;
+    }
     const content = await this.run(handleId, sources, SYSTEM_PROMPT, false, previous);
     // Same contract as the scoring path: a signed percent, clamped to ±20.
     return clampPercent(parseDelta(content ?? ""));
@@ -181,6 +190,15 @@ export class KimiAiModel {
     sources: SourceGroup[],
     previous?: PreviousTick,
   ): Promise<{ percent: number; summary: string }> {
+    // DEBUG_MODE: no provider call, no slot/lock, no tokens — a random in-band
+    // percent plus a marked sample memo, so the engine still produces moving,
+    // valid ticks while the whole path is offline.
+    if (isDebugMode()) {
+      const percent = sampleAuraPercent();
+      const summary = sampleAuraSummary(percent);
+      this.logger.log(`[debug] scoreWithSummary @${handleId}: ${summary}`);
+      return { percent, summary };
+    }
     const content = await this.run(
       handleId,
       sources,

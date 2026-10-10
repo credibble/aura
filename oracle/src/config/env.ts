@@ -22,6 +22,14 @@ export const envSchema = z.object({
   RPC_URL: z.string().url().optional(),
   INDEX_MARKET_ADDRESS: z.string().optional(),
   ORACLE_FACTORY_ADDRESS: z.string().optional(),
+  /** Debug switch: when true every AI entry point short-circuits BEFORE any
+   *  provider call — no HTTP request, no token usage, no organisation
+   *  slot/lock — and returns a random/sample response instead. Local/dev only;
+   *  default false keeps production identical. Flipping it requires an oracle
+   *  rebuild + restart to take effect. */
+  DEBUG_MODE: z
+    .preprocess((v) => (v === undefined ? false : String(v).toLowerCase() === "true"), z.boolean())
+    .default(false),
   KIMI_API_KEY: z.string().optional(),
   KIMI_MODEL: z.string().default("kimi-k2.6"),
   /** Kimi chat base URL - Moonshot by default (chat completions). */

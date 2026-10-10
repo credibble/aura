@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { AI_FETCH } from "../../core/ports/tokens";
 import { kimiRequest } from "../../adapters/ai/llm/kimi-limiter";
 import { unfenceJson, type AiFetch } from "../../adapters/ai/llm/kimi-ai.model";
+import { isDebugMode, DEBUG_TEXT_SAMPLE, debugJsonSample } from "../../config/debug";
 
 /**
  * Structured Kimi completion used by the job engines (aura scoring, feed
@@ -28,6 +29,11 @@ export class StructuredAiService {
   /** Raw completion — returns the model's text verbatim (integer-only prompts).
    *  Returns null when the API is unconfigured or the call fails. */
   async complete(system: string, user: string): Promise<string | null> {
+    // DEBUG_MODE: no provider call, no slot/lock — a marked sample instead.
+    if (isDebugMode()) {
+      this.logger.warn("[debug] complete short-circuited — returning a sample (no AI call).");
+      return DEBUG_TEXT_SAMPLE;
+    }
     if (!this.apiKey) {
       this.logger.warn("KIMI_API_KEY not set — returning null.");
       return null;
@@ -72,6 +78,12 @@ export class StructuredAiService {
   /** Send a JSON-mode completion; returns the parsed object (never throws on
    *  shape — the caller sanitizes). Returns null when the API is unconfigured. */
   async completeJson<T>(system: string, user: string, fallback: T): Promise<T | null> {
+    // DEBUG_MODE: no provider call, no slot/lock — the caller's fallback tagged
+    // as a debug sample so it is distinguishable from a real reply.
+    if (isDebugMode()) {
+      this.logger.warn("[debug] completeJson short-circuited — returning a sample (no AI call).");
+      return debugJsonSample(fallback);
+    }
     if (!this.apiKey) {
       this.logger.warn("KIMI_API_KEY not set — returning fallback.");
       return fallback;

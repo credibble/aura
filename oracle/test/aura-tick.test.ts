@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { AuraEngineService } from "../src/jobs/aura/aura-engine.service";
+import { KimiAiModel } from "../src/adapters/ai/llm/kimi-ai.model";
 import type { AuraHandle } from "../src/jobs/jobs.types";
 import type { RawDatum } from "../src/core/domain/source-item";
 import type { Source } from "../src/core/domain/source";
@@ -47,6 +48,8 @@ function build(opts: {
   centerLast?: number;
   /** Aura series history the engine seeds the center from. */
   history?: { value: number }[];
+  /** Inject a different AI model (e.g. the real DEBUG_MODE sampler). */
+  ai?: unknown;
 }) {
   const updates: { aura: number; summary: string }[] = [];
   const appends: { value: number; delta: number; inputsHash?: string }[] = [];
@@ -66,7 +69,7 @@ function build(opts: {
     wrap: async (_k: unknown, _ttl: number, fetch: () => Promise<unknown>) => fetch(),
   };
   const fetcher = { fetch: async () => [ITEM] };
-  const ai = { scoreWithSummary: async () => ({ percent: 6, summary: "memo" }) };
+  const ai = (opts.ai ?? { scoreWithSummary: async () => ({ percent: 6, summary: "memo" }) }) as never;
   const series = {
     latest: async (_s: string, metric: string) => {
       if (metric === "aura" && opts.seriesLast !== undefined)
@@ -173,5 +176,32 @@ describe("AuraEngineService — one series (on-chain is the source of truth)", (
     expect(updates).toHaveLength(1); // attempted
     expect(appends).toHaveLength(0); // never became a private-only point
     expect(published).toHaveLength(0);
+  });
+
+  it("still ticks with DEBUG_MODE on using the real (sampling) AI model", async () => {
+    const previous = process.env.DEBUG_MODE;
+    process.env.DEBUG_MODE = "true";
+    try {
+      // The real model, wired to a fetch that FAILS if ever called — proving the
+      // engine's tick comes from the debug sampler, not the provider.
+      const fetchFn = vi.fn(async () => {
+        throw new Error("fetch must not be called in DEBUG_MODE");
+      });
+      const model = new KimiAiModel({ get: () => undefined } as never, fetchFn as never);
+
+      const { engine, updates, appends } = build({ onChain: 3040, ai: model });
+      const tick = await engine.compute(HANDLE, 1_700_000_000_000);
+
+      expect(tick).not.toBeNull();
+      expect(updates).toHaveLength(1); // written on-chain
+      expect(updates[0]!.summary).toContain("[debug]");
+      expect(updates[0]!.summary).toContain("no AI call");
+      expect(appends).toHaveLength(1); // mirrored into the series
+      expect(tick!.aura).toBeGreaterThan(0);
+      expect(fetchFn).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.DEBUG_MODE;
+      else process.env.DEBUG_MODE = previous;
+    }
   });
 });

@@ -3,209 +3,42 @@
   "deployer": "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a",
   "relayer": "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a",
   "startBlocks": {
-    "usdc": 69583081,
-    "auraToken": 69583085,
-    "configurator": 69583089,
-    "addressesProvider": 69583093,
-    "marketRegistry": 69583098,
-    "feeCollector": 69583102,
-    "oracleFactory": 69583107,
-    "handleFactory": 69583116,
-    "pool": 69583122,
-    "revenueSharing": 69583126,
-    "marketMaker": 69583133,
-    "orderBook": 69583139
+    "usdc": 70137402,
+    "auraToken": 70137407,
+    "configurator": 70137412,
+    "addressesProvider": 70137417,
+    "marketRegistry": 70137422,
+    "feeCollector": 70137426,
+    "oracleFactory": 70137431,
+    "handleFactory": 70137436,
+    "pool": 70137443,
+    "revenueSharing": 70137448,
+    "marketMaker": 70137453,
+    "orderBook": 70137460
   },
-  "usdc": "0x1Da0B77AaC1dfe6Dd8f4Ed059806E5851D790114",
-  "auraToken": "0x1251e625c2ae59DD894855ec0Ca37e0062DB1f49",
-  "configurator": "0x7786aD851c27e9535141C338ffE27E45ec34878A",
-  "addressesProvider": "0x3Dfe4F73cB23F25A509Fb178d07d39448827F67d",
-  "marketRegistry": "0x82b7E7117971Cd50EDEA8491a4d89a17Aaa6FE56",
-  "feeCollector": "0xA5a3D93C35b25B8E2cc3f68fa5c3a92a173236F1",
-  "oracleFactory": "0x4A35cd1A6bD28550274DA4B58301F5BF408C2A14",
-  "handleFactory": "0xE429f58A91363ddd8594bc5329caa693aaEBd5d4",
-  "pool": "0x0370B0Cc3753872611aE356EC19fE170b12a7009",
-  "revenueSharing": "0xAF27b7bd91EAc4a021B405fa95aF5A3e43b0baE4",
-  "marketMaker": "0xa87Ba8FB523F4B4e7C1A114D40b3d93629929e41",
-  "orderBook": "0xcDB8b8C8de5C3726A2df78E6FdAA5736Ea1525a9",
+  "usdc": "0x74CF9B6ad93aAB6Ed9A6416507952Ad696a4dA17",
+  "auraToken": "0xf76A06bA9B00756631C2Ac499304ebD9bF179Ac2",
+  "configurator": "0xdfc2AC388B8E727B42280455F0245e7d82A8EA73",
+  "addressesProvider": "0x0E2E371621938Cd846390a25bF64A9cd166D4bb6",
+  "marketRegistry": "0xFE7a7f71c114e07b5E77d20540D171CC1C9FBEe4",
+  "feeCollector": "0xB6C80e18935128981e6E2C661Db3a513E32caFf4",
+  "oracleFactory": "0x468441235948d3b75C0bCabF240929c6291e50Da",
+  "handleFactory": "0x45406FD5bE92D9989fA8BF33A558056D9dBd948f",
+  "pool": "0x9b4393a05DF812481a09185af424d789AAF6fbF8",
+  "revenueSharing": "0xac450C97114F6042C0E98fB7A6CCE163c364752d",
+  "marketMaker": "0x57A58Db70D9DEF8153F0e7160B639923cB295458",
+  "orderBook": "0xC8c97Be9fc94E3Dd25fbFB302483acdBff555F0A",
   "handles": {
     "ronaldo": {
       "id": "0x726f6e616c646f00000000000000000000000000000000000000000000000000",
-      "contract": "0xDfc95e1A1061436ADbf693388097fB9ee84BA549",
-      "stake": "0xCd8bf711e3111c8a0fAE0ebdE9D0154861D24EBb",
+      "contract": "0x3Fd8e5095a3A7d4Ce6088B1Cd42EcdDFbdD1799c",
+      "stake": "0xbfA919f98F6c40E670f55e113578feAe6D1e13B8",
       "categories": [
         3,
         1
       ],
       "aura": 3040,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg/330px-Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-ronaldo",
-        "x-ronaldo",
-        "reddit-ronaldo"
-      ]
-    },
-    "messi": {
-      "id": "0x6d65737369000000000000000000000000000000000000000000000000000000",
-      "contract": "0x6095Aa04AAD1857B88d2eB6Ce759265FB7C7E8AF",
-      "stake": "0x46378Bf88B35d288406eC6D7cA199f0FCb249f59",
-      "categories": [
-        3,
-        1
-      ],
-      "aura": 2875,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg/330px-Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-messi",
-        "x-messi",
-        "reddit-messi"
-      ]
-    },
-    "btc": {
-      "id": "0x6274630000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x0c0d02c13A29A5E74a43c1aebeADfdcf7B5ccA51",
-      "stake": "0x25f4CdD25F7F312AA56de694eD098C1219BFd344",
-      "categories": [
-        2
-      ],
-      "aura": 4150,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/330px-Bitcoin.svg.png",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-btc",
-        "x-btc",
-        "reddit-btc"
-      ]
-    },
-    "eth": {
-      "id": "0x6574680000000000000000000000000000000000000000000000000000000000",
-      "contract": "0xb87A33D0e5Faa421B682bC49D8374443C7701F6F",
-      "stake": "0x11a7769c5F77Ca38518dCc8E1E368d7979d1d201",
-      "categories": [
-        2
-      ],
-      "aura": 3220,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/Eth-diamond-%28color%29.svg/330px-Eth-diamond-%28color%29.svg.png",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-eth",
-        "x-eth",
-        "reddit-eth"
-      ]
-    },
-    "sol": {
-      "id": "0x736f6c0000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x299E6647Bc5f99a1bC35157e8B98B8c4cF7765E4",
-      "stake": "0x9CC7df800B54F9607798a1f6812f6cC9c31dF650",
-      "categories": [
-        2
-      ],
-      "aura": 2180,
-      "graduated": true,
-      "photo": "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-sol",
-        "x-sol",
-        "reddit-sol"
-      ]
-    },
-    "openai": {
-      "id": "0x6f70656e61690000000000000000000000000000000000000000000000000000",
-      "contract": "0x33070aB3B926EAFDD26c0CebB7Cd28B141a53aBD",
-      "stake": "0x28E02E5bc39e9d59C8F46Aca63c8730277e87431",
-      "categories": [
-        4,
-        5
-      ],
-      "aura": 3980,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a7/1515_Third_Street.jpg/330px-1515_Third_Street.jpg",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-openai",
-        "x-openai",
-        "reddit-openai",
-        "openai-news"
-      ]
-    },
-    "tesla": {
-      "id": "0x7465736c61000000000000000000000000000000000000000000000000000000",
-      "contract": "0x8A9488a5A9D84D6EA6cacd98D45A7fe51CA8d4a7",
-      "stake": "0x17098a3bC5e149B053791a0ca9D173d22382cA85",
-      "categories": [
-        5,
-        1
-      ],
-      "aura": 2360,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bd/Tesla_Motors.svg/330px-Tesla_Motors.svg.png",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-tesla",
-        "x-tesla",
-        "reddit-tesla",
-        "teslarati"
-      ]
-    },
-    "elon": {
-      "id": "0x656c6f6e00000000000000000000000000000000000000000000000000000000",
-      "contract": "0xdDd326C2e93bc176D4C599728650AFc1FB662CEF",
-      "stake": "0xE4639962be3f5e44726b94C3Fa79b4aFA38ca872",
-      "categories": [
-        1,
-        5
-      ],
-      "aura": 4290,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/330px-Elon_Musk_-_54820081119_%28cropped%29.jpg",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-elon",
-        "x-elon",
-        "reddit-elon"
-      ]
-    },
-    "trump": {
-      "id": "0x7472756d70000000000000000000000000000000000000000000000000000000",
-      "contract": "0x380F257E9110e5b08e5bd9Fcfa3C916FE95BbaFc",
-      "stake": "0x87c11DE3b947DDbecB4F217f7C0D9FaC1d3F39c7",
-      "categories": [
-        1
-      ],
-      "aura": 3110,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/330px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-trump",
-        "x-trump",
-        "reddit-trump"
-      ]
-    },
-    "taylor": {
-      "id": "0x7461796c6f720000000000000000000000000000000000000000000000000000",
-      "contract": "0x329B33D1351eaaA8e54C5f4af1DD96c03824D9a0",
-      "stake": "0xE93FF22b18dc52607588Eac4D813632D2a44a56e",
-      "categories": [
-        7,
-        1
-      ],
-      "aura": 3550,
-      "graduated": true,
-      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png/330px-Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png",
-      "windowMinutes": 60,
-      "sources": [
-        "gnews-taylor",
-        "x-taylor",
-        "reddit-taylor"
-      ]
+      "graduated": true
     }
   }
 }

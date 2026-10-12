@@ -35,6 +35,12 @@ const cases = [
   ["brands", "Amazon", "Box (brand override)"],
   ["brands", "SpaceX", "Rocket (brand override)"],
   ["tech", "Tesla", "Tesla elsewhere — SAME car (per-handle)"],
+  ["crypto", "Bitcoin", "Coin — Bitcoin orange"],
+  ["crypto", "Ethereum", "Coin — Ethereum blue"],
+  ["crypto", "Solana", "Coin — Solana purple→green"],
+  ["sports", "Lionel Messi", "Footballer — Argentina kit"],
+  ["sports", "Ronaldo", "Footballer — Portugal kit"],
+  ["music", "Taylor Swift", "Singer — long hair (female)"],
 ];
 
 const ids = [
@@ -42,7 +48,7 @@ const ids = [
   "0xhandle004eee", "0xhandle005fff", "0xhandle006ggg", "0xhandle007hhh",
   "0xhandle008iii", "0xhandle009jjj", "0xhandle010kkk", "0xhandle011lll",
   "0xhandle012mmm", "0xhandle013nnn", "tesla", "apple", "nike", "amazon",
-  "spacex", "0xhandle020ppp",
+  "spacex", "0xhandle020ppp", "btc", "eth", "sol", "messi", "cr7", "taylor",
 ];
 
 const entry = `

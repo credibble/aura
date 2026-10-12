@@ -114,6 +114,15 @@ const HAIR_PATHS = [
   "M22.4,14.6 C22.4,6.2 26.6,3 32,3 C37.4,3 41.6,6.2 41.6,14.6 L41.6,11.6 L38.8,8.8 L36.4,11.8 L32.4,8.4 L29.6,11.8 L26,9 L22.4,11.8 Z",
 ] as const;
 
+/** Long-hair fringes — same dome, plus shoulder-length side locks (female
+ *  handles). One path each: the fringe over the forehead + two locks. */
+const HAIR_LONG_PATHS = [
+  // Wavy, shoulder-length.
+  "M22.4,14.6 C22.4,6.2 26.6,3 32,3 C37.4,3 41.6,6.2 41.6,14.6 C41,12.2 38.9,11.4 36.4,12.2 C34,13 31.7,12.2 29.2,11.8 C26.6,11.4 23.6,12 22.4,14.6 Z M22.6,12 C20.8,16.5 20.2,22 21.2,28.5 C21.6,30.3 24.4,30.3 24.6,28.4 C24.8,23.8 24.2,17.6 25.2,13.6 Z M41.4,12 C43.2,16.5 43.8,22 42.8,28.5 C42.4,30.3 39.6,30.3 39.4,28.4 C39.2,23.8 39.8,17.6 38.8,13.6 Z",
+  // Straight bob — blunter locks.
+  "M22.4,14.6 C22.4,6.2 26.6,3 32,3 C37.4,3 41.6,6.2 41.6,14.6 L41.6,11.7 C40.2,11 36.4,10.6 32,10.6 C27.6,10.6 23.8,11 22.4,11.7 Z M22.4,11.8 C21.2,17 21,23 21.6,29 L24.8,29 C24.2,23 24,17 25,12.6 Z M41.6,11.8 C42.8,17 43,23 42.4,29 L39.2,29 C39.8,23 40,17 39,12.6 Z",
+] as const;
+
 type Duo = readonly [string, string];
 
 function pick<T>(palette: readonly T[], id: string, salt: number): T {
@@ -164,9 +173,67 @@ const BRAND_OBJECT: Record<string, Archetype> = {
   spacex: "rocket",
 };
 
+/**
+ * Identity overrides — iconic handles wear their REAL colours instead of the
+ * hashed archetype palette (Bitcoin's coin is orange, Solana's is the
+ * purple→green gradient, Messi wears Argentina, Ronaldo Portugal). Name-keyed
+ * like BRAND_OBJECT: one line per handle.
+ */
+const IDENTITY: Record<string, { coin?: Duo; kit?: Duo }> = {
+  bitcoin: { coin: ["#F7931A", "#C4700F"] }, // Bitcoin orange
+  ethereum: { coin: ["#627EEA", "#4A62B8"] }, // Ethereum blue
+  solana: { coin: ["#9945FF", "#14F195"] }, // Solana purple → green gradient
+  "lionel messi": { kit: ["#74ACDF", "#FFFFFF"] }, // Argentina sky blue + white
+  ronaldo: { kit: ["#046A38", "#DA291C"] }, // Portugal green + red
+};
+
+/** Known female handles — they get shoulder-length hair instead of the short
+ *  fringe. Name-keyed like BRAND_OBJECT: one line per handle. */
+const LONG_HAIR = new Set(["taylor swift"]);
+
+/** Darken a #rrggbb colour toward black by a ratio (0–1). */
+function darken(hex: string, by: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (v: number) => Math.max(0, Math.round(v * (1 - by)));
+  return `#${(((1 << 24) | (ch((n >> 16) & 255) << 16) | (ch((n >> 8) & 255) << 8) | ch(n & 255)) >>> 0).toString(16).slice(1)}`;
+}
+
 function archetypeFor(name: string, primary: CategoryId): Archetype {
   const key = name.trim().toLowerCase();
   return BRAND_OBJECT[key] ?? CATEGORY_ARCHETYPE[primary] ?? "person";
+}
+
+/**
+ * Where each archetype's art starts in the 64-unit viewBox (its topmost
+ * pixel, measured from the rendered gallery). A car's roof sits at y≈23 and a
+ * sneaker's at y≈37.5 while a person's hair starts at y≈3 — so a tag pinned a
+ * fixed distance above the sprite BOX would float far higher over short
+ * characters. The plot pulls its tag down by (top − ref) to hug every
+ * character's head at the same gap instead.
+ */
+const ARCHETYPE_TOP: Record<Archetype, number> = {
+  person: 3,
+  founder: 3,
+  footballer: 3,
+  singer: 3,
+  coin: 10.4,
+  bot: 0.2,
+  cat: 4.4,
+  popcorn: 23.2,
+  controller: 27,
+  car: 23,
+  phone: 8,
+  sneaker: 37.5,
+  box: 26,
+  rocket: 7,
+};
+
+/** The reference top: a plain villager's hair. The tag gap is defined on it. */
+export const CHARACTER_REF_TOP = 3;
+
+/** Top of this handle's art in the 64-unit viewBox (see ARCHETYPE_TOP). */
+export function characterTop(name: string | undefined, category: CategoryId): number {
+  return ARCHETYPE_TOP[archetypeFor(name ?? "", category)] ?? CHARACTER_REF_TOP;
 }
 
 // ----------------------------------------------------------------------------
@@ -424,10 +491,13 @@ function Stubs({
   legColor?: string;
   shoe?: string;
 }) {
+  // Clamp so stub legs never run past the viewBox floor (the shoe hides the
+  // join anyway — this just keeps every bbox inside the 64 box).
+  const legH = Math.max(0, Math.min(12, 62 - legTop));
   return (
     <>
-      <rect x="25.5" y={legTop} width="5.5" height="12" rx="2.75" fill={legColor} />
-      <rect x="33" y={legTop} width="5.5" height="12" rx="2.75" fill={legColor} />
+      <rect x="25.5" y={legTop} width="5.5" height={legH} rx="2.75" fill={legColor} />
+      <rect x="33" y={legTop} width="5.5" height={legH} rx="2.75" fill={legColor} />
       <rect x="22.6" y="57.6" width="10" height="4.4" rx="2.2" fill={shoe} />
       <rect x="31.4" y="57.6" width="10" height="4.4" rx="2.2" fill={shoe} />
     </>
@@ -897,9 +967,13 @@ export const CharacterSprite = memo(function CharacterSprite({
 }) {
   // Gradient ids must be unique per instance — React's useId, sanitised.
   const uid = `v${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const key = (name ?? "").trim().toLowerCase();
   const skin = pick(SKIN, id, 11);
   const hair = pick(HAIR, id, 12);
-  const hairPath = HAIR_PATHS[Math.floor(hashUnit(id, 13) * HAIR_PATHS.length)] ?? HAIR_PATHS[0];
+  // Female handles get shoulder-length hair (two hashed long styles).
+  const hairPath = LONG_HAIR.has(key)
+    ? (HAIR_LONG_PATHS[Math.floor(hashUnit(id, 19) * HAIR_LONG_PATHS.length)] ?? HAIR_LONG_PATHS[0]!)
+    : (HAIR_PATHS[Math.floor(hashUnit(id, 13) * HAIR_PATHS.length)] ?? HAIR_PATHS[0]!);
   const iris = pick(IRIS, id, 14);
   const garment = pick(GARMENT, id, 15);
   const pants = pick(PANTS, id, 16);
@@ -908,8 +982,10 @@ export const CharacterSprite = memo(function CharacterSprite({
   const kind = archetypeFor(name ?? "", category);
   // Hashed pose variant per archetype (0 / 1): foot-on-ball vs carry, headphones vs mic…
   const pose = hashUnit(id, 18) < 0.5 ? 0 : 1;
-  const kit = pick(KIT, id, 20);
-  const coin = pick(COIN, id, 21);
+  // Identity colours beat the hashed archetype palette (see IDENTITY).
+  const identity = IDENTITY[key];
+  const kit = identity?.kit ?? pick(KIT, id, 20);
+  const coin = identity?.coin ?? pick(COIN, id, 21);
   const led = pick(LED, id, 23);
   const fur = pick(FUR, id, 24);
   const shell = pick(SHELL, id, 25);
@@ -985,7 +1061,9 @@ export const CharacterSprite = memo(function CharacterSprite({
         </linearGradient>
         <linearGradient id={`${uid}-k`} x1="0" y1="0" x2="1" y2="0.7">
           <stop offset="0%" stopColor={kit[0]} />
-          <stop offset="100%" stopColor={kit[1]} />
+          {/* Jersey shades within its own colour — shorts/collar take kit[1],
+              so Messi reads sky-blue + white, Ronaldo green + red. */}
+          <stop offset="100%" stopColor={darken(kit[0], 0.22)} />
         </linearGradient>
         <radialGradient id={`${uid}-c`} cx="35%" cy="26%" r="85%">
           <stop offset="0%" stopColor={coin[0]} />

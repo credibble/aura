@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
 import { Sparkline } from "@/components/aura/charts";
 import { trendColor } from "@/lib/chart-domain";
@@ -6,15 +6,18 @@ import { handleSlug } from "@/lib/handle-id";
 import { formatIndex, formatPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CHAR_SIZE, type WorldPlotData } from "@/lib/world-layout";
-import { CharacterSprite } from "@/components/aura/CharacterSprite";
+import { CharacterSprite, characterTop, CHARACTER_REF_TOP } from "@/components/aura/CharacterSprite";
 
 /**
  * One handle on the map: an archetype villager (a footballer, a singer, a
  * coin, a bot … — whatever its PRIMARY category says it represents, plus a
  * name override for iconic brands) with a tag fixed above its head carrying
  * name + aura. The character is per HANDLE: identical in every district the
- * handle stands in, so it stays recognisable. Hovering (or keyboard-focusing)
- * the character smoothly grows the tag open to reveal the aura sparkline.
+ * handle stands in, so it stays recognisable. The tag hugs the character's
+ * head at a consistent gap whatever its height (the car gets pulled up to
+ * its roof, not floating over empty headroom). Hovering (or keyboard-
+ * focusing) the character smoothly grows the tag open to reveal the aura
+ * sparkline.
  * Memoised, and the camera never re-renders it (the layer is transformed
  * directly), so a whole village of these costs nothing while panning.
  */
@@ -37,6 +40,12 @@ export const WorldPlotMarker = memo(function WorldPlotMarker({ plot }: { plot: W
       : a.change !== 0
         ? [a.index - a.change, a.index]
         : [a.index, a.index];
+  // Tag gap: the tag hugs the CHARACTER's head, not the sprite box. Short
+  // archetypes (a car, a sneaker) have far more headroom in the 64-unit box
+  // than a person, so pull their tag down by that difference (px at base
+  // scale) — the gap above every character stays identical.
+  const tagLift =
+    ((characterTop(a.name, a.category) - CHARACTER_REF_TOP) * CHAR_SIZE) / 64;
 
   return (
     <Link
@@ -47,7 +56,7 @@ export const WorldPlotMarker = memo(function WorldPlotMarker({ plot }: { plot: W
       className={cn("world-plot", up ? "world-plot--up" : "world-plot--down")}
       style={{ left: plot.x, top: plot.y }}
     >
-      <span className="world-plot__tag">
+      <span className="world-plot__tag" style={{ "--tag-lift": `${tagLift}px` } as CSSProperties}>
         <span className="world-plot__name">{a.name}</span>
         <span className={cn("world-plot__meta num", up ? "text-up" : "text-down")}>
           {formatIndex(a.index)} · {formatPct(a.change)}

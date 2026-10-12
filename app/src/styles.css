@@ -838,12 +838,15 @@ input[type="number"] {
   transform: translateY(-3px);
 }
 
-/* Name + aura tag above the villager (the reference's floating label). */
+/* Name + aura tag above the villager (the reference's floating label).
+   --tag-lift (inline, per archetype) pulls it down over short characters so
+   the gap between the tag and the CHARACTER's head is always the same. */
 .world-plot__tag {
   display: flex;
   flex-direction: column;
   align-items: center;
   margin-bottom: 6px;
+  transform: translateY(var(--tag-lift, 0px));
   padding: 5px 12px 6px;
   border-radius: 10px;
   background: hsl(var(--card) / 0.92);

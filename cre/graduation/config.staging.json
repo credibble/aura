@@ -1,5 +1,0 @@
-{
-  "schedule": "0 */15 * * * *",
-  "indexerUrl": "https://indexer.example/graphql",
-  "minGraduationAura": "1000"
-}

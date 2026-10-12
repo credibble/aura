@@ -14,7 +14,7 @@ asks a single question about where that aura goes next.
 | `indexer/` | Envio HyperIndex — every on-chain entity (handles, windows, trades, orders, the auraLP vault, staking). A pure log consumer: the contracts emit the state. | 8080 (`/v1/graphql`) |
 | `smart-contracts/` | Solidity protocol (Handle/HandleFactory, MarketMaker LMSR, Oracle/OracleFactory, Pool, Stake, RevenueSharing, OrderBook) + Hardhat tests + the deploy tooling. | — |
 | `packages/` | Shared workspaces — `@aura/contracts` (types + slot math) and `@aura/indexer-client`. | — |
-| `cre/` | Chainlink CRE project for the stake-gifting workflow. | — |
+| `cre/` | Chainlink CRE project — the stake-reward + graduation workflows. Their reads (the vault list, the graduation candidates) come from the Envio indexer's `/v1/graphql`, same source as the app. | — |
 
 ## Where the data comes from
 

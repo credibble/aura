@@ -8,6 +8,7 @@ Two deployables in this repo:
 | `oracle/` | NestJS backend: social/feeds API, handle creation + profile updates, Cloudinary uploads, WS gateway, AI aura engine. | 3000 (REST `/v1`, Socket.IO `/socket.io`) |
 | `indexer/` | Envio HyperIndex: every on-chain entity the UI and the oracle read (handles, windows, trades, orders, the auraLP vault, staking). | 8080 (GraphQL `/v1/graphql`; Hasura console 8080, password `testing`) |
 | `smart-contracts/` | Solidity + the deploy tooling (Pool, Stake, Handle, MarketMaker, OrderBook, RevenueSharing). | — |
+| `cre/` | Chainlink CRE workflows (stake-reward + graduation). Cron-triggered; reads come from the Envio indexer, writes are EVM. | — |
 
 ## Where the app reads data from
 
@@ -44,6 +45,22 @@ balances, allowances, outcome shares, vault stats, and every write. Addresses co
 `VITE_*_ADDRESS` (`lib/chain.ts`); the ABIs there are `parseAbi`-ed **on purpose** — raw
 human-readable strings make `encodeFunctionData` throw
 (`Cannot use 'in' operator to search for 'name' in function …`).
+
+**CRE (`cre/`, Chainlink CRE SDK → WASM)** — two cron workflows, and their reads go
+through the **deployed Envio indexer** (`indexerUrl` in each workflow's `config.json`,
+the HyperIndex endpoint from `VITE_INDEXER_URL`/`INDEXER_URL` — local dev is
+`http://localhost:8080/v1/graphql`), fetched with `HttpCapability`:
+- `reward/` — one `Stake { id totalAssets handle { name } }` query gives the vault
+  list **and** each vault's AURA balance (`Stake.totalAssets` ≡ `aura.balanceOf(vault)`,
+  refreshed on every `StakeStateChanged`); underfunded vaults get `approve` + `Stake.reward`.
+- `graduation/` — `Handle(where: { graduated: { _eq: false }, aura: { _gt: $minAura } })`,
+  then `Handle.setGraduated(true)` per candidate.
+
+No raw-RPC scans and no static address lists in CRE: discovery is Envio, writes are
+consensus-verified EVM. A parse failure or an empty index response skips the run
+rather than acting blind. There is ONE target (`testnet-settings` — Monad testnet; no
+mainnet/production deploy exists). Deploy with the `cre` CLI (`cre workflow
+build|simulate|deploy --target testnet-settings`); `project.yaml` holds the RPC target.
 
 ## WebSocket (oracle gateway)
 

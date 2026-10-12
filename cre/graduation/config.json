@@ -1,0 +1,5 @@
+{
+  "schedule": "0 */15 * * * *",
+  "indexerUrl": "https://indexer.dev.hyperindex.xyz/61835aa/v1/graphql",
+  "minGraduationAura": "1000"
+}

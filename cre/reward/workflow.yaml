@@ -1,19 +1,13 @@
-# CRE workflow config — per-target settings for the Aura stake-gifting workflow.
-# The workflow code lives in ./main.ts; params (schedule, addresses, amount) are
-# injected from the target's config JSON at runtime via `runtime.config`.
+# CRE workflow config — the Aura stake-reward workflow on Monad testnet.
+# The workflow code lives in ./main.ts; params (schedule, the Envio indexer
+# endpoint, addresses, amount) are injected from config.json at runtime via
+# `runtime.config`. There is one target (`testnet-settings`) — the whole
+# protocol lives on Monad testnet, there is no mainnet/production deploy.
 
-staging-settings:
+testnet-settings:
   user-workflow:
-    workflow-name: "aura-stake-gift-staging"
+    workflow-name: "aura-stake-reward-testnet"
   workflow-artifacts:
     workflow-path: "./main.ts"
-    config-path: "./config.staging.json"
-    secrets-path: "./secrets.yaml"
-
-production-settings:
-  user-workflow:
-    workflow-name: "aura-stake-gift-production"
-  workflow-artifacts:
-    workflow-path: "./main.ts"
-    config-path: "./config.production.json"
+    config-path: "./config.json"
     secrets-path: "./secrets.yaml"

@@ -6,13 +6,15 @@
  *   node scripts/check-indexer-fields.mjs
  *
  * It reads the Envio indexer schema and asserts every entity + field the app
- * actually uses still exists. Add to CI next to check-writes/check-routes.
+ * actually uses still exists — plus the fields the CRE workflows select, since
+ * they read the same index. Add to CI next to check-writes/check-routes.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const SCHEMA = "../../indexer/schema.graphql";
 const APP_SRC = "src";
+const CRE_SRC = "../../cre";
 
 /** entity → fields the app selects (scalar, derived list, or nested). */
 const REQUIRED = {
@@ -70,6 +72,16 @@ const REQUIRED = {
   StakeSnapshot: ["id", "stake", "timestamp", "totalSupply", "totalAssets", "valuePerToken"],
   PoolSnapshot: ["id", "pool", "timestamp", "idle", "totalReserved", "totalSupply", "totalAssets", "valuePerToken"],
   PoolEvent: ["id", "pool", "oracle", "kind", "amount", "to", "timestamp"],
+};
+
+/**
+ * The CRE workflows read the SAME index (HyperSync-backed `/v1/graphql`), so
+ * their selections get the same contract test. `nested` covers a selection set
+ * one level down (`Stake.handle { name }`).
+ */
+const CRE_REQUIRED = {
+  "reward/main.ts": { Stake: ["id", "totalAssets", "handle"], nested: { Handle: ["name"] } },
+  "graduation/main.ts": { Handle: ["contract", "aura"] },
 };
 
 const schemaPath = new URL(SCHEMA, import.meta.url);
@@ -135,6 +147,31 @@ for (const [entity, fields] of Object.entries(REQUIRED)) {
     console.log(`  ✗ ${entity.padEnd(14)} missing fields: ${missing.join(", ")}`);
   } else {
     console.log(`  ✓ ${entity.padEnd(14)} ${fields.length} fields present`);
+  }
+}
+
+// The CRE workflows query the same index over HTTP — cre/<workflow> selections
+// must exist in the schema too, or a workflow silently skips its run on-chain.
+for (const [file, spec] of Object.entries(CRE_REQUIRED)) {
+  const checks = [
+    ...Object.entries(spec).filter(([k]) => k !== "nested"),
+    ...Object.entries(spec.nested ?? {}),
+  ];
+  const problems = [];
+  for (const [entity, fields] of checks) {
+    const have = table.get(entity);
+    if (!have) {
+      problems.push(`${entity} entity missing`);
+      continue;
+    }
+    const missing = fields.filter((f) => !have.has(f));
+    if (missing.length) problems.push(`${entity} missing ${missing.join(", ")}`);
+  }
+  if (problems.length === 0) {
+    console.log(`  ✓ cre/${file.padEnd(21)} selections present`);
+  } else {
+    failures += 1;
+    console.log(`  ✗ cre/${file.padEnd(21)} ${problems.join("; ")}`);
   }
 }
 

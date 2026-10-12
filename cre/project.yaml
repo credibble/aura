@@ -1,13 +1,14 @@
-# Chainlink CRE project config — global settings for the Aura stake-gifting workflow.
-# Targets bundle an environment (RPC + registry). The CLI resolves the target from
-# project.yaml + workflow.yaml and merges them (workflow.yaml wins).
+# Chainlink CRE project config — global settings for the Aura CRE workflows
+# (stake-reward + graduation). There is ONE target: everything the protocol
+# runs on is Monad testnet, so there is no mainnet/production target to maintain.
+#
+# The target bundles the environment (RPC + registry); the CLI resolves it from
+# project.yaml + workflow.yaml and merges them (workflow.yaml wins). Both
+# workflows read chain state from the Envio indexer (HyperSync-synced, deployed
+# HyperIndex endpoint) via its `/v1/graphql` URL — that lives in each workflow's
+# config.json, not here.
 
-staging-settings:
-  rpcs:
-    - chain-name: monad-testnet
-      url: "https://rpc.testnet.monad.xyz"
-
-production-settings:
+testnet-settings:
   rpcs:
     - chain-name: monad-testnet
       url: "https://rpc.testnet.monad.xyz"

@@ -9,9 +9,10 @@ import { CHAR_SIZE, type WorldPlotData } from "@/lib/world-layout";
 import { CharacterSprite } from "@/components/aura/CharacterSprite";
 
 /**
- * One handle on the map: a plain villager body (stable per id) with a tag
- * fixed above its head carrying name + aura. Hovering (or keyboard-focusing)
- * the villager smoothly grows the tag open to reveal the aura sparkline.
+ * One handle on the map: an archetype villager (a footballer, a singer, a
+ * coin, a bot … — whatever its district says it represents) with a tag fixed
+ * above its head carrying name + aura. Hovering (or keyboard-focusing) the
+ * character smoothly grows the tag open to reveal the aura sparkline.
  * Memoised, and the camera never re-renders it (the layer is transformed
  * directly), so a whole village of these costs nothing while panning.
  */
@@ -57,7 +58,12 @@ export const WorldPlotMarker = memo(function WorldPlotMarker({ plot }: { plot: W
       </span>
       <span className="world-char" style={{ width: CHAR_SIZE, height: CHAR_SIZE }}>
         <span aria-hidden className="world-char__aura" style={{ width: aura, height: aura }} />
-        <CharacterSprite id={a.id} style={{ animationDelay: `${breatheDelay}s` }} />
+        <CharacterSprite
+          id={a.id}
+          name={a.name}
+          district={plot.district}
+          style={{ animationDelay: `${breatheDelay}s` }}
+        />
       </span>
     </Link>
   );

@@ -38,10 +38,16 @@ const browse: {
 export function SearchPopover({
   className,
   iconOnly = false,
+  onPick,
 }: {
   className?: string;
   /** Compact icon trigger — used by the sticky explore header. */
   iconOnly?: boolean;
+  /**
+   * Let the host handle a chosen handle instead of navigating — the explore map
+   * uses this to fly the camera to the plot. Return true if it consumed the pick.
+   */
+  onPick?: (id: string) => boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -81,11 +87,13 @@ export function SearchPopover({
 
   const goAsset = (id: string) => {
     setOpen(false);
+    if (onPick?.(id)) return;
     navigate({ to: "/$id", params: { id: handleSlug(id) } });
   };
 
   const goHandle = (id: string) => {
     setOpen(false);
+    if (onPick?.(id)) return;
     navigate({ to: "/$id", params: { id: handleSlug(id) } });
   };
 
@@ -141,7 +149,7 @@ export function SearchPopover({
               Markets
             </div>
             {results.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No markets found</p>
+              <p className="text-sm text-muted-foreground">Nothing matched</p>
             ) : (
               <div className="space-y-1">
                 {results.map((a) => (
@@ -177,7 +185,7 @@ export function SearchPopover({
             </div>
             {peopleResults.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {peopleQuery.isFetching ? "Searching people…" : "No people found"}
+                {peopleQuery.isFetching ? "Searching people…" : "No one by that name"}
               </p>
             ) : (
               <div className="space-y-1">

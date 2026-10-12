@@ -38,7 +38,174 @@
         1
       ],
       "aura": 3040,
-      "graduated": true
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg/330px-Cristiano_Ronaldo_Croatia_v_Portugal_2_July_2026-075_%28cropped%29.jpg",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-ronaldo",
+        "x-ronaldo",
+        "reddit-ronaldo"
+      ]
+    },
+    "messi": {
+      "id": "0x6d65737369000000000000000000000000000000000000000000000000000000",
+      "contract": "0x57B66a477AC0D76f5d40e42B00E01Eef610d0241",
+      "stake": "0x8dCe0D318950Dbbf5e9413B5134497b63840a308",
+      "categories": [
+        3,
+        1
+      ],
+      "aura": 2875,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg/330px-Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-messi",
+        "x-messi",
+        "reddit-messi"
+      ]
+    },
+    "btc": {
+      "id": "0x6274630000000000000000000000000000000000000000000000000000000000",
+      "contract": "0x6540765b39F22EF9A8733B12a46157011be420A3",
+      "stake": "0xE54f344d8D44BD0197D609a9E328A4875F3F9032",
+      "categories": [
+        2
+      ],
+      "aura": 4150,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/330px-Bitcoin.svg.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-btc",
+        "x-btc",
+        "reddit-btc"
+      ]
+    },
+    "eth": {
+      "id": "0x6574680000000000000000000000000000000000000000000000000000000000",
+      "contract": "0xF3c25C0926407DC4e169Ee0B527D57aB75eCE217",
+      "stake": "0x375c61692ae7D8Caea3b9BBf6Cb6fbdf826B300E",
+      "categories": [
+        2
+      ],
+      "aura": 3220,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/Eth-diamond-%28color%29.svg/330px-Eth-diamond-%28color%29.svg.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-eth",
+        "x-eth",
+        "reddit-eth"
+      ]
+    },
+    "sol": {
+      "id": "0x736f6c0000000000000000000000000000000000000000000000000000000000",
+      "contract": "0x87245aC95DF6D800125551c7A6cB7E95F4e9c5bc",
+      "stake": "0x6979a7dBBF108abaCAc9a967e10C9f6a978eb405",
+      "categories": [
+        2
+      ],
+      "aura": 2180,
+      "graduated": true,
+      "photo": "https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-sol",
+        "x-sol",
+        "reddit-sol"
+      ]
+    },
+    "openai": {
+      "id": "0x6f70656e61690000000000000000000000000000000000000000000000000000",
+      "contract": "0x42c642fFC42dE497A820d919113c062bDeBA40e5",
+      "stake": "0x2162049DAFa06610C74f59FA7ed841AbC7AF7E8C",
+      "categories": [
+        4,
+        5
+      ],
+      "aura": 3980,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a7/1515_Third_Street.jpg/330px-1515_Third_Street.jpg",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-openai",
+        "x-openai",
+        "reddit-openai",
+        "openai-news"
+      ]
+    },
+    "tesla": {
+      "id": "0x7465736c61000000000000000000000000000000000000000000000000000000",
+      "contract": "0x03496CD84B62a21f8C4A3E6456824b37160895cE",
+      "stake": "0xb43b7eB9B605e020Cd7769307021e995CC10184F",
+      "categories": [
+        5,
+        1
+      ],
+      "aura": 2360,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bd/Tesla_Motors.svg/330px-Tesla_Motors.svg.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-tesla",
+        "x-tesla",
+        "reddit-tesla",
+        "teslarati"
+      ]
+    },
+    "elon": {
+      "id": "0x656c6f6e00000000000000000000000000000000000000000000000000000000",
+      "contract": "0x67f26D1d13148c8E151Fb95F3A5603318BEdE8AA",
+      "stake": "0xE43594d2e4020561f846076adefd0a5001bad236",
+      "categories": [
+        1,
+        5
+      ],
+      "aura": 4290,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/330px-Elon_Musk_-_54820081119_%28cropped%29.jpg",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-elon",
+        "x-elon",
+        "reddit-elon"
+      ]
+    },
+    "trump": {
+      "id": "0x7472756d70000000000000000000000000000000000000000000000000000000",
+      "contract": "0x3F4A7Cf751371C3afcb4E74C40ee4D815025768E",
+      "stake": "0xa72a5a3bE010ec55818a41E59A74754D80e93d71",
+      "categories": [
+        1
+      ],
+      "aura": 3110,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/330px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-trump",
+        "x-trump",
+        "reddit-trump"
+      ]
+    },
+    "taylor": {
+      "id": "0x7461796c6f720000000000000000000000000000000000000000000000000000",
+      "contract": "0xdBfb2C7bB4f3EA4982c703Daa431605Bc6C3BD3d",
+      "stake": "0xb2973d633672195E1F07cC804BdDE58Fd4E1e550",
+      "categories": [
+        7,
+        1
+      ],
+      "aura": 3550,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png/330px-Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-taylor",
+        "x-taylor",
+        "reddit-taylor"
+      ]
     }
   }
 }

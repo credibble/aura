@@ -35,9 +35,12 @@ function CardTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="px-4 pt-3 pb-2 text-lg font-bold text-foreground">{children}</h2>;
 }
 
-export function FeedSearch() {
+export function FeedSearch({ onPick }: { onPick?: (id: string) => boolean } = {}) {
   return (
-    <SearchPopover className="h-10 w-full rounded-full border-transparent bg-secondary/60 px-4 text-muted-foreground hover:border-primary/40 hover:text-foreground" />
+    <SearchPopover
+      onPick={onPick}
+      className="h-10 w-full rounded-full border-transparent bg-secondary/60 px-4 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+    />
   );
 }
 

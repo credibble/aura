@@ -126,9 +126,9 @@ function NotificationsPage() {
 
           {!query.isPending && !query.isError && items.length === 0 && (
             <div className="px-4 py-16 text-center sm:px-6">
-              <p className="text-[15px] font-semibold">Nothing yet</p>
+              <p className="text-[15px] font-semibold">Radio silence</p>
               <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">
-                Follow a handle and trade a window — the pings start there.
+                Follow a handle and trade a window — that&apos;s when the pings start.
               </p>
             </div>
           )}

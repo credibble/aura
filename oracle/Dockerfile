@@ -29,7 +29,11 @@ COPY --from=build /app/oracle/package.json ./oracle/package.json
 COPY --from=build /app/oracle/dist ./oracle/dist
 COPY --from=build /app/oracle/prisma ./oracle/prisma
 COPY --from=build /app/oracle/scripts ./oracle/scripts
+COPY --from=build /app/oracle/docker-entrypoint.sh ./oracle/docker-entrypoint.sh
+RUN chmod +x ./oracle/docker-entrypoint.sh
 
 WORKDIR /app/oracle
 EXPOSE 4000
+# Runs `prisma migrate deploy` before the process starts (see the script).
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "dist/main.js"]

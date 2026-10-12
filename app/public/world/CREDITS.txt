@@ -1,0 +1,8 @@
+﻿Aura Atlas — 2D world art
+
+All art in this folder is CC0 (public domain) and free for commercial use.
+
+Tiny Town (1.1) — Kenney (https://kenney.nl/assets/tiny-town)
+Tiny Dungeon (1.0) — Kenney (https://kenney.nl/assets/tiny-dungeon)
+License: Creative Commons Zero (CC0) — https://creativecommons.org/publicdomain/zero/1.0/
+Attribution is not required; credited here as thanks.

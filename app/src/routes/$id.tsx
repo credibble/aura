@@ -17,8 +17,12 @@ import { FeedLayout } from "@/components/social/FeedLayout";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { FeedItem } from "@/components/feeds/FeedItem";
 import { QueryError } from "@/components/QueryState";
-import { trendColor } from "@/lib/chart-domain";
-import { ChartSkeleton, HandleHeaderSkeleton } from "@/components/ui/skeletons";
+import { trendColorFrom } from "@/lib/chart-domain";
+import {
+  ChartSkeleton,
+  HandleHeaderSkeleton,
+  MarketPanelSkeleton,
+} from "@/components/ui/skeletons";
 import { AssetAvatar } from "@/components/aura/AssetAvatar";
 import { CHART_PLOT_RATIO, MultiChart } from "@/components/aura/MultiChart";
 import { OrderBook } from "@/components/aura/OrderBook";
@@ -288,9 +292,10 @@ function TradePage() {
     const visible = all.filter((p) => p.ts >= from).map((p) => p.v);
     if (visible.length === 0) return null;
     const data = visible.length === 1 ? [visible[0]!, visible[0]!] : visible;
-    // Green while the index rises over the visible span — the same rule every
-    // other chart uses, so the line agrees with the % beside it.
-    return { series: [{ label: "Aura", color: trendColor(data), data }], from, to };
+    // Green while the index rises over the last 24h — the same rule every other
+    // chart uses. Anchored to the day, not to the range chip, so switching from
+    // 1D to 1H never flips the line's colour.
+    return { series: [{ label: "Aura", color: trendColorFrom(all), data }], from, to };
   }, [auraHistory, range]);
 
   // The strike is an AURA level: only draw it when the Aura series is what's
@@ -324,7 +329,10 @@ function TradePage() {
 
   if (handlesPending || windowsQuery.isPending) {
     return (
-      <FeedLayout>
+      // The loaded page carries the trade ticket in the right rail; keep that
+      // rail on the loading screen too, so the shell doesn't jump when the data
+      // lands (the sidebar skeleton rhymes with the ticket + market panel).
+      <FeedLayout sidebar={<MarketPanelSkeleton />}>
         <HandleHeaderSkeleton />
         <div className="space-y-4 px-4 pt-4 sm:px-6">
           <ChartSkeleton />
@@ -355,7 +363,7 @@ function TradePage() {
     return (
       <FeedLayout>
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
-          <h1 className="text-2xl font-bold">Market not found</h1>
+          <h1 className="text-2xl font-bold">Couldn&apos;t find that one</h1>
           <p className="text-sm text-muted-foreground">
             No handle answers to “{labelOf(param)}”. It may have been renamed or never existed.
           </p>
@@ -395,7 +403,7 @@ function TradePage() {
 
   const copyLink = () => {
     navigator.clipboard?.writeText(`${window.location.origin}/${slug}`).catch(() => {});
-    toast.success("Link copied");
+    toast.success("Copied — go send it");
   };
 
   return (
@@ -827,7 +835,7 @@ function TradePage() {
                   ))}
                   {!feeds.isPending && feedsPosts.length === 0 && (
                     <p className="px-4 py-8 text-sm text-muted-foreground">
-                      No feeds published for @{slug} yet — they appear as its sources report.
+                      No tea from @{slug} yet — it&apos;ll show as its sources report.
                     </p>
                   )}
                   {feeds.hasNextPage && (
@@ -853,7 +861,7 @@ function TradePage() {
 
                   {trades.length === 0 && (
                     <p className="px-4 py-8 text-center text-sm text-muted-foreground sm:px-6">
-                      No trades on this window yet.
+                      No trades yet — first mover&apos;s still up for grabs.
                     </p>
                   )}
 
@@ -985,7 +993,7 @@ function HandleActions({
             type="button"
             aria-label="Notify me"
             onClick={() =>
-              toast.info("Notifications", { description: `We'll ping you on ${handle}.` })
+              toast.info("Notifications", { description: `Bet — we'll ping you on ${handle}.` })
             }
             className={ICON_BTN}
           >

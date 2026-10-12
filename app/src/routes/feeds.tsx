@@ -145,13 +145,13 @@ function FeedsPage() {
               <div className="px-4 py-16 text-center sm:px-6">
                 <p className="text-sm font-semibold">
                   {activeTab === "following"
-                    ? "Nothing from your handles yet"
-                    : "No feeds published yet"}
+                    ? "Your handles are quiet"
+                    : "No tea yet"}
                 </p>
                 <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
                   {activeTab === "following"
                     ? "Follow a handle from its page and its digests land here."
-                    : "Digests appear as soon as a handle's sources report activity."}
+                    : "Digests drop as soon as a handle's sources report in."}
                 </p>
               </div>
             )}

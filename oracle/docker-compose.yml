@@ -1,3 +1,10 @@
+# Shared DB/redis wiring for every oracle process; overrides any host-local
+# URLs in .env with container-reachable ones.
+x-oracle-env: &oracle-env
+  DATABASE_URL: postgresql://aura:aura@postgres:5432/aura
+  REDIS_URL: redis://redis:6379
+  NODE_ENV: production
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -27,6 +34,25 @@ services:
       timeout: 3s
       retries: 10
 
+  # One-shot: applies Prisma migrations (+ the raw pg_trgm indexes) and exits.
+  # The image entrypoint does the work; `true` is just the command it execs so
+  # the container terminates successfully. api/worker wait for this to finish,
+  # so they never boot against a half-built schema.
+  oracle-migrate:
+    image: aura-oracle
+    build:
+      context: ..
+      dockerfile: oracle/Dockerfile
+    env_file: .env
+    environment: *oracle-env
+    command: ["true"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   # API process (HTTP + WebSocket). Shares .env via env_file; the values
   # below override host-local URLs with container-reachable ones.
   # DB: the oracle's own postgres (5432, DB aura) — graph-node is gone; the
@@ -37,10 +63,10 @@ services:
       context: ..
       dockerfile: oracle/Dockerfile
     env_file: .env
-    environment: &oracle-env
-      DATABASE_URL: postgresql://aura:aura@postgres:5432/aura
-      REDIS_URL: redis://redis:6379
-      NODE_ENV: production
+    environment:
+      <<: *oracle-env
+      # Migrations are owned by oracle-migrate; don't re-run them here.
+      RUN_MIGRATIONS: "false"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -50,6 +76,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      oracle-migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   # BullMQ worker (ingestion, feed, aura scoring, chains tx).
@@ -59,7 +87,9 @@ services:
       context: ..
       dockerfile: oracle/Dockerfile
     env_file: .env
-    environment: *oracle-env
+    environment:
+      <<: *oracle-env
+      RUN_MIGRATIONS: "false"
     command: ["node", "dist/worker.js"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -68,6 +98,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      oracle-migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:

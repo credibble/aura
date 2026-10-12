@@ -7,6 +7,7 @@ import { CreateHandleDialog } from "@/components/portfolio/CreateHandleDialog";
 import { setActiveHandle, useHandles, useLoadHandles } from "@/lib/handle-store";
 import { useAuraContracts } from "@/lib/contracts";
 import { formatIndex } from "@/lib/format";
+import { START_FARMING } from "@/lib/voice";
 import { cn } from "@/lib/utils";
 
 /**
@@ -99,7 +100,7 @@ export function HandleSwitcher({ className }: { className?: string }) {
             })}
             {handles.length === 0 && (
               <p className="px-2 py-2 text-xs text-muted-foreground">
-                No handles yet — create one to start trading and publishing.
+                No handles yet — start farming aura to trade and publish.
               </p>
             )}
           </div>
@@ -112,7 +113,7 @@ export function HandleSwitcher({ className }: { className?: string }) {
               }}
               className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold text-foreground transition-colors hover:bg-secondary/60"
             >
-              <Plus className="h-4 w-4" /> Create a handle
+              <Plus className="h-4 w-4" /> {START_FARMING}
             </button>
           </div>
         </PopoverContent>

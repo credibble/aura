@@ -108,10 +108,15 @@ PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK \
 # 4. Point the oracle at the new addresses, then rebuild + restart it
 #    (paste the env lines printed by step 2 into oracle/.env)
 cd ../oracle
-docker compose up -d --force-recreate postgres redis oracle-api oracle-worker
-docker compose exec oracle-api npx prisma migrate deploy
+docker compose up -d --build --force-recreate postgres redis oracle-migrate oracle-api oracle-worker
 curl -s localhost:4000/health/ready
 ```
+
+Migrations are applied on boot: every oracle container runs
+`oracle/docker-entrypoint.sh`, and the one-shot `oracle-migrate` service is the
+single migrator (`oracle-api`/`oracle-worker` wait for it via
+`service_completed_successfully`, and set `RUN_MIGRATIONS=false`). No manual
+`prisma migrate deploy` step is needed.
 
 Notes:
 - `ORACLE_PRIVATE_KEY` must equal the address `OracleFactory` was deployed with
@@ -237,12 +242,30 @@ hardening headers, 401 on guarded writes, JSON 404s, and that a write burst neve
 5xx's.
 
 
+## Copy & voice (the Gen-Z layer)
+
+The app talks like its users, **moderately**. Slang lives in the **chrome**,
+never in the **ledger**:
+
+| Lane | Surfaces | Rule |
+|---|---|---|
+| 🟢 full send | heroes, primary CTAs, big empty states, success toasts, "How it works" headlines, 404 | one quip per surface, max |
+| 🟡 light touch | section subtitles, sidebar explainer cards, dialog descriptions, tooltips, table-empty rows | a word or two; stay literal |
+| 🔴 never | numbers/prices/PnL/balances, deposit/withdraw/claim/stake/window rules, errors + reverts, destructive dialogs, legal, `aria-label`/`sr-only` | plain English, accuracy wins |
+
+Two hard caps: **never slang a consequence** (funds, fees, settlement) and
+**never stack two slang beats on one surface** — if a page already has a slogan,
+that *is* the quip. Recurring strings live in `app/src/lib/voice.ts` (the
+flagship `START_FARMING` = "Start farming aura"); one-off quips stay inline next
+to their component. Keep the `check-routes.mjs` markers (page H1s) intact.
+
 ## Local setup notes
 
 - `oracle/.env` needs `DATABASE_URL`, `HANDLE_OWNER_PRIVATE_KEY`, `HANDLE_FACTORY_ADDRESS`,
   `CLOUDINARY_*`, `ALCHEMY_RPC_URL`/`RPC_URL`, `INDEXER_URL` (default
-  `http://localhost:8080/v1/graphql`). Migrations: `npx prisma migrate deploy`
-  (the DB was baselined with `prisma migrate resolve --applied 0001_init`).
+  `http://localhost:8080/v1/graphql`). Migrations run automatically on container
+  boot via `oracle/docker-entrypoint.sh` (`npx prisma migrate deploy` + the
+  pg_trgm indexes); run it by hand only outside Docker.
 - `indexer/.env` needs `ENVIO_API_TOKEN` (HyperSync) and `ENVIO_RPC_URL` (the
   HyperRPC fallback data source). Both are gitignored; see `indexer/.env.example`.
 - The oracle's aura engine writes aura on-chain and pushes it over WS; it keeps **no**

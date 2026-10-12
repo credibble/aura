@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
+import { ArrowDownUp, Check, ChevronDown, List as ListIcon, Map as MapIcon } from "lucide-react";
 import { FeedLayout } from "@/components/social/FeedLayout";
 import { FeedSearch } from "@/components/social/RightSidebar";
 import { SearchPopover } from "@/components/SearchPopover";
@@ -10,6 +10,7 @@ import { SparkCard } from "@/components/aura/SparkCard";
 import { SparkCardSkeleton } from "@/components/ui/skeletons";
 import { HowItWorks } from "@/components/HowItWorks";
 import { ScrollRow } from "@/components/ScrollRow";
+import { WorldMap, type WorldMapHandle } from "@/components/aura/WorldMap";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CATEGORIES, type CategoryId } from "@/lib/aura-data";
-import { HANDLE_CARD_FIELDS, toLiveAsset, type IndexerHandle } from "@/queries/handles";
+import { layoutWorld } from "@/lib/world-layout";
+import { HANDLE_CARD_FIELDS, toLiveAsset, useHandles, type IndexerHandle } from "@/queries/handles";
 import { indexerInfiniteOptions, flatIndexerPages } from "@/lib/indexer-page";
 import { useIndexerLive } from "@/lib/indexer-ws";
 import { qk } from "@/queries/keys";
@@ -49,17 +51,31 @@ const ORDER_BY: Record<Sort, { field: string; dir: "asc" | "desc" }> = {
   Name: { field: "name", dir: "asc" },
 };
 
+type ViewMode = "map" | "list";
+
 /**
- * The index is the market grid. Sorting and paging happen in the indexer query
- * (`order_by` / `limit` / `offset`); category chips filter CLIENT-side by family
- * (`categoriesOf(handle)`), so one cached list per sort serves every chip.
+ * The index is the market. Two ways to read it:
+ *
+ *   - **Map** (default) — the Aura Atlas: a flat, pannable world where every
+ *     handle is a plot in its category's district. Position is stable (hashed
+ *     from the id); aura rides on the marker's size and glow, so the world is a
+ *     fixed stage the live index performs on. Category chips fly the camera;
+ *     search flies to a handle.
+ *   - **List** — the original grid, kept whole: server-side sort + paging and
+ *     infinite scroll. It is the accessible / low-power fallback too.
+ *
+ * Both read the same live data; the map just places it on a plane.
  */
 function ExplorePage() {
   const [cat, setCat] = useState<CategoryId | "all">("all");
   const [sort, setSort] = useState<Sort>("Highest aura");
+  const [mode, setMode] = useState<ViewMode>("map");
   const order = ORDER_BY[sort];
-  const query = useInfiniteQuery(
-    indexerInfiniteOptions<IndexerHandle>({
+  const worldRef = useRef<WorldMapHandle | null>(null);
+
+  // List: the paginated, server-sorted grid. Only fetched when the list is shown.
+  const query = useInfiniteQuery({
+    ...indexerInfiniteOptions<IndexerHandle>({
       queryKey: ["explore", sort],
       entity: "Handle",
       fields: HANDLE_CARD_FIELDS,
@@ -68,65 +84,105 @@ function ExplorePage() {
       orderDirection: order.dir,
       limit: 24,
     }),
-  );
+    enabled: mode === "list",
+  });
   const isPending = query.isPending;
-  // The sticky bar reveals a search icon only once the hero's own search has
-  // fully left the viewport — a scroll distance cannot express that (the hero
-  // search is still on screen partway through any such threshold, so the two
-  // affordances would overlap). While the big search is anywhere in view the
-  // small one stays hidden; on a 320px bar it also competes with the sort
-  // control. `stuck` is "the hero search is gone".
-  const [stuck, setStuck] = useState(false);
-  const heroSearchRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = heroSearchRef.current;
-    // No hero search in this layout: the small icon is the only search, so show
-    // it instead of leaving the state stale. (A CSS-hidden hero also reports a
-    // zero-intersection entry below, which lands on the same answer.)
-    if (!el) {
-      setStuck(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      ([entry]) => setStuck(!entry.isIntersecting),
-      { threshold: 0 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  // Aura pushes only stream while the grid is on screen.
+
+  // Map: the whole atlas. `useHandles` is the shared handle list (also the
+  // search popover's source), so the map costs no extra query.
+  const { data: handles, isPending: handlesPending } = useHandles();
+  const mapAssets = useMemo(() => (handles ?? []).map(toLiveAsset), [handles]);
+  const plots = useMemo(() => layoutWorld(mapAssets), [mapAssets]);
+
+  // Aura pushes only stream while their surface is on screen.
   const gate = usePollGate<HTMLDivElement>(qk.handles);
 
-  // The grid is the indexer's surface — its subscription is the event source.
+  // List subscription — the grid's own sort order.
   useIndexerLive<{ Handle: IndexerHandle[] }>({
     queryKey: ["explore", sort],
     query: `subscription { Handle(where: { active: { _eq: true } }, order_by: { ${order.field}: ${order.dir} }) { ${HANDLE_CARD_FIELDS} } }`,
+    enabled: mode === "list",
+  });
+  // Map subscription — keeps the shared handle list (and so the world) fresh.
+  useIndexerLive<{ Handle: { id: string }[] }>({
+    queryKey: qk.handles,
+    query: `subscription { Handle(where: { active: { _eq: true } }) { id aura auraDelta } }`,
+    enabled: mode === "map",
   });
 
   const assets = useMemo(() => flatIndexerPages(query.data?.pages).map(toLiveAsset), [query.data]);
-  // Category chips filter by family locally — the query itself is unfiltered.
+  // Category chips filter the list locally — the query itself is unfiltered.
   const list = useMemo(
     () => (cat === "all" ? assets : assets.filter((a) => a.categories.includes(cat))),
     [assets, cat],
   );
 
+  /** A chip selects AND (on the map) flies the camera to that district. */
+  const pickCategory = useCallback(
+    (id: CategoryId | "all") => {
+      setCat(id);
+      if (mode !== "map") return;
+      if (id === "all") worldRef.current?.fitAll();
+      else worldRef.current?.focusCategory(id);
+    },
+    [mode],
+  );
+
+  /** Search results fly to a plot instead of navigating while the map is up. */
+  const pickHandle = useCallback(
+    (id: string) => {
+      if (mode !== "map") return false;
+      return worldRef.current?.focusHandle(id) ?? false;
+    },
+    [mode],
+  );
+
+  // `/#crypto` (from the search popover's category links) flies to that district.
+  useEffect(() => {
+    if (mode !== "map") return;
+    const applyHash = () => {
+      const id = window.location.hash.replace(/^#/, "");
+      if (!id || !CATEGORIES.some((c) => c.id === id)) return;
+      setCat(id as CategoryId);
+      worldRef.current?.focusCategory(id as CategoryId);
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, [mode]);
+
+  // The sticky bar reveals a search icon only once the hero's own search has
+  // fully left the viewport — a scroll distance cannot express that.
+  const [stuck, setStuck] = useState(false);
+  const heroSearchRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = heroSearchRef.current;
+    if (!el) {
+      setStuck(true);
+      return;
+    }
+    const io = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting), {
+      threshold: 0,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    // No `sidebar` on purpose: the explore grid is the page. `contentWidth="wide"`
-    // spends the aside's 350px on the grid (centre cap 840 → 1190), so the block
-    // is exactly as wide as a sidebar page instead of 350px narrower. Every other
-    // route keeps its sidebar and the default 840px centre; the rail is unchanged.
     <FeedLayout contentWidth="wide">
       {/* Hero — one line, one action, one search */}
       <div className="px-4 pt-10 pb-6 text-center sm:px-6">
         <h1 className="text-[28px] font-bold tracking-tight sm:text-4xl">
           Everything has an $AURA
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">Spot it early. Trade it first.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Spot it early. Trade it first — before the timeline does.
+        </p>
         <div
           ref={heroSearchRef}
           className="mx-auto mt-5 flex w-full max-w-md items-center justify-center gap-2"
         >
-          <FeedSearch />
+          <FeedSearch onPick={pickHandle} />
           <HowItWorks>
             <button
               type="button"
@@ -138,11 +194,7 @@ function ExplorePage() {
         </div>
       </div>
 
-      {/* Sticky filter bar — categories left, search + sort pinned right.
-          `top` clears the sticky mobile Navbar (--app-topbar = its height below
-          lg, 0 at lg where the desktop rail replaces it). The ScrollRow wrapper
-          is `min-w-0` internally, so `flex-1` can shrink it and the bar no
-          longer overflows at tablet widths. */}
+      {/* Sticky filter bar — categories left; layout, search and sort pinned right. */}
       <div className="sticky top-[var(--app-topbar)] z-30 flex min-w-0 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md sm:px-6">
         <ScrollRow
           activeKey={cat}
@@ -150,82 +202,132 @@ function ExplorePage() {
           wrapperClassName="flex-1"
           className="-ml-4 gap-1 px-4 sm:-ml-6 sm:px-6"
         >
-          <CategoryChip label="All" active={cat === "all"} onClick={() => setCat("all")} />
+          <CategoryChip label="All" active={cat === "all"} onClick={() => pickCategory("all")} />
           {CATEGORIES.map((c) => (
             <CategoryChip
               key={c.id}
               label={c.label}
               active={cat === c.id}
-              onClick={() => setCat(c.id)}
+              onClick={() => pickCategory(c.id)}
             />
           ))}
         </ScrollRow>
 
-        {/* Appears once the hero is out of view. The wrapper keeps its space
-            (no layout shift) and `inert` takes the hidden button out of the tab
-            order so keyboard users can't focus an invisible control. */}
-        <div
-          className={cn(
-            "shrink-0 transition-all duration-200",
-            stuck ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0",
-          )}
-          aria-hidden={!stuck}
-          inert={!stuck}
-        >
-          <SearchPopover iconOnly />
-        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ModeToggle mode={mode} onChange={setMode} />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Sort markets"
-              className="ml-auto flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/70 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <ArrowDownUp className="h-3.5 w-3.5" />
-              {sort}
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            {SORTS.map((s) => (
-              <DropdownMenuItem key={s} onSelect={() => setSort(s)} className="gap-2">
-                <span className="flex-1">{s}</span>
-                {sort === s && <Check className="h-3.5 w-3.5 text-primary" />}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* 4 cols from xl: the wide centre gives 3 cols ~372px cards — ~46% wider
-          than any other page's grid. Four keeps the reading density (~276px,
-          near the 840px grid's 255px) and the chart's aspect close to before;
-          xl (1280) is the first width where 1190px actually fits beside the rail. */}
-      <div
-        ref={gate}
-        className="grid grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3"
-      >
-        {isPending
-          ? Array.from({ length: 8 }, (_, i) => <SparkCardSkeleton key={i} />)
-          : list.map((a) => <SparkCard key={a.id} asset={a} />)}
-        {!isPending && list.length === 0 && (
-          <div className="col-span-full rounded-2xl border border-border/70 bg-card px-4 py-16 text-center">
-            <p className="text-[15px] font-semibold">No markets here yet</p>
-            <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">
-              Handles appear as soon as they start publishing aura on-chain.
-            </p>
+          {/* Appears once the hero is out of view; the wrapper keeps its space. */}
+          <div
+            className={cn(
+              "shrink-0 transition-all duration-200",
+              stuck ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0",
+            )}
+            aria-hidden={!stuck}
+            inert={!stuck}
+          >
+            <SearchPopover iconOnly onPick={pickHandle} />
           </div>
-        )}
+
+          {mode === "list" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Sort markets"
+                  className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/70 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <ArrowDownUp className="h-3.5 w-3.5" />
+                  {sort}
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                {SORTS.map((s) => (
+                  <DropdownMenuItem key={s} onSelect={() => setSort(s)} className="gap-2">
+                    <span className="flex-1">{s}</span>
+                    {sort === s && <Check className="h-3.5 w-3.5 text-primary" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
-      {query.hasNextPage && (
-        <InfiniteSentinel
-          ready={!query.isFetchingNextPage}
-          onEnd={() => void query.fetchNextPage()}
-        />
+      {mode === "map" ? (
+        <div ref={gate} className="px-4 pb-5 sm:px-6">
+          <div className="h-[min(76vh,860px)] min-h-[440px]">
+            {handlesPending ? (
+              <div className="grid h-full place-items-center rounded-2xl border border-border/70 bg-card text-sm text-muted-foreground">
+                Charting the atlas…
+              </div>
+            ) : (
+              <WorldMap ref={worldRef} plots={plots} activeCategory={cat} />
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            ref={gate}
+            className="grid grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3"
+          >
+            {isPending
+              ? Array.from({ length: 8 }, (_, i) => <SparkCardSkeleton key={i} />)
+              : list.map((a) => <SparkCard key={a.id} asset={a} />)}
+            {!isPending && list.length === 0 && (
+              <div className="col-span-full rounded-2xl border border-border/70 bg-card px-4 py-16 text-center">
+                <p className="text-[15px] font-semibold">Nothing&apos;s farming yet</p>
+                <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">
+                  Handles pop up the second they start publishing aura on-chain.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {query.hasNextPage && (
+            <InfiniteSentinel
+              ready={!query.isFetchingNextPage}
+              onEnd={() => void query.fetchNextPage()}
+            />
+          )}
+        </>
       )}
     </FeedLayout>
+  );
+}
+
+/** Map ⇄ List. The map is the default; the grid is the accessible fallback. */
+function ModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+  const options = [
+    { id: "map" as const, label: "Map", Icon: MapIcon },
+    { id: "list" as const, label: "List", Icon: ListIcon },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="Explore layout"
+      className="flex shrink-0 rounded-full border border-border/70 p-0.5"
+    >
+      {options.map(({ id, label, Icon }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={mode === id}
+          onClick={() => onChange(id)}
+          className={cn(
+            "flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors",
+            mode === id
+              ? "bg-secondary text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 

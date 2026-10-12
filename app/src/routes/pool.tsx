@@ -14,7 +14,7 @@ import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
 import { CONTRACTS } from "@/lib/chain";
 import { formatCompact, formatUsd } from "@/lib/format";
-import { trendColor } from "@/lib/chart-domain";
+import { trendColorFrom } from "@/lib/chart-domain";
 import { explainRevert } from "@/lib/trade";
 import { cn } from "@/lib/utils";
 import { qk } from "@/queries/keys";
@@ -136,7 +136,13 @@ function PoolPage() {
     return rows.length > 1 ? rows : rows.length === 1 ? [rows[0]!, rows[0]!] : [];
   }, [snaps, range]);
 
-  const up = history.length > 1 ? history[history.length - 1]! >= history[0]! : true;
+  // The vault's whole history as timestamped points (oldest → newest) — the base
+  // for the 24h trend colour, independent of whichever range chip is selected.
+  const trendPoints = useMemo(
+    () => snaps.map((s) => ({ ts: Number(s.timestamp) * 1000, v: e18(s.totalAssets) })),
+    [snaps],
+  );
+
   const amt = Number(amount) || 0;
   // Withdraw-all sends the exact receipt balance; a typed amount is converted
   // once. Deposits are always a typed USDC amount.
@@ -315,7 +321,7 @@ function PoolPage() {
             {history.length > 0 ? (
               <ActivityChart
                 data={history}
-                color={trendColor(history, up ? 1 : -1)}
+                color={trendColorFrom(trendPoints)}
                 height={240}
                 padX={0}
                 strokeWidth={1.75}
@@ -475,7 +481,7 @@ function PoolPage() {
             {!events.isPending && (events.data ?? []).length === 0 && (
               <tr>
                 <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                  No vault activity yet.
+                  Quiet vault — no flows yet.
                 </td>
               </tr>
             )}

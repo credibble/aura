@@ -55,9 +55,8 @@ node scripts/sync-indexer.mjs --write
 PRIVATE_KEY=$RELAYER_PK ORACLE_PRIVATE_KEY=$RELAYER_PK \
   npx hardhat run scripts/seed-handles.ts --network monadTestnet
 
-# 3. oracle (API + worker + postgres + redis)
-cd ../oracle && docker compose up -d --force-recreate postgres redis oracle-api oracle-worker
-docker compose exec oracle-api npx prisma migrate deploy
+# 3. oracle (API + worker + postgres + redis) — migrations run on boot
+cd ../oracle && docker compose up -d --build --force-recreate postgres redis oracle-migrate oracle-api oracle-worker
 
 # 4. app
 cd ../app && npm run dev            # http://localhost:5173

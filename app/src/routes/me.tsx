@@ -16,8 +16,9 @@ import { CreateHandleDialog } from "@/components/portfolio/CreateHandleDialog";
 import { EditProfileDialog } from "@/components/portfolio/EditProfileDialog";
 import { findHandle, handleSlug } from "@/lib/handle-id";
 import { formatCompact, formatIndex, formatPct } from "@/lib/format";
-import { trendColor } from "@/lib/chart-domain";
+import { trendColorFrom } from "@/lib/chart-domain";
 import { GRADUATION_AURA } from "@/lib/portfolio";
+import { START_FARMING } from "@/lib/voice";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
 import { useHandles, useLoadHandles } from "@/lib/handle-store";
@@ -76,6 +77,16 @@ function MePage() {
   /** The vault's asset history, oldest → newest (the chart + its trend colour). */
   const stakeSeries = useMemo(
     () => (stakeHistory.data ?? []).map((s) => Number(s.totalAssets) / 1e18),
+    [stakeHistory.data],
+  );
+  // The same history with its timestamps: the 24h trend colour is measured from
+  // these, so it does not ride on however much history the vault happens to have.
+  const stakePoints = useMemo(
+    () =>
+      (stakeHistory.data ?? []).map((s) => ({
+        ts: Number(s.timestamp) * 1000,
+        v: Number(s.totalAssets) / 1e18,
+      })),
     [stakeHistory.data],
   );
 
@@ -138,7 +149,8 @@ function MePage() {
         <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
           <h1 className="text-xl font-semibold">No handle yet</h1>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Claim a handle to trade, publish sources and receive stake.
+            {START_FARMING} — claim yours and the index starts reading you. You can trade, publish
+            sources and receive stake.
           </p>
           {/* Signed in with no handle: creating one is the page's primary action. */}
           <CreateHandleDialog>
@@ -146,7 +158,7 @@ function MePage() {
               type="button"
               className="mt-1 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
             >
-              <Plus className="h-4 w-4" /> Create a handle
+              <Plus className="h-4 w-4" /> {START_FARMING}
             </button>
           </CreateHandleDialog>
         </div>
@@ -283,8 +295,8 @@ function MePage() {
           <div className="mt-2">
             <ActivityChart
               data={stakeSeries}
-              // The vault's own asset history: green while it is growing.
-              color={trendColor(stakeSeries)}
+              // The vault's asset history: green while it is up over the last 24h.
+              color={trendColorFrom(stakePoints)}
               height={140}
               padX={0}
               strokeWidth={1.75}
@@ -315,7 +327,7 @@ function MePage() {
             </div>
           ))}
           {(record?.auraHistory?.length ?? 0) === 0 && (
-            <p className="py-6 text-[13px] text-muted-foreground">No aura updates recorded yet.</p>
+            <p className="py-6 text-[13px] text-muted-foreground">No aura moves recorded yet.</p>
           )}
         </div>
       </section>

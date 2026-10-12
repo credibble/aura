@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { notifyError } from "@/lib/notify";
+import { START_FARMING, START_FARMING_SHORT } from "@/lib/voice";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,8 +109,8 @@ export function CreateHandleDialog({
       return api<CreateHandleResult>("/handles", { method: "POST", body: fd });
     },
     onSuccess: (res) => {
-      toast.success(`@${res.label} created`, {
-        description: "Indexing — your new handle appears in a few seconds.",
+      toast.success(`@${res.label} is live`, {
+        description: "Indexing — give it a few seconds to show up.",
       });
       void qc.invalidateQueries({ queryKey: qk.handles });
       if (address) {
@@ -137,10 +138,10 @@ export function CreateHandleDialog({
       {children != null ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create a handle</DialogTitle>
+          <DialogTitle>{START_FARMING}</DialogTitle>
           <DialogDescription>
             Your on-chain identity — 3–20 chars, a-z and 0–9. The wallet signs the claim through the
-            oracle.
+            oracle; you get the aura.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -288,7 +289,7 @@ export function CreateHandleDialog({
               ) : (
                 <>
                   <Plus className="h-4 w-4" />
-                  Create handle
+                  {START_FARMING_SHORT}
                 </>
               )}
             </Button>

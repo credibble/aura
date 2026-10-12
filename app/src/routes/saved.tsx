@@ -129,12 +129,12 @@ function SavedPage() {
           {!query.isPending && !query.isError && posts.length === 0 && (
             <div className="px-4 py-16 text-center sm:px-6">
               <p className="text-[15px] font-semibold">
-                {active === "reposts" ? "Nothing reposted yet" : "No bookmarks yet"}
+                {active === "reposts" ? "No reposts yet" : "Nothing stashed yet"}
               </p>
               <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">
                 {active === "reposts"
                   ? "Repost a digest and it shows up here."
-                  : "Tap the bookmark icon on a feed to keep it."}
+                  : "Tap the bookmark on a feed to stash it."}
               </p>
               <Link
                 to="/feeds"

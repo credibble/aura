@@ -387,8 +387,8 @@ function PortfolioPage() {
                 shownPositions.length === 0 && (
                   <p className="py-6 text-[13px] text-muted-foreground">
                     {posTab === "open"
-                      ? "No open positions — buy shares on any market to see them here."
-                      : "No closed positions yet."}
+                      ? "Nothing open yet — go buy a side on any market."
+                      : "No receipts yet."}
                   </p>
                 )}
             </div>
@@ -498,7 +498,7 @@ function PortfolioPage() {
                 ))}
               {!ordersQuery.isPending && !ordersQuery.isError && orders.length === 0 && (
                 <p className="py-6 text-[13px] text-muted-foreground">
-                  {ordTab === "open" ? "No open orders." : "No closed orders yet."}
+                  {ordTab === "open" ? "No resting orders." : "No closed orders yet."}
                 </p>
               )}
             </div>

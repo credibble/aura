@@ -5,7 +5,6 @@ import {
   ChevronsRight,
   Compass,
   Droplets,
-  Home,
   MoreHorizontal,
   Rss,
   Trophy,
@@ -219,9 +218,7 @@ function LeftRail() {
         )}
         aria-label="Aura home"
       >
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-          <Home className="h-4 w-4" strokeWidth={2.6} />
-        </span>
+        <img src="/aura.png" alt="" className="h-8 w-8" />
       </Link>
 
       {/* Explore — the index grid + every trade page */}

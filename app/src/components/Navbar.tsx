@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Compass, Droplets, Rss, Trophy, Wallet, Activity } from "lucide-react";
+import { Compass, Droplets, Rss, Trophy, Wallet } from "lucide-react";
 import { ChainChip } from "@/components/aura/ChainChip";
 import { SearchPopover } from "@/components/SearchPopover";
 import { ConnectButton } from "@/components/ConnectButton";
@@ -36,9 +36,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border bg-nav/95 backdrop-blur">
       <div className="mx-auto flex h-14 items-center gap-3 px-3 sm:px-4 lg:px-6">
         <Link to="/" className="flex shrink-0 items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <Activity className="h-4 w-4" strokeWidth={2.6} />
-          </span>
+          <img src="/aura.png" alt="" className="h-8 w-8" />
           <span className="text-lg font-bold tracking-tight">Aura</span>
         </Link>
         <div className="hidden min-w-0 max-w-md flex-1 sm:block">

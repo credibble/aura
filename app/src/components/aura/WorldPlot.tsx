@@ -10,9 +10,11 @@ import { CharacterSprite } from "@/components/aura/CharacterSprite";
 
 /**
  * One handle on the map: an archetype villager (a footballer, a singer, a
- * coin, a bot … — whatever its district says it represents) with a tag fixed
- * above its head carrying name + aura. Hovering (or keyboard-focusing) the
- * character smoothly grows the tag open to reveal the aura sparkline.
+ * coin, a bot … — whatever its PRIMARY category says it represents, plus a
+ * name override for iconic brands) with a tag fixed above its head carrying
+ * name + aura. The character is per HANDLE: identical in every district the
+ * handle stands in, so it stays recognisable. Hovering (or keyboard-focusing)
+ * the character smoothly grows the tag open to reveal the aura sparkline.
  * Memoised, and the camera never re-renders it (the layer is transformed
  * directly), so a whole village of these costs nothing while panning.
  */
@@ -61,7 +63,7 @@ export const WorldPlotMarker = memo(function WorldPlotMarker({ plot }: { plot: W
         <CharacterSprite
           id={a.id}
           name={a.name}
-          district={plot.district}
+          category={a.category}
           style={{ animationDelay: `${breatheDelay}s` }}
         />
       </span>

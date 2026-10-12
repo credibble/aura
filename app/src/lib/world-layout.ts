@@ -126,11 +126,11 @@ const DISTRICT_BY_ID = Object.fromEntries(DISTRICTS.map((d) => [d.id, d])) as Re
 
 // ----------------------------------------------------------------------------
 // Villagers are drawn, not fetched: `CharacterSprite` renders an inline SVG
-// ARCHETYPE — a coin, a bot, a footballer, a singer, a cat, a car … chosen by
-// the plot's district (iconic brands get their object by name) — with face,
-// hair, clothes and props hashed from the handle id. The ground is the
-// site's background colour and there is deliberately no scenery: only the
-// district grids and the villagers.
+// ARCHETYPE — a coin, a bot, a footballer, a singer, a cat, a car … — one
+// per HANDLE, chosen by its primary category (iconic brands get their object
+// by name) and hashed from the handle id. The ground is the site's background
+// colour and there is deliberately no scenery: only the district grids and
+// the villagers.
 // ----------------------------------------------------------------------------
 /** Marker square edge, in world units. */
 export const CHAR_SIZE = 128;

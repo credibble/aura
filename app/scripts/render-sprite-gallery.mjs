@@ -1,6 +1,6 @@
 /**
- * Renders every character archetype (each district + brand override + pose
- * variant) into a self-contained HTML gallery so the sprites can be eyeballed
+ * Renders every character archetype (each primary category + brand override +
+ * pose variant) into a self-contained HTML gallery so the sprites can be eyeballed
  * without a wallet, an RPC, or the map. Uses esbuild to bundle a tiny React
  * entry that mounts `CharacterSprite` for each case.
  *
@@ -34,7 +34,7 @@ const cases = [
   ["brands", "Nike", "Sneaker (brand override)"],
   ["brands", "Amazon", "Box (brand override)"],
   ["brands", "SpaceX", "Rocket (brand override)"],
-  ["tech", "Tesla", "Car in Tech district"],
+  ["tech", "Tesla", "Tesla elsewhere — SAME car (per-handle)"],
 ];
 
 const ids = [
@@ -53,7 +53,7 @@ import { CharacterSprite } from "@/components/aura/CharacterSprite";
 const cases = ${JSON.stringify(cases.map((c, i) => [...c, ids[i]]))};
 document.getElementById("grid").innerHTML = cases
   .map(([district, name, label, id]) => {
-    const svg = renderToStaticMarkup(React.createElement(CharacterSprite, { id, name, district }));
+    const svg = renderToStaticMarkup(React.createElement(CharacterSprite, { id, name, category: district }));
     return "<figure><div class=\\"stage\\">" + svg + "</div><figcaption>" + label + "<br><code>" + id + "</code></figcaption></figure>";
   })
   .join("");
@@ -87,7 +87,7 @@ writeFileSync(
   figcaption { margin-top:6px; font-size:12px; color:#5A6472; }
   figcaption code { font-size:10px; color:#8B95A1; }
 </style>
-<h1>Aura archetype villagers — one per district + brand overrides</h1>
+<h1>Aura archetype villagers — one character per handle (primary category) + brand overrides</h1>
 <div class="grid" id="grid"></div>
 <script>${bundle.outputFiles[0].text}</script>`,
 );

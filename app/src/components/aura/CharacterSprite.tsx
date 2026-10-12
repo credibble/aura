@@ -12,9 +12,10 @@ import { cn } from "@/lib/utils";
  * for People — and iconic brands get their real-world object by name (Tesla
  * is a car, Apple a phone, Nike a sneaker, Amazon a box, SpaceX a rocket).
  *
- * Archetype = brand-name override first, then the plot's district/category.
- * Since a handle stands in every district one of its categories names, the
- * SAME handle can render as different archetypes per district.
+ * Archetype = brand-name override first, then the handle's PRIMARY category
+ * (the first of its categories) — so a handle is ONE character, identical in
+ * every district it stands in (OpenAI is a bot everywhere, Taylor Swift a
+ * singer everywhere, Tesla a car everywhere).
  *
  * All of it stays hashed from the handle id (skin, hair, iris, garment, and
  * each archetype's own palette + pose variants), so every handle keeps the
@@ -138,7 +139,7 @@ type Archetype =
   | "box"
   | "rocket";
 
-/** Category → the archetype that stands in that district. */
+/** Primary category → the archetype that handle stands in, everywhere. */
 const CATEGORY_ARCHETYPE: Record<CategoryId, Archetype> = {
   crypto: "coin",
   ai: "bot",
@@ -163,9 +164,9 @@ const BRAND_OBJECT: Record<string, Archetype> = {
   spacex: "rocket",
 };
 
-function archetypeFor(name: string, district: CategoryId): Archetype {
+function archetypeFor(name: string, primary: CategoryId): Archetype {
   const key = name.trim().toLowerCase();
-  return BRAND_OBJECT[key] ?? CATEGORY_ARCHETYPE[district] ?? "person";
+  return BRAND_OBJECT[key] ?? CATEGORY_ARCHETYPE[primary] ?? "person";
 }
 
 // ----------------------------------------------------------------------------
@@ -881,15 +882,16 @@ type ArchParts = {
 export const CharacterSprite = memo(function CharacterSprite({
   id,
   name,
-  district,
+  category,
   className,
   style,
 }: {
   id: string;
   /** The display name — iconic brands (Tesla, Apple…) render as their object. */
   name?: string;
-  /** The district this plot stands in — picks the category archetype. */
-  district: CategoryId;
+  /** The handle's PRIMARY category — one character per handle, identical in
+   * every district it stands in (never the plot's district). */
+  category: CategoryId;
   className?: string;
   style?: CSSProperties;
 }) {
@@ -903,7 +905,7 @@ export const CharacterSprite = memo(function CharacterSprite({
   const pants = pick(PANTS, id, 16);
   const shoe = pick(SHOES, id, 17);
 
-  const kind = archetypeFor(name ?? "", district);
+  const kind = archetypeFor(name ?? "", category);
   // Hashed pose variant per archetype (0 / 1): foot-on-ball vs carry, headphones vs mic…
   const pose = hashUnit(id, 18) < 0.5 ? 0 : 1;
   const kit = pick(KIT, id, 20);

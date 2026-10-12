@@ -33,7 +33,7 @@ export function Navbar() {
   useEffect(() => setHash(routerHash), [routerHash]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-nav/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-border bg-nav/90 backdrop-blur">
       <div className="mx-auto flex h-14 items-center gap-3 px-3 sm:px-4 lg:px-6">
         <Link to="/" className="flex shrink-0 items-center gap-2">
           <img src="/aura.png" alt="" className="h-8 w-8" />

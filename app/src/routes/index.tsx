@@ -4,7 +4,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDownUp, Check, ChevronDown, List as ListIcon, Map as MapIcon } from "lucide-react";
 import { FeedLayout } from "@/components/social/FeedLayout";
 import { FeedSearch } from "@/components/social/RightSidebar";
-import { SearchPopover } from "@/components/SearchPopover";
 import { InfiniteSentinel } from "@/components/InfiniteSentinel";
 import { SparkCard } from "@/components/aura/SparkCard";
 import { SparkCardSkeleton } from "@/components/ui/skeletons";
@@ -54,21 +53,20 @@ const ORDER_BY: Record<Sort, { field: string; dir: "asc" | "desc" }> = {
 type ViewMode = "map" | "list";
 
 /**
- * The index is the market. Two ways to read it:
+ * The index is the market — and by default the market is the Atlas: a
+ * full-screen, pannable village where every handle is a villager in its
+ * category's district. The world is mounted `fixed inset-0` UNDER the page
+ * chrome; the hero and the floating dock read as overlays on top of it.
  *
- *   - **Map** (default) — the Aura Atlas: a flat, pannable world where every
- *     handle is a plot in its category's district. Position is stable (hashed
- *     from the id); aura rides on the marker's size and glow, so the world is a
- *     fixed stage the live index performs on. Category chips fly the camera;
- *     search flies to a handle.
- *   - **List** — the original grid, kept whole: server-side sort + paging and
- *     infinite scroll. It is the accessible / low-power fallback too.
- *
- * Both read the same live data; the map just places it on a plane.
+ * A floating action at the bottom right switches to the accessible list: the
+ * original grid with server-side sort + paging and infinite scroll.
  */
 function ExplorePage() {
   const [cat, setCat] = useState<CategoryId | "all">("all");
   const [sort, setSort] = useState<Sort>("Highest aura");
+  // 2D is the default AND the init: mode is never restored from the URL (or
+  // anywhere else), so every load SSRs + hydrates straight into the map —
+  // there is no other mode to flash on reload.
   const [mode, setMode] = useState<ViewMode>("map");
   const order = ORDER_BY[sort];
   const worldRef = useRef<WorldMapHandle | null>(null);
@@ -111,21 +109,12 @@ function ExplorePage() {
   });
 
   const assets = useMemo(() => flatIndexerPages(query.data?.pages).map(toLiveAsset), [query.data]);
-  // Category chips filter the list locally — the query itself is unfiltered.
+  // Tabs filter on the FULL `categories` array — a handle carries every family
+  // it belongs to, so it shows under each matching tab (the map, by contrast,
+  // stands it in its primary district only).
   const list = useMemo(
     () => (cat === "all" ? assets : assets.filter((a) => a.categories.includes(cat))),
     [assets, cat],
-  );
-
-  /** A chip selects AND (on the map) flies the camera to that district. */
-  const pickCategory = useCallback(
-    (id: CategoryId | "all") => {
-      setCat(id);
-      if (mode !== "map") return;
-      if (id === "all") worldRef.current?.fitAll();
-      else worldRef.current?.focusCategory(id);
-    },
-    [mode],
   );
 
   /** Search results fly to a plot instead of navigating while the map is up. */
@@ -151,37 +140,34 @@ function ExplorePage() {
     return () => window.removeEventListener("hashchange", applyHash);
   }, [mode]);
 
-  // The sticky bar reveals a search icon only once the hero's own search has
-  // fully left the viewport — a scroll distance cannot express that.
-  const [stuck, setStuck] = useState(false);
-  const heroSearchRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = heroSearchRef.current;
-    if (!el) {
-      setStuck(true);
-      return;
-    }
-    const io = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting), {
-      threshold: 0,
-    });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   return (
-    <FeedLayout contentWidth="wide">
-      {/* Hero — one line, one action, one search */}
-      <div className="px-4 pt-10 pb-6 text-center sm:px-6">
+    <FeedLayout contentWidth="wide" dockNav={mode === "map"}>
+      {mode === "map" && (
+        /* The Atlas — fixed, full-screen, UNDER the page chrome. Gestures land
+           only where no overlay covers it. */
+        <div ref={gate} className="fixed inset-0 z-0">
+          {handlesPending ? (
+            <div className="grid h-full place-items-center bg-background text-sm text-muted-foreground">
+              Charting the atlas…
+            </div>
+          ) : (
+            <WorldMap ref={worldRef} plots={plots} activeCategory={cat} />
+          )}
+        </div>
+      )}
+
+      {/* Hero overlay — one line, one action, one search. Bare: no background
+          or border, it floats straight on the Atlas (whose ground IS the page
+          background). Clicks fall through everywhere except the controls —
+          a character standing behind the headline is still clickable. */}
+      <div className="pointer-events-none relative z-10 px-4 pb-6 pt-10 text-center sm:px-6">
         <h1 className="text-[28px] font-bold tracking-tight sm:text-4xl">
           Everything has an $AURA
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Spot it early. Trade it first — before the timeline does.
         </p>
-        <div
-          ref={heroSearchRef}
-          className="mx-auto mt-5 flex w-full max-w-md items-center justify-center gap-2"
-        >
+        <div className="mx-auto mt-5 flex w-full max-w-md items-center justify-center gap-2 pointer-events-auto">
           <FeedSearch onPick={pickHandle} />
           <HowItWorks>
             <button
@@ -194,83 +180,57 @@ function ExplorePage() {
         </div>
       </div>
 
-      {/* Sticky filter bar — categories left; layout, search and sort pinned right. */}
-      <div className="sticky top-[var(--app-topbar)] z-30 flex min-w-0 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md sm:px-6">
-        <ScrollRow
-          activeKey={cat}
-          ariaLabel="Categories"
-          wrapperClassName="flex-1"
-          className="-ml-4 gap-1 px-4 sm:-ml-6 sm:px-6"
-        >
-          <CategoryChip label="All" active={cat === "all"} onClick={() => pickCategory("all")} />
-          {CATEGORIES.map((c) => (
-            <CategoryChip
-              key={c.id}
-              label={c.label}
-              active={cat === c.id}
-              onClick={() => pickCategory(c.id)}
-            />
-          ))}
-        </ScrollRow>
-
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <ModeToggle mode={mode} onChange={setMode} />
-
-          {/* Appears once the hero is out of view; the wrapper keeps its space. */}
-          <div
-            className={cn(
-              "shrink-0 transition-all duration-200",
-              stuck ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0",
-            )}
-            aria-hidden={!stuck}
-            inert={!stuck}
-          >
-            <SearchPopover iconOnly onPick={pickHandle} />
-          </div>
-
-          {mode === "list" && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Sort markets"
-                  className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/70 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                >
-                  <ArrowDownUp className="h-3.5 w-3.5" />
-                  {sort}
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                {SORTS.map((s) => (
-                  <DropdownMenuItem key={s} onSelect={() => setSort(s)} className="gap-2">
-                    <span className="flex-1">{s}</span>
-                    {sort === s && <Check className="h-3.5 w-3.5 text-primary" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
-
-      {mode === "map" ? (
-        <div ref={gate} className="px-4 pb-5 sm:px-6">
-          <div className="h-[min(76vh,860px)] min-h-[440px]">
-            {handlesPending ? (
-              <div className="grid h-full place-items-center rounded-2xl border border-border/70 bg-card text-sm text-muted-foreground">
-                Charting the atlas…
-              </div>
-            ) : (
-              <WorldMap ref={worldRef} plots={plots} activeCategory={cat} />
-            )}
-          </div>
-        </div>
-      ) : (
+      {mode === "list" && (
         <>
+          {/* Category tabs (left) + sort (right) — the list's own filter bar.
+              Selection here filters the grid; going back to the map clears it,
+              so the Atlas always opens with every district lit. */}
+          <div className="sticky top-[var(--app-topbar)] z-30 flex min-w-0 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md sm:px-6">
+            <ScrollRow
+              activeKey={cat}
+              ariaLabel="Categories"
+              wrapperClassName="flex-1"
+              className="-ml-4 gap-1 px-4 sm:-ml-6 sm:px-6"
+            >
+              <CategoryChip label="All" active={cat === "all"} onClick={() => setCat("all")} />
+              {CATEGORIES.map((c) => (
+                <CategoryChip
+                  key={c.id}
+                  label={c.label}
+                  active={cat === c.id}
+                  onClick={() => setCat(c.id)}
+                />
+              ))}
+            </ScrollRow>
+
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Sort markets"
+                    className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/70 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <ArrowDownUp className="h-3.5 w-3.5" />
+                    {sort}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  {SORTS.map((s) => (
+                    <DropdownMenuItem key={s} onSelect={() => setSort(s)} className="gap-2">
+                      <span className="flex-1">{s}</span>
+                      {sort === s && <Check className="h-3.5 w-3.5 text-primary" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
           <div
             ref={gate}
-            className="grid grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3"
+            className="relative z-10 grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 sm:px-6 lg:grid-cols-3"
           >
             {isPending
               ? Array.from({ length: 8 }, (_, i) => <SparkCardSkeleton key={i} />)
@@ -293,44 +253,34 @@ function ExplorePage() {
           )}
         </>
       )}
+
+      {/* Map ⇄ list — floating action, bottom right. Map is the default. */}
+      <button
+        type="button"
+        onClick={() => {
+          if (mode === "list") setCat("all");
+          setMode(mode === "map" ? "list" : "map");
+        }}
+        aria-label={mode === "map" ? "Switch to list mode" : "Switch to map mode"}
+        className="fixed bottom-4 right-4 z-20 flex h-11 items-center gap-2 rounded-full border border-border/70 bg-background/90 px-4 text-sm font-medium text-foreground shadow-lg backdrop-blur-md transition-colors hover:bg-secondary"
+      >
+        {mode === "map" ? (
+          <>
+            <ListIcon className="h-4 w-4" />
+            List mode
+          </>
+        ) : (
+          <>
+            <MapIcon className="h-4 w-4" />
+            Map mode
+          </>
+        )}
+      </button>
     </FeedLayout>
   );
 }
 
-/** Map ⇄ List. The map is the default; the grid is the accessible fallback. */
-function ModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
-  const options = [
-    { id: "map" as const, label: "Map", Icon: MapIcon },
-    { id: "list" as const, label: "List", Icon: ListIcon },
-  ];
-  return (
-    <div
-      role="tablist"
-      aria-label="Explore layout"
-      className="flex shrink-0 rounded-full border border-border/70 p-0.5"
-    >
-      {options.map(({ id, label, Icon }) => (
-        <button
-          key={id}
-          type="button"
-          role="tab"
-          aria-selected={mode === id}
-          onClick={() => onChange(id)}
-          className={cn(
-            "flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors",
-            mode === id
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
+/** Category tab — underline style, list mode's filter bar. */
 function CategoryChip({
   label,
   active,

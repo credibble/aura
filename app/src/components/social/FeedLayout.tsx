@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HowItWorks } from "@/components/HowItWorks";
 import { HandleAccountChip } from "@/components/portfolio/HandleAccountChip";
 import { ConnectButton } from "@/components/ConnectButton";
@@ -72,6 +73,7 @@ export function FeedLayout({
   sidebar,
   banner,
   contentWidth = "default",
+  dockNav = false,
 }: {
   children: ReactNode;
   sidebar?: ReactNode;
@@ -84,6 +86,12 @@ export function FeedLayout({
    * overall width as a sidebar page while the reclaimed 360px goes to content.
    */
   contentWidth?: "default" | "wide";
+  /**
+   * Swap the left rail for a compact floating dock centred at the bottom of
+   * the screen (the explore page's full-screen Atlas). Desktop only — mobile
+   * keeps the top Navbar either way.
+   */
+  dockNav?: boolean;
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -115,7 +123,7 @@ export function FeedLayout({
           means it shrinks to fit a narrow viewport instead, so small screens
           still fill and nothing overflows. */}
       <div className="mx-auto flex w-full max-w-[1440px] justify-center">
-        <LeftRail />
+        {dockNav ? <BottomDock /> : <LeftRail />}
         <main
           id="main-content"
           tabIndex={-1}
@@ -204,7 +212,10 @@ function LeftRail() {
     <nav
       aria-label="Feed"
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 flex-col items-center gap-1 px-3 py-3 lg:flex",
+        // z-10 + translucent bg: on the explore page the Atlas runs full-screen
+        // underneath the rail — the see-through shows it, the rail still eats
+        // its gestures. Elsewhere this is invisible (page bg sits behind it).
+        "sticky top-0 z-10 hidden h-screen shrink-0 flex-col items-center gap-1 bg-background/90 px-3 py-3 backdrop-blur-md lg:flex",
         navMotion,
         wideNav,
       )}
@@ -344,6 +355,120 @@ function LeftRail() {
         labelClassName={btnLabel}
         toggleClassName={pref === "off" ? "hidden" : pref === "auto" ? "hidden 2xl:flex" : ""}
       />
+    </nav>
+  );
+}
+
+/** A dock item's tooltip — opens upward, above the dock. */
+function DockTip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top" sideOffset={10}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * The rail, folded into a compact floating dock for the explore page's
+ * full-screen Atlas: icons only, centred at the bottom of the screen, same
+ * see-through treatment (bg/90 + blur) as the rest of the chrome that floats
+ * over the map. Everything the rail has is here — wordmark, the five
+ * destinations, sign-in, More, account — minus the expand toggle (there is no
+ * rail to expand). Every icon carries a tooltip. Desktop only; mobile keeps
+ * the top Navbar.
+ */
+function BottomDock() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Explore owns the grid and every trade page, so something is always lit.
+  const isExplore = pathname === "/" || pathname.startsWith("/trade");
+  const { address } = useAuraContracts();
+  useLoadHandles(address);
+
+  const destinations = [
+    { label: "Explore", to: "/", icon: Compass, on: isExplore },
+    { label: "Feeds", to: "/feeds", icon: Rss, on: pathname.startsWith("/feeds") },
+    { label: "Leaderboard", to: "/leaderboard", icon: Trophy, on: pathname.startsWith("/leaderboard") },
+    { label: "Portfolio", to: "/portfolio", icon: Wallet, on: pathname.startsWith("/portfolio") },
+    { label: "Pool", to: "/pool", icon: Droplets, on: pathname.startsWith("/pool") },
+  ] as const;
+
+  return (
+    <nav
+      aria-label="Feed"
+      className="fixed bottom-4 left-1/2 z-20 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-border/70 bg-background/90 px-2 py-1.5 shadow-lg backdrop-blur-md lg:flex"
+    >
+      <TooltipProvider delayDuration={150}>
+        {/* Wordmark */}
+        <DockTip label="Aura">
+          <Link to="/" className={railClass(false, "")} aria-label="Aura home">
+            <img src="/aura.png" alt="" className="h-7 w-7" />
+          </Link>
+        </DockTip>
+        <span className="mx-0.5 h-5 w-px shrink-0 bg-border/70" />
+
+        {destinations.map(({ label, to, icon: Icon, on }) => (
+          <DockTip key={label} label={label}>
+            <Link to={to} className={railClass(on, "")} aria-label={label} {...railAria(on)}>
+              <Icon className="h-6 w-6 shrink-0" strokeWidth={on ? 2.4 : 2} />
+            </Link>
+          </DockTip>
+        ))}
+
+        {/* Connect wallet — keeps its LABEL in the dock (not the compact
+            icon-only circle): "Sign in" when out, address + balance when in.
+            `labelClassName=""` means "hide nothing" — every text span renders. */}
+        <DockTip label={address ? "Wallet" : "Sign in"}>
+          <span className="inline-flex">
+            <ConnectButton
+              disconnectedLabel="Sign in"
+              labelClassName=""
+              className="h-11 justify-center gap-2 rounded-full px-4"
+            />
+          </span>
+        </DockTip>
+
+        <span className="mx-0.5 h-5 w-px shrink-0 bg-border/70" />
+
+        {/* More menu — opens upward from the dock */}
+        <DropdownMenu>
+          <DockTip label="More">
+            <DropdownMenuTrigger asChild>
+              <button type="button" className={railClass(false, "")} aria-label="More">
+                <MoreHorizontal className="h-6 w-6 shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+          </DockTip>
+          <DropdownMenuContent align="end" side="top" sideOffset={10} className="w-56">
+            <DropdownMenuItem asChild>
+              <Link to="/saved">Saved</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/notifications">Notifications</Link>
+            </DropdownMenuItem>
+            <HowItWorks>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>How it works</DropdownMenuItem>
+            </HowItWorks>
+            <DropdownMenuItem asChild>
+              <Link to="/terms">Terms of Service</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/privacy">Privacy Policy</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Account chip — avatar only in the dock */}
+        <DockTip label="Account">
+          <HandleAccountChip
+            className="mt-0 h-11 w-11 justify-center px-0"
+            labelClassName="hidden"
+            toggleClassName="hidden"
+          />
+        </DockTip>
+      </TooltipProvider>
     </nav>
   );
 }

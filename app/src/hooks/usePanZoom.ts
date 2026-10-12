@@ -22,16 +22,36 @@ export function usePanZoom({
   worldWidth,
   worldHeight,
   maxZoom = 1.8,
+  tiltDeg = 0,
+  tiltPerspective = 1500,
+  contentWidth,
+  contentHeight,
 }: {
   worldWidth: number;
   worldHeight: number;
   maxZoom?: number;
+  /**
+   * Camera tilt: the plane is rendered rotated `tiltDeg` about the x-axis and
+   * viewed through `tiltPerspective` px of perspective. Every gesture is
+   * un-projected through that tilt, so the world point under the pointer
+   * stays under the pointer exactly as if the plane were flat.
+   */
+  tiltDeg?: number;
+  tiltPerspective?: number;
+  /**
+   * The content block "fit" frames (default: the whole world). Smaller than
+   * the world when the world carries empty padding — the camera lands on the
+   * content, and zooming out (to the world fit) reveals the padding.
+   */
+  contentWidth?: number;
+  contentHeight?: number;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const layerRef = useRef<HTMLDivElement | null>(null);
   const camRef = useRef<Camera>({ x: worldWidth / 2, y: worldHeight / 2, z: 0.35 });
   const viewportRef = useRef({ w: 1, h: 1 });
   const fitRef = useRef(0.35);
+  const worldFitRef = useRef(0.35);
   const initedRef = useRef(false);
   const reducedRef = useRef(false);
   const rafRef = useRef(0);
@@ -41,7 +61,8 @@ export function usePanZoom({
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
   const [isPanning, setIsPanning] = useState(false);
 
-  const minZoom = useCallback(() => Math.max(0.02, fitRef.current * 0.8), []);
+  // Zoom floor is the WORLD fit (padding included); `fitRef` is the content fit.
+  const minZoom = useCallback(() => Math.max(0.02, worldFitRef.current * 0.8), []);
 
   /** Push `camRef` onto the layer's transform; mirror to state at most ~11fps. */
   const apply = useCallback((commit = false) => {
@@ -52,6 +73,9 @@ export function usePanZoom({
     layer.style.transform = `translate3d(${w / 2 - x * z}px, ${h / 2 - y * z}px, 0) scale(${z})`;
     // Below a bit past "fit" the labels would be noise; hide them until zoomed.
     layer.dataset.zoom = z >= fitRef.current * 1.35 ? "in" : "out";
+    // Villagers scale sub-linearly (apparent size ∝ √z): readable zoomed out,
+    // not chunky zoomed in. = 1 at the content fit.
+    layer.style.setProperty("--char-scale", Math.sqrt(fitRef.current / z).toFixed(4));
     const now = performance.now();
     if (commit || now - commitAtRef.current > 90) {
       commitAtRef.current = now;
@@ -137,7 +161,13 @@ export function usePanZoom({
       const h = el.clientHeight || 1;
       viewportRef.current = { w, h };
       setViewport({ w, h });
-      fitRef.current = Math.min(w / worldWidth, h / worldHeight) || 0.35;
+      // Tilted, the world's projected height shrinks by cos(tilt): fit to that
+      // so "fit all" still frames the whole content block.
+      const cosT = tiltDeg ? Math.cos((tiltDeg * Math.PI) / 180) : 1;
+      const cw = contentWidth ?? worldWidth;
+      const ch = contentHeight ?? worldHeight;
+      fitRef.current = Math.min(w / cw, h / (ch * cosT)) || 0.35;
+      worldFitRef.current = Math.min(w / worldWidth, h / (worldHeight * cosT)) || 0.35;
       if (!initedRef.current) {
         initedRef.current = true;
         camRef.current = { x: worldWidth / 2, y: worldHeight / 2, z: fitRef.current };
@@ -159,9 +189,28 @@ export function usePanZoom({
     let vel = { x: 0, y: 0 };
     let last = { x: 0, y: 0, t: 0 };
 
+    const tiltRad = (tiltDeg * Math.PI) / 180;
+    const tiltCos = Math.cos(tiltRad);
+    const tiltSin = Math.sin(tiltRad);
+
+    /** Viewport px → plane px. With the tilt on, this un-projects the point
+        through rotateX(tiltDeg) + perspective (both taken about the viewport
+        centre), so every gesture below runs in the same flat coordinates the
+        camera transform writes — the map point under the pointer stays under
+        the pointer. */
     const local = (clientX: number, clientY: number) => {
       const r = el.getBoundingClientRect();
-      return { x: clientX - r.left, y: clientY - r.top };
+      let px = clientX - r.left;
+      let py = clientY - r.top;
+      if (tiltDeg) {
+        const { w, h } = viewportRef.current;
+        const ry = py - h / 2;
+        const qy = (ry * tiltPerspective) / (tiltPerspective * tiltCos - ry * tiltSin);
+        const qx = ((px - w / 2) * (tiltPerspective + qy * tiltSin)) / tiltPerspective;
+        px = w / 2 + qx;
+        py = h / 2 + qy;
+      }
+      return { x: px, y: py };
     };
     const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
       Math.hypot(a.x - b.x, a.y - b.y);
@@ -211,7 +260,10 @@ export function usePanZoom({
 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      el.setPointerCapture(e.pointerId);
+      // NO setPointerCapture here: capturing on pointerdown retargets the
+      // browser's compat click to the viewport, so a plain tap on a villager
+      // would never reach its link. Capture is taken the moment this IS a drag
+      // (pointermove below).
       const p = local(e.clientX, e.clientY);
       pointers.set(e.pointerId, p);
       stopAnim();
@@ -234,6 +286,17 @@ export function usePanZoom({
       pointers.set(e.pointerId, p);
 
       if (pointers.size >= 2 && pinchStart) {
+        // Two fingers = pinch. Capture both so the gesture survives the
+        // fingers leaving the plane (only on the pinch's first move).
+        if (!dragMoved) {
+          for (const pid of pointers.keys()) {
+            try {
+              el.setPointerCapture(pid);
+            } catch {
+              /* pointer already gone */
+            }
+          }
+        }
         const [a, b] = [...pointers.values()];
         const base = pinchStart.cam;
         const { w, h } = viewportRef.current;
@@ -254,7 +317,16 @@ export function usePanZoom({
       if (panStart) {
         const dx = p.x - panStart.sx;
         const dy = p.y - panStart.sy;
-        if (Math.hypot(dx, dy) > 5) dragMoved = true;
+        if (Math.hypot(dx, dy) > 5 && !dragMoved) {
+          dragMoved = true;
+          // It's a drag — capture now (see onPointerDown) and let the click
+          // that follows be suppressed.
+          try {
+            el.setPointerCapture(e.pointerId);
+          } catch {
+            /* pointer already up */
+          }
+        }
         const cam = camRef.current;
         cam.x = panStart.cam.x - dx / panStart.cam.z;
         cam.y = panStart.cam.y - dy / panStart.cam.z;
@@ -327,7 +399,19 @@ export function usePanZoom({
       el.removeEventListener("click", onClickCapture, true);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [apply, clampCam, minZoom, maxZoom, stopAnim, worldWidth, worldHeight]);
+  }, [
+    apply,
+    clampCam,
+    minZoom,
+    maxZoom,
+    stopAnim,
+    worldWidth,
+    worldHeight,
+    tiltDeg,
+    tiltPerspective,
+    contentWidth,
+    contentHeight,
+  ]);
 
   return { containerRef, layerRef, view, viewport, isPanning, flyTo, fitAll, zoomBy };
 }

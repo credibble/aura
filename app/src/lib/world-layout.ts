@@ -17,9 +17,22 @@ import { CATEGORIES, type CategoryId, type LiveAsset } from "./aura-data";
 export const DISTRICT_SIZE = 1080;
 export const COLS = 3;
 export const ROWS = 3;
+/**
+ * Empty district grids ringing the real 3×3 — breathing room around the
+ * village so the map reads as a place, not a wall of content. Two rings deep
+ * (a 7×7 floor, 40 empty cells). The ring is visual only: no category, no
+ * label, never a plot or a prop.
+ */
+export const PAD_DISTRICTS = 2;
+export const GRID_COLS = COLS + PAD_DISTRICTS * 2;
+export const GRID_ROWS = ROWS + PAD_DISTRICTS * 2;
 
-export const WORLD_WIDTH = COLS * DISTRICT_SIZE;
-export const WORLD_HEIGHT = ROWS * DISTRICT_SIZE;
+export const WORLD_WIDTH = GRID_COLS * DISTRICT_SIZE;
+export const WORLD_HEIGHT = GRID_ROWS * DISTRICT_SIZE;
+
+/** The real 3×3 village at the world's centre — what "fit" frames. */
+export const CONTENT_WIDTH = COLS * DISTRICT_SIZE;
+export const CONTENT_HEIGHT = ROWS * DISTRICT_SIZE;
 
 /** Keep plots off the tile edges. */
 const TILE_INSET = 30;
@@ -40,6 +53,8 @@ export type WorldDistrict = {
 };
 
 export type WorldPlotData = {
+  /** Unique per plot INSTANCE: `<handle id>:<district>` — a multi-category
+   *  handle gets one plot in each of its districts, so ids must differ. */
   id: string;
   asset: LiveAsset;
   /** World coordinates of the marker centre. */
@@ -51,7 +66,7 @@ export type WorldPlotData = {
 };
 
 /** Deterministic 32-bit hash of a string (+ salt), normalised to [0, 1). */
-function hashUnit(seed: string, salt: number): number {
+export function hashUnit(seed: string, salt: number): number {
   let h = (2166136261 ^ salt) >>> 0;
   for (let i = 0; i < seed.length; i++) {
     h ^= seed.charCodeAt(i);
@@ -66,7 +81,8 @@ function hashUnit(seed: string, salt: number): number {
   return (h >>> 0) / 4294967296;
 }
 
-/** The nine districts, laid out in reading order (crypto → culture). */
+/** The nine districts, laid out in reading order (crypto → culture), centred
+ *  inside the padded world grid. */
 export const DISTRICTS: WorldDistrict[] = CATEGORIES.slice(0, COLS * ROWS).map((c, i) => {
   const col = i % COLS;
   const row = Math.floor(i / COLS);
@@ -75,13 +91,33 @@ export const DISTRICTS: WorldDistrict[] = CATEGORIES.slice(0, COLS * ROWS).map((
     label: c.label,
     icon: c.icon,
     tint: c.tint,
-    cx: col * DISTRICT_SIZE + DISTRICT_SIZE / 2,
-    cy: row * DISTRICT_SIZE + DISTRICT_SIZE / 2,
-    x: col * DISTRICT_SIZE + TILE_INSET,
-    y: row * DISTRICT_SIZE + TILE_INSET,
+    cx: (col + PAD_DISTRICTS) * DISTRICT_SIZE + DISTRICT_SIZE / 2,
+    cy: (row + PAD_DISTRICTS) * DISTRICT_SIZE + DISTRICT_SIZE / 2,
+    x: (col + PAD_DISTRICTS) * DISTRICT_SIZE + TILE_INSET,
+    y: (row + PAD_DISTRICTS) * DISTRICT_SIZE + TILE_INSET,
     size: DISTRICT_SIZE - TILE_INSET * 2,
   };
 });
+
+/** The empty ring: every grid cell that is not one of the nine real districts. */
+export type WorldPadCell = { id: string; x: number; y: number; size: number };
+export const PAD_CELLS: WorldPadCell[] = (() => {
+  const out: WorldPadCell[] = [];
+  for (let r = 0; r < GRID_ROWS; r++) {
+    for (let c = 0; c < GRID_COLS; c++) {
+      const core =
+        c >= PAD_DISTRICTS && c < PAD_DISTRICTS + COLS && r >= PAD_DISTRICTS && r < PAD_DISTRICTS + ROWS;
+      if (core) continue;
+      out.push({
+        id: `pad-${c}-${r}`,
+        x: c * DISTRICT_SIZE + TILE_INSET,
+        y: r * DISTRICT_SIZE + TILE_INSET,
+        size: DISTRICT_SIZE - TILE_INSET * 2,
+      });
+    }
+  }
+  return out;
+})();
 
 const DISTRICT_BY_ID = Object.fromEntries(DISTRICTS.map((d) => [d.id, d])) as Record<
   CategoryId,
@@ -89,121 +125,13 @@ const DISTRICT_BY_ID = Object.fromEntries(DISTRICTS.map((d) => [d.id, d])) as Re
 >;
 
 // ----------------------------------------------------------------------------
-// Tiles — CC0 art (see app/public/world/CREDITS.txt). One word of scale:
-// `TILE` is a ground tile's size in world units; sprites render at `PROP`/`CHAR`
-// so they stand roughly 1.75–2 tiles tall, the way the references read.
+// Villagers are drawn, not fetched: `CharacterSprite` renders an inline SVG
+// whose face, hair and clothes are hashed from the handle id. The ground is
+// the site's background colour and there is deliberately no scenery: only the
+// district grids and the villagers.
 // ----------------------------------------------------------------------------
-export const TILE = 64;
-export const PROP_SIZE = 116;
+/** Marker square edge, in world units. */
 export const CHAR_SIZE = 128;
-
-export const GROUND = {
-  grass: "/world/ground_grass.png",
-  grass2: "/world/ground_grass2.png",
-  grass3: "/world/ground_grass3.png",
-  dirt: "/world/ground_dirt.png",
-  sand: "/world/ground_sand.png",
-  rock: "/world/ground_rock.png",
-} as const;
-
-/** Per-category ground so the nine districts read as different terrain. */
-const DISTRICT_GROUND: Record<CategoryId, string> = {
-  crypto: GROUND.rock,
-  ai: GROUND.grass2,
-  sports: GROUND.sand,
-  people: GROUND.grass3,
-  brands: GROUND.dirt,
-  memes: GROUND.grass2,
-  music: GROUND.grass,
-  tech: GROUND.rock,
-  culture: GROUND.sand,
-};
-
-export function groundFor(id: CategoryId): string {
-  return DISTRICT_GROUND[id] ?? GROUND.grass;
-}
-
-export const PROPS = {
-  tree: "/world/prop_tree.png",
-  pine: "/world/prop_pine.png",
-  autumn: "/world/prop_autumn.png",
-  bush: "/world/prop_bush.png",
-  mushroom: "/world/prop_mushroom.png",
-  fence: "/world/prop_fence.png",
-  post: "/world/prop_post.png",
-  // Reused ground art, scattered as small patches.
-  flowers: "/world/ground_grass3.png",
-  rock: "/world/ground_rock.png",
-} as const;
-
-/** Character bodies — the handle's avatar is composited on as the head. */
-export const CHARACTERS = [
-  "/world/char_0.png",
-  "/world/char_1.png",
-  "/world/char_2.png",
-  "/world/char_3.png",
-  "/world/char_4.png",
-  "/world/char_5.png",
-] as const;
-
-export type WorldProp = {
-  id: string;
-  x: number;
-  y: number;
-  size: number;
-  image: string;
-  /** Flat ground decals lie on the grass (no vertical anchor). */
-  flat: boolean;
-};
-
-/**
- * Scatter decorations inside every district. Deterministic from the district id
- * and index, so the scenery never reshuffles. Kept off the central crossroads
- * (radius ≥ 150 from each district centre) so the roads stay walkable.
- */
-export function layoutProps(): WorldProp[] {
-  const kinds: string[] = [
-    PROPS.tree,
-    PROPS.tree,
-    PROPS.tree,
-    PROPS.tree,
-    PROPS.pine,
-    PROPS.pine,
-    PROPS.autumn,
-    PROPS.bush,
-    PROPS.bush,
-    PROPS.bush,
-    PROPS.flowers,
-    PROPS.flowers,
-    PROPS.rock,
-    PROPS.mushroom,
-  ];
-  const out: WorldProp[] = [];
-  for (const d of DISTRICTS) {
-    for (let i = 0; i < 26; i++) {
-      const key = `${d.id}:${i}`;
-      const angle = hashUnit(key, 11) * Math.PI * 2;
-      // Skew outward so district centres (the crossroads) stay clear.
-      const radius = (0.34 + 0.6 * hashUnit(key, 12)) * (DISTRICT_SIZE / 2 - 80);
-      const kind = kinds[Math.floor(hashUnit(key, 13) * kinds.length)] ?? PROPS.tree;
-      const flat = kind === PROPS.flowers || kind === PROPS.rock;
-      out.push({
-        id: `prop-${key}`,
-        x: d.cx + Math.cos(angle) * radius,
-        y: d.cy + Math.sin(angle) * radius,
-        size: flat ? TILE : Math.round(PROP_SIZE * (0.85 + 0.4 * hashUnit(key, 14))),
-        image: kind,
-        flat,
-      });
-    }
-  }
-  return out;
-}
-
-/** The character body a handle wears — stable per id. */
-export function characterFor(id: string): string {
-  return CHARACTERS[Math.floor(hashUnit(id, 7) * CHARACTERS.length)] ?? CHARACTERS[0];
-}
 
 /** A handle's district — the primary category; never undefined (9 = 3×3). */
 export function districtOf(id: CategoryId): WorldDistrict {
@@ -211,26 +139,89 @@ export function districtOf(id: CategoryId): WorldDistrict {
 }
 
 /**
- * Place every handle. Positions depend only on `id`, so the set can grow (new
- * handles streaming in) without any existing plot shifting. Ordered so the
- * biggest markers paint last (on top).
+ * Place every handle. Positions depend only on `id` + district, so the set can
+ * grow (new handles streaming in) without any existing plot shifting. A handle
+ * is placed in EVERY district one of its `categories` names — the map's version
+ * of the list's tabs: Tesla stands in Tech and in Brands — one instance per
+ * grid, hashed to its own spot inside each. A deterministic relaxation pass
+ * then pushes apart plots whose tags would overlap, and the result is clamped
+ * back inside the district disc. Ordered so the biggest markers paint last
+ * (on top).
  */
 export function layoutWorld(assets: LiveAsset[]): WorldPlotData[] {
   const peak = assets.reduce((m, a) => Math.max(m, Math.abs(a.index)), 1);
-  const plots: WorldPlotData[] = assets.map((asset) => {
-    const d = districtOf(asset.category);
-    const angle = hashUnit(asset.id, 1) * Math.PI * 2;
-    const radius = Math.sqrt(hashUnit(asset.id, 2)) * PLOT_RADIUS;
+  const plots: WorldPlotData[] = [];
+  for (const asset of assets) {
     const weight = Math.min(1, Math.sqrt(Math.abs(asset.index) / peak));
-    return {
-      id: asset.id,
-      asset,
-      x: d.cx + Math.cos(angle) * radius,
-      y: d.cy + Math.sin(angle) * radius,
-      size: 60 + weight * 44,
-      district: asset.category,
-    };
-  });
+    // Every category family (fall back to the primary if the array is empty).
+    const cats: CategoryId[] = asset.categories.length ? asset.categories : [asset.category];
+    for (const cat of cats) {
+      const d = districtOf(cat);
+      const seed = `${asset.id}:${cat}`;
+      const angle = hashUnit(seed, 1) * Math.PI * 2;
+      const radius = Math.sqrt(hashUnit(seed, 2)) * PLOT_RADIUS;
+      plots.push({
+        id: seed,
+        asset,
+        x: d.cx + Math.cos(angle) * radius,
+        y: d.cy + Math.sin(angle) * radius,
+        size: 60 + weight * 44,
+        district: cat,
+      });
+    }
+  }
+
+  // Min separation between neighbours — wide enough that name tags (and the
+  // 176px hover chart) never collide. Deterministic: groups relax in id order.
+  const MIN_SEP = 260;
+  const byDistrict = new Map<CategoryId, WorldPlotData[]>();
+  for (const p of plots) {
+    const g = byDistrict.get(p.district) ?? [];
+    g.push(p);
+    byDistrict.set(p.district, g);
+  }
+  for (const group of byDistrict.values()) {
+    group.sort((a, b) => a.id.localeCompare(b.id));
+    for (let pass = 0; pass < 12; pass++) {
+      let moved = false;
+      for (let i = 0; i < group.length; i++) {
+        for (let j = i + 1; j < group.length; j++) {
+          const a = group[i]!;
+          const b = group[j]!;
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          let dist = Math.hypot(dx, dy);
+          if (dist >= MIN_SEP) continue;
+          if (dist < 1) {
+            dx = 1;
+            dy = 0;
+            dist = 1;
+          }
+          const push = (MIN_SEP - dist) / 2;
+          const ux = dx / dist;
+          const uy = dy / dist;
+          a.x -= ux * push;
+          a.y -= uy * push;
+          b.x += ux * push;
+          b.y += uy * push;
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    // The pushes must never evict anyone from the district disc.
+    const d = districtOf(group[0]!.district);
+    for (const p of group) {
+      const dx = p.x - d.cx;
+      const dy = p.y - d.cy;
+      const r = Math.hypot(dx, dy);
+      if (r > PLOT_RADIUS) {
+        p.x = d.cx + (dx / r) * PLOT_RADIUS;
+        p.y = d.cy + (dy / r) * PLOT_RADIUS;
+      }
+    }
+  }
+
   // Paint back-to-front: smaller y (higher up the world) behind larger y, so a
   // character standing "in front" overlaps the one behind it.
   plots.sort((a, b) => a.y - b.y || a.size - b.size);

@@ -681,10 +681,12 @@ input[type="number"] {
    ----------------------------------------------------------------------------- */
 
 /* -----------------------------------------------------------------------------
-   Aura Atlas — the pannable top-down village on the explore page.
-   Ground/roads/scenery are CC0 tiles from `app/public/world` (see CREDITS.txt).
-   The layer's transform is written by usePanZoom (imperative, off the React
-   render path); the rules below only describe the world's LOOK.
+   Aura Atlas — the full-screen, top-angle village on the explore page.
+   The ground is the site's own background colour (no farmland texture). The
+   plane is tilted by rotateX(var(--world-tilt)) seen through the viewport's
+   perspective; props and villagers counter-rotate about their base so they
+   stand upright facing the viewer. The layer's camera transform is written by
+   usePanZoom (imperative, off the React render path); these rules are LOOK only.
    ----------------------------------------------------------------------------- */
 .world-viewport {
   position: relative;
@@ -693,6 +695,10 @@ input[type="number"] {
   cursor: grab;
   contain: layout paint;
   background-color: hsl(var(--background));
+  /* Dragging is the primary gesture — nothing inside may ever be selected. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .world-viewport.is-panning {
   cursor: grabbing;
@@ -702,31 +708,30 @@ input[type="number"] {
   outline-offset: -2px;
 }
 
+/* The tilted plane + the camera layer inside it. preserve-3d keeps the
+   counter-rotated sprites in the same 3D context as the tilt. */
+.world-tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
 .world-layer {
   position: absolute;
   top: 0;
   left: 0;
   transform-origin: 0 0;
   will-change: transform;
+  transform-style: preserve-3d;
 }
 
-/* Ground bed, district terrain plates, and the crossroads between them. */
+/* Ground plane (the site's background colour) and the district grid plates. */
 .world-ground,
-.world-district,
-.world-road {
+.world-district {
   position: absolute;
-  background-repeat: repeat;
-  image-rendering: pixelated;
 }
 .world-ground {
   inset: 0;
-}
-.world-decal {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  image-rendering: pixelated;
-  pointer-events: none;
-  user-select: none;
+  background-color: hsl(var(--background));
 }
 .world-district {
   border-radius: 44px;
@@ -738,6 +743,10 @@ input[type="number"] {
 }
 .world-district--dim {
   opacity: 0.32;
+}
+/* The empty ring around the village — fainter than a live district. */
+.world-district--pad {
+  opacity: 0.45;
 }
 .world-district__label {
   position: absolute;
@@ -753,31 +762,18 @@ input[type="number"] {
   white-space: nowrap;
   user-select: none;
 }
-.world-road--v {
-  top: 0;
-  height: 100%;
-}
-.world-road--h {
-  left: 0;
-  width: 100%;
-}
-
-/* Scenery — feet at the plot point. */
-.world-prop {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  image-rendering: pixelated;
-  pointer-events: none;
-  user-select: none;
-}
-
-/* Villagers — a body sprite wearing the handle's avatar as its head. */
+/* Villagers — a drawn vector character (CharacterSprite), no avatar composited
+   on it. The whole plot (tag + body) counter-rotates out of the tilted plane,
+   about the sprite's feet, so it stands upright facing the viewer. --char-scale
+   (written by the camera) keeps their apparent size ∝ √zoom instead of ∝ zoom. */
 .world-plot {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, -100%) rotateX(calc(-1 * var(--world-tilt, 0deg)))
+    scale(var(--char-scale, 1));
+  transform-origin: 50% 100%;
   outline: none;
 }
 .world-char {
@@ -802,21 +798,25 @@ input[type="number"] {
   inset: 0;
   width: 100%;
   height: 100%;
-  image-rendering: pixelated;
   pointer-events: none;
   user-select: none;
+  transform-origin: 50% 100%;
 }
-.world-char__face {
-  position: absolute;
-  left: 50%;
-  top: 30%;
-  transform: translate(-50%, -50%);
-  border-radius: 22%;
-  overflow: hidden;
-  box-shadow:
-    0 0 0 2px hsl(var(--background) / 0.9),
-    0 2px 6px hsl(0 0% 0% / 0.4);
-  transition: box-shadow 0.2s ease;
+/* Breathing — a slow, tiny stretch so the village feels alive. The delay is
+   per-character (inline), so nobody breathes in sync. */
+@media (prefers-reduced-motion: no-preference) {
+  .world-char__sprite {
+    animation: world-breathe 2.8s ease-in-out infinite;
+  }
+}
+@keyframes world-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.04);
+  }
 }
 .world-char__aura {
   position: absolute;
@@ -828,20 +828,14 @@ input[type="number"] {
   pointer-events: none;
 }
 .world-plot--up .world-char__aura {
-  background: radial-gradient(circle, hsl(var(--up) / 0.55), hsl(var(--up) / 0) 72%);
+  background: radial-gradient(circle, hsl(var(--up) / 0.1), hsl(var(--up) / 0) 66%);
 }
 .world-plot--down .world-char__aura {
-  background: radial-gradient(circle, hsl(var(--down) / 0.55), hsl(var(--down) / 0) 72%);
+  background: radial-gradient(circle, hsl(var(--down) / 0.1), hsl(var(--down) / 0) 66%);
 }
 .world-plot:hover .world-char,
 .world-plot:focus-visible .world-char {
   transform: translateY(-3px);
-}
-.world-plot:hover .world-char__face,
-.world-plot:focus-visible .world-char__face {
-  box-shadow:
-    0 0 0 3px hsl(var(--primary)),
-    0 2px 8px hsl(0 0% 0% / 0.45);
 }
 
 /* Name + aura tag above the villager (the reference's floating label). */
@@ -860,17 +854,44 @@ input[type="number"] {
   transition: opacity 0.2s ease;
 }
 .world-plot__name {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: hsl(var(--foreground));
 }
 .world-plot__meta {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
 }
-/* Tags only once the camera is meaningfully zoomed in. */
-.world-layer[data-zoom="out"] .world-plot__tag {
+/* The tag hugs its text; hovering grows a live sparkline into it. Animating
+   grid rows (0fr → 1fr) + the inner width + opacity gives a smooth open in
+   both directions with no measured-height JS. */
+.world-plot__chart {
+  display: grid;
+  grid-template-rows: 0fr;
   opacity: 0;
+  transition:
+    grid-template-rows 0.28s ease,
+    opacity 0.28s ease;
+}
+.world-plot:hover .world-plot__chart,
+.world-plot:focus-visible .world-plot__chart {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.world-plot__chart-inner {
+  min-height: 0;
+  overflow: hidden;
+  width: 0;
+  transition: width 0.28s ease;
+}
+.world-plot:hover .world-plot__chart-inner,
+.world-plot:focus-visible .world-plot__chart-inner {
+  width: 176px;
+}
+.world-plot__spark {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
 }
 
 @media (prefers-reduced-motion: no-preference) {

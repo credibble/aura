@@ -18,9 +18,12 @@ import { useHandles } from "@/lib/handle-store";
  * the theme toggle the moment it collapses — collapsed = avatar only.
  */
 export function HandleAccountChip({
+  className,
   labelClassName,
   toggleClassName,
 }: {
+  /** Overrides for the outer chip — the dock passes compact sizing. */
+  className?: string;
   labelClassName?: string;
   toggleClassName?: string;
 }) {
@@ -34,7 +37,12 @@ export function HandleAccountChip({
   const signedIn = Boolean(address) || Boolean(active);
 
   return (
-    <div className="mt-1 flex h-14 w-full items-center overflow-hidden rounded-full px-1 transition-colors hover:bg-secondary/70">
+    <div
+      className={cn(
+        "mt-1 flex h-14 w-full items-center overflow-hidden rounded-full px-1 transition-colors hover:bg-secondary/70",
+        className,
+      )}
+    >
       <Link
         to="/me"
         className="flex h-full min-w-0 flex-1 items-center gap-3 px-1"

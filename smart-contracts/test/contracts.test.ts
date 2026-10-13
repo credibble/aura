@@ -96,9 +96,13 @@ describe("Full contract scenarios", () => {
     await handleC.connect(treasury).updateAura(5000n, "test");
     expect(await handleC.aura()).to.equal(5000n);
 
-    // Graduation requires ≥ 100 aura and is backend-only.
-    await expectError(handleC.connect(alice).setGraduated(false), "NotCurator");
-    await handleC.connect(treasury).setGraduated(false); // un-graduate allowed
+    // Graduation is its own role: factory | dedicated graduator | curator fallback.
+    await expectError(handleC.connect(alice).setGraduated(false), "NotGraduator");
+    await handleC.connect(treasury).setGraduated(false); // curator fallback still works
+    await handleFactory.setGraduator(h("btc"), alice.address);
+    await expectError(handleC.connect(bob).setGraduated(false), "NotGraduator");
+    await handleC.connect(alice).setGraduated(true); // dedicated graduator
+    expect(await handleC.graduated()).to.equal(true);
     await handleC.connect(treasury).updateAura(10_000n, "graduated"); // 100.00
     await handleC.connect(treasury).setGraduated(true);
     expect(await handleC.graduated()).to.equal(true);

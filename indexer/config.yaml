@@ -22,7 +22,7 @@ field_selection:
 
 chains:
   - id: 10143 # Monad testnet
-    start_block: 70529265
+    start_block: 70555935
     rpc:
       # HyperSync is the primary source for this chain (ENVIO_API_TOKEN, or the
       # token Envio Cloud provides). This RPC is the resilience path — and the
@@ -34,7 +34,7 @@ chains:
         for: fallback
     contracts:
       - name: Configurator
-        address: "0x72c10a1396dEfc581021e940e3036e4C7A30F6d4"
+        address: "0xB8Bf206642E0a6D9a1534e57d5Ef6AbE0CDC0726"
         events:
           - event: "DepositFeeRangeSet(uint64 minBps, uint64 maxBps)"
           - event: "MaxFeeAuraSet(uint256 maxFeeAura)"
@@ -42,30 +42,30 @@ chains:
           - event: "MinWindowSecondsSet(uint256 minWindowSeconds)"
           - event: "WindowPaddingSet(uint256 windowPadding)"
       - name: MarketRegistry
-        address: "0xeBDB458297C5b70d93FBbAec6D7931c3B3F2bA4E"
+        address: "0xC7f2A66424e24BDA1BB18FA8E3157Df85686B9Ff"
         events:
           - event: "HandleRegistered(bytes32 indexed handleId, uint256 windowMinutes)"
       - name: OracleFactory
-        address: "0xBb90D7533ac2f461f10f6c5e789bc318B91CF5A4"
+        address: "0x3c2f7c24d86D7F2F2344A4Ea3466F5F2cd4F1326"
         events:
           - event: "OracleDeployed(bytes32 indexed handleId, uint256 windowStart, address oracle)"
       - name: HandleFactory
-        address: "0x4c92D7E1399DaEB71F6c5bDa0274EFAFe728c707"
+        address: "0x56cE5569612418A0829f65220dAeCc93b38F8119"
         events:
           - event: "HandleCreated(bytes32 indexed handleId, address indexed handle, address indexed stake, address creator, address market, address oracleFactory, address revenue, string name, string symbol, string metadata, uint256 windowMinutes, uint256[] categories)"
       - name: Pool
-        address: "0x295E6C3e282a48862138AA39d118B87761BdA9aF"
+        address: "0x861C853853ae2cd05E98A3472074a3f618Ac0cd9"
         events:
           - event: "Reserved(address indexed oracle, uint256 amount)"
           - event: "PaidOut(address indexed oracle, address indexed to, uint256 amount)"
           - event: "Unreserved(address indexed oracle, uint256 amount)"
           - event: "PoolStateChanged(uint256 totalAssets, uint256 totalSupply, uint256 idle, uint256 totalReserved)"
       - name: RevenueSharing
-        address: "0x870C105c926466Ba180f6366b2d671D29FfD2c9C"
+        address: "0xFaF5551Bbe0Be5B990D53A43869Cd293d8C547B6"
         events:
           - event: "FeeSplit(bytes32 indexed handleId, uint256 amount, uint256 user, uint256 lp, uint256 protocol)"
       - name: MarketMaker
-        address: "0x88511b1327042ADA8497B7d19945597a8C78F789"
+        address: "0xa66c93D8BC2AF554C5E5bdACfFC3210Ad2863E02"
         events:
           - event: "WindowOpened(bytes32 indexed handleId, address indexed oracle, uint256 windowStart, uint256 windowEnd, string[] outcomes, uint256[] probabilities, uint256 funding, string oracleMetadata)"
           - event: "PricesUpdated(bytes32 indexed handleId, address indexed oracle, uint256[] prices)"
@@ -76,7 +76,7 @@ chains:
           - event: "VoidRedeemed(bytes32 indexed handleId, address indexed oracle, address indexed trader, uint256 payout)"
           - event: "Transferred(address indexed from, address indexed to, address indexed oracle, uint256 outcome, uint256 amount)"
       - name: OrderBook
-        address: "0x48B4a9052F60e562387719868415086931539945"
+        address: "0xfE4d4AAb7B2D2239039623F0a8a5087a15B5248A"
         events:
           - event: "OrderPlaced(bytes32 indexed handleId, address indexed oracle, uint256 outcome, bool side, address indexed maker, bytes32 id, uint256 price, uint256 size, uint256 expiresAt)"
           - event: "OrderCancelled(bytes32 indexed handleId, address indexed oracle, bytes32 id)"
@@ -104,6 +104,7 @@ chains:
 # Addresses come out lowercase (matching the app's lowercased wallet filters and
 # the ids graph-node used to produce), and bytes stay hex strings.
 address_format: lowercase
+
 
 
 

@@ -136,6 +136,18 @@ contract HandleFactory is IHandleFactory {
         h.setCurator(curator);
     }
 
+    /// Wire the dedicated graduation role (the CRE graduation consumer), so an
+    /// off-chain workflow can graduate handles without holding curation rights.
+    /// Pass the zero address to clear it (the curator then graduates).
+    function setGraduator(
+        bytes32 handleId,
+        address graduator
+    ) external onlyOwner {
+        Handle h = handles[handleId];
+        if (address(h) == address(0)) revert Errors.UnregisteredHandle();
+        h.setGraduator(graduator);
+    }
+
     function handleOf(bytes32 handleId) external view returns (address) {
         return address(handles[handleId]);
     }

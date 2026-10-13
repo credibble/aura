@@ -3,36 +3,36 @@
   "deployer": "0x09fd7bbE0422a864a01BD906A8A8E8F88bcdE082",
   "relayer": "0x09fd7bbE0422a864a01BD906A8A8E8F88bcdE082",
   "startBlocks": {
-    "usdc": 70529265,
-    "auraToken": 70529270,
-    "configurator": 70529275,
-    "addressesProvider": 70529280,
-    "marketRegistry": 70529285,
-    "feeCollector": 70529290,
-    "oracleFactory": 70529295,
-    "handleFactory": 70529301,
-    "pool": 70529307,
-    "revenueSharing": 70529312,
-    "marketMaker": 70529317,
-    "orderBook": 70529323
+    "usdc": 70555935,
+    "auraToken": 70555940,
+    "configurator": 70555944,
+    "addressesProvider": 70555948,
+    "marketRegistry": 70555952,
+    "feeCollector": 70555957,
+    "oracleFactory": 70555962,
+    "handleFactory": 70555967,
+    "pool": 70555973,
+    "revenueSharing": 70555979,
+    "marketMaker": 70555983,
+    "orderBook": 70555987
   },
-  "usdc": "0xe959aCd4Fd93a9adBB59d28d64b8057C03b49822",
-  "auraToken": "0x32D5B6C6B578915D1fc7d085eC39ac51c87F0afa",
-  "configurator": "0x72c10a1396dEfc581021e940e3036e4C7A30F6d4",
-  "addressesProvider": "0xcABfc8c28ED21Bbc8c4F8B5166F6446352321759",
-  "marketRegistry": "0xeBDB458297C5b70d93FBbAec6D7931c3B3F2bA4E",
-  "feeCollector": "0x545c475afcF21D16F12fC751c4CA27e783dE0501",
-  "oracleFactory": "0xBb90D7533ac2f461f10f6c5e789bc318B91CF5A4",
-  "handleFactory": "0x4c92D7E1399DaEB71F6c5bDa0274EFAFe728c707",
-  "pool": "0x295E6C3e282a48862138AA39d118B87761BdA9aF",
-  "revenueSharing": "0x870C105c926466Ba180f6366b2d671D29FfD2c9C",
-  "marketMaker": "0x88511b1327042ADA8497B7d19945597a8C78F789",
-  "orderBook": "0x48B4a9052F60e562387719868415086931539945",
+  "usdc": "0x2a2397e18Acb79E18BedA8b9B9365D4e1a1B35B2",
+  "auraToken": "0x69F5AAe07E7839f67F7fCDA81C3319AB996926DB",
+  "configurator": "0xB8Bf206642E0a6D9a1534e57d5Ef6AbE0CDC0726",
+  "addressesProvider": "0xe3F020e761b22b0f8B3F3323c4a7f7eE06a88B5e",
+  "marketRegistry": "0xC7f2A66424e24BDA1BB18FA8E3157Df85686B9Ff",
+  "feeCollector": "0x90b682100dA350Ed4DEAD9a321b9a48CEED7d9e8",
+  "oracleFactory": "0x3c2f7c24d86D7F2F2344A4Ea3466F5F2cd4F1326",
+  "handleFactory": "0x56cE5569612418A0829f65220dAeCc93b38F8119",
+  "pool": "0x861C853853ae2cd05E98A3472074a3f618Ac0cd9",
+  "revenueSharing": "0xFaF5551Bbe0Be5B990D53A43869Cd293d8C547B6",
+  "marketMaker": "0xa66c93D8BC2AF554C5E5bdACfFC3210Ad2863E02",
+  "orderBook": "0xfE4d4AAb7B2D2239039623F0a8a5087a15B5248A",
   "handles": {
     "ronaldo": {
       "id": "0x726f6e616c646f00000000000000000000000000000000000000000000000000",
-      "contract": "0x1220Ee5eC25d920d7B5231365F5392896B5512D7",
-      "stake": "0x1E9458cC91C58246fE4B40C81a9a48d5c888b7Dc",
+      "contract": "0xbA104995b1F938f145C5dC7259CcB7aF7533Ae82",
+      "stake": "0x73D6565E7b0DecA9e158B3DEB36Be5Fd8540aB8f",
       "categories": [
         3,
         1
@@ -49,8 +49,8 @@
     },
     "messi": {
       "id": "0x6d65737369000000000000000000000000000000000000000000000000000000",
-      "contract": "0xd011D72F098D61dA82D04257F69E10Ab93983F8e",
-      "stake": "0xac5e209fA7C67A901f847C954Bc721573473657d",
+      "contract": "0x30557197D0a5AB3e3BD3c3527f3f8DDE573DDC0F",
+      "stake": "0xa88E6F94F713a424ccd5B3cb9cE0D06a5613C900",
       "categories": [
         3,
         1
@@ -67,8 +67,8 @@
     },
     "btc": {
       "id": "0x6274630000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x9D0c3Afb2F5aDdE3a4F91037D7426A5Ef6D55739",
-      "stake": "0x7DA92B470b8F3E6e9bC98D4296bd43ACE8c7eb47",
+      "contract": "0xAAabDeeF613dd15C74abb0A5dD7DfF9Cb6F4b627",
+      "stake": "0xf2B03CF96C5606d64657Fc45423b429DEbA452c9",
       "categories": [
         2
       ],
@@ -84,8 +84,8 @@
     },
     "eth": {
       "id": "0x6574680000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x19e5FA8087FD004F728F579cEf35978D76265765",
-      "stake": "0x190007551Bf052c62Df9F3063702015C68436B8F",
+      "contract": "0x61951422db48Cfa3698295D63c5bA3b6646822e6",
+      "stake": "0x065e9De56f348E205410e32923b1187a686aB073",
       "categories": [
         2
       ],
@@ -101,8 +101,8 @@
     },
     "sol": {
       "id": "0x736f6c0000000000000000000000000000000000000000000000000000000000",
-      "contract": "0xf6b133Ea310B564f9bb720c99F3284ed6F1ebfe9",
-      "stake": "0x72e601E77750b58F7bbADEA771d2e7147c888Ac8",
+      "contract": "0x37eB04331e6a6D4CbA7de1C19476480cf6D02276",
+      "stake": "0x174b72B083e886b0847020eBd871f7FD599d2d50",
       "categories": [
         2
       ],
@@ -118,8 +118,8 @@
     },
     "openai": {
       "id": "0x6f70656e61690000000000000000000000000000000000000000000000000000",
-      "contract": "0x1bbfAF123EfC3dc0cEd5Aa8802F19b03b352b6e2",
-      "stake": "0x896ac74B68666E27FE31AAbA7aB9a539Ce16D730",
+      "contract": "0x8aF879C07D1f090A685De2A4F8CC74BA3DA40552",
+      "stake": "0x2f69D4D8391eDb053a6Ee9760eAA981f7E9633A1",
       "categories": [
         4,
         5
@@ -137,8 +137,8 @@
     },
     "tesla": {
       "id": "0x7465736c61000000000000000000000000000000000000000000000000000000",
-      "contract": "0xe7bf80967f7fE617164Df2CCEcbA2E793c8F340B",
-      "stake": "0x4D14E4d4629de55E7d3C99A687C4013E229c7676",
+      "contract": "0x8CCfdb6464B5A7F90ED175460dcD9d6D963CdaA2",
+      "stake": "0xE0406029E47A6D75ab4ad68182a14d253C115715",
       "categories": [
         5,
         1
@@ -156,8 +156,8 @@
     },
     "elon": {
       "id": "0x656c6f6e00000000000000000000000000000000000000000000000000000000",
-      "contract": "0x4E5Af3cF88750CF4aBc0Fa2B62Ac0CE7802F11f4",
-      "stake": "0xBbA290736B2c056E6523db9edF81783227AADE08",
+      "contract": "0x52C327CD21587Dc17050a0bb27cFcA052162bBb6",
+      "stake": "0xF532f8E663D6803Fd75408624eFc6d920bdFf60A",
       "categories": [
         1,
         5
@@ -174,8 +174,8 @@
     },
     "trump": {
       "id": "0x7472756d70000000000000000000000000000000000000000000000000000000",
-      "contract": "0xee9B9B31995446815edE0E075c9b13725b900821",
-      "stake": "0x9b486e1DfCD50221b58662A10E629395461600da",
+      "contract": "0xb4160fca3e32d3E1A47211ecE00a290077ad5D30",
+      "stake": "0x05BC8ECE8C3730c3d1C95D00C0dBfd6e7f26C18e",
       "categories": [
         1
       ],
@@ -191,8 +191,8 @@
     },
     "taylor": {
       "id": "0x7461796c6f720000000000000000000000000000000000000000000000000000",
-      "contract": "0x681969D49Cd5f2D73e85f9190d24Dc03538b9f04",
-      "stake": "0x83B1BfEC83C0b400609b1Fe122301B11A6D52e76",
+      "contract": "0xAf16658DF347b2b66Ed4CAb594A9E746e6648d81",
+      "stake": "0x5912745e8ad0C07116D6eA0EA2EBB1c4862C7543",
       "categories": [
         7,
         1
@@ -209,8 +209,8 @@
     },
     "adidas": {
       "id": "0x6164696461730000000000000000000000000000000000000000000000000000",
-      "contract": "0x8b60A14997e16781B0A66Af2e09d6B0bD61e1B60",
-      "stake": "0x2Cc689AC00119C7f73DA974C2049d3026df3f1C2",
+      "contract": "0x80D3E6ee373D6dB9Cfc9e72D28c61c3d324EAC52",
+      "stake": "0x215Df2B5A2969580528BFCC46f8c737E8e9a2AC3",
       "categories": [
         6
       ],
@@ -226,8 +226,8 @@
     },
     "nike": {
       "id": "0x6e696b6500000000000000000000000000000000000000000000000000000000",
-      "contract": "0x3EF439a5112bE760a301a099EEbaf155CAa0446f",
-      "stake": "0xC64eecAB6ca86A8CDE7053a73D14118818116E1a",
+      "contract": "0x659a5698230c8801571677bde0F295795d2Bb8fE",
+      "stake": "0xdf64e1306562fD79dC04914bA997204476755a64",
       "categories": [
         6
       ],
@@ -243,8 +243,8 @@
     },
     "brainrot": {
       "id": "0x627261696e726f74000000000000000000000000000000000000000000000000",
-      "contract": "0x655cbbA0734a50e09ad5501dD66cD364AB99ef13",
-      "stake": "0xAF09b18b0B746a80a850155fB06Afa17F2c59b0c",
+      "contract": "0x751490e4B7c75796ab87a50f9924af9C3d1e2c1a",
+      "stake": "0xe33348FA6d03f05EBAeEE2074D8604E3FD01C42b",
       "categories": [
         8
       ],
@@ -260,8 +260,8 @@
     },
     "kpop": {
       "id": "0x6b706f7000000000000000000000000000000000000000000000000000000000",
-      "contract": "0xaE62C5fC13F7Ea7DD5d97c09B3FADb44564859F7",
-      "stake": "0x7118781A86eC83503879cA685aFea5f0e5D36A07",
+      "contract": "0x94D66Fd35bF371F884f2a4aBF3360b2D8b855341",
+      "stake": "0xE481cb73a117818d439C311bf95aAEA838EaA563",
       "categories": [
         9,
         7
@@ -278,8 +278,8 @@
     },
     "country": {
       "id": "0x636f756e74727900000000000000000000000000000000000000000000000000",
-      "contract": "0x9bb015325A6D7fA1EEf241623c8F2495F1F46fd1",
-      "stake": "0x606929a7bef5c54D7694807ac158700D0e7daC25",
+      "contract": "0x5ab78E8F2b15AeA58A1401B67b587C08641031e9",
+      "stake": "0xFa93Ee0E78E1Eb5198Fb14cd9357D39DDC8847eE",
       "categories": [
         9,
         7
@@ -297,8 +297,8 @@
     },
     "hackathon": {
       "id": "0x6861636b6174686f6e0000000000000000000000000000000000000000000000",
-      "contract": "0x6cc5Be2BF29c1Ac536A2acc4e8E8fCAe8915E34B",
-      "stake": "0x580dDA49eE4BE81741b3B1Bddc2446d2F8A00953",
+      "contract": "0x3EFA49F3661E2874d08c7db095C808e6dF8326Ab",
+      "stake": "0x7C479A5e873713B24c037BaB3578dB355fc86261",
       "categories": [
         9
       ],
@@ -312,5 +312,8 @@
         "reddit-hackathon"
       ]
     }
-  }
+  },
+  "rewardConsumer": "0x217248a521603DcF46F73E148081e00D66c1b5F2",
+  "graduationConsumer": "0x52eB131085C8472D5dc2B2fc6Dc0A25Ebe04cdDE",
+  "creForwarder": "0xF8344CFd5c43616a4366C34E3EEE75af79a74482"
 }

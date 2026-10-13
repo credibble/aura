@@ -21,6 +21,7 @@ interface IHandle {
     event RevenueSet(address indexed revenue);
     event StakeSet(address indexed stake);
     event CuratorSet(address indexed curator);
+    event GraduatorSet(address indexed graduator);
     event AuraUpdaterSet(address indexed updater);
     event AuraUpdated(uint256 aura, string summary);
 
@@ -55,6 +56,8 @@ interface IHandle {
     function setAuraUpdater(address updater) external;
 
     function setCurator(address _curator) external;
+
+    function setGraduator(address _graduator) external;
 
     function setMarketByFactory(address _market) external;
 

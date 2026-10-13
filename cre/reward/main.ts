@@ -56,8 +56,6 @@ export type Config = {
   chainSelectorName: string;
   /** The Envio indexer GraphQL endpoint — HyperSync-backed, `/v1/graphql`. */
   indexerUrl: string;
-  /** The AURA token contract address (used by the consumer's approve write). */
-  auraTokenAddress: string;
   /** Amount (wei) to reward each underfunded stake vault per run. */
   rewardAmount: string;
   /** Skip a vault when its indexed AURA balance is already above this (wei). */
@@ -160,6 +158,17 @@ export const onCron = (runtime: Runtime<Config>): string => {
     `CRE: ${stakes.length} vaults, ${underfunded.length} underfunded (< ${skipIfBalanceAbove})`,
   );
 
+  // One report = one on-chain tx. Cap the batch so the consumer's loop stays
+  // well inside the report gas budget (config `gasLimit`); the remainder is
+  // picked up by the next run.
+  const MAX_BATCH = 100;
+  const batch = underfunded.slice(0, MAX_BATCH);
+  if (underfunded.length > batch.length) {
+    runtime.log(
+      `CRE: capping batch ${underfunded.length} → ${batch.length} (next run takes the rest)`,
+    );
+  }
+
   // Receiver-free local simulation: real read + decision, then a labeled result
   // and an early return — no receiver validation, report, or EVMClient.
   if (mode === "local-simulation") {
@@ -191,7 +200,7 @@ export const onCron = (runtime: Runtime<Config>): string => {
   }
 
   // One report carries the whole batch: the consumer approves + rewards each.
-  const targets = underfunded.map((s) => s.id as Address);
+  const targets = batch.map((s) => s.id as Address);
   const encoded = encodeAbiParameters(
     parseAbiParameters("address[] stakes, uint256 amount"),
     [targets, amount],
@@ -219,9 +228,9 @@ export const onCron = (runtime: Runtime<Config>): string => {
 
   const tx = bytesToHex(write.txHash);
   runtime.log(
-    `CRE: rewarded ${underfunded.length} vaults, tx ${tx}`,
+    `CRE: rewarded ${batch.length} vaults, tx ${tx}`,
   );
-  return JSON.stringify({ mode: "production", rewarded: underfunded.length, txHash: tx });
+  return JSON.stringify({ mode: "production", rewarded: batch.length, txHash: tx });
 };
 
 export const initWorkflow = (config: Config) => {

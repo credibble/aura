@@ -11,6 +11,8 @@
  *   3. node sync-indexer.mjs --write  (indexer/config.yaml addresses + start block)
  *   4. indexer `envio codegen`    (regenerates the handler types from config + schema)
  *   5. hardhat seed-handles.ts    (10 handles, each with its own scoped sources)
+ *   6. hardhat deploy-consumers.ts (CRE Reward + Graduation consumer contracts)
+ *   7. hardhat wire-graduators.ts  (GraduationConsumer → each handle's graduator)
  *
  * Then it prints the env lines to paste into oracle/.env and app/.env, and how to
  * start indexing.
@@ -66,6 +68,12 @@ if (skipIndexer) {
 
 STEP(5, "seed 10 handles, each with its own scoped sources");
 run("npx hardhat run scripts/seed-handles.ts --network monadTestnet", sc);
+
+STEP(6, "deploy the CRE consumer contracts (Reward + Graduation)");
+run("npx hardhat run scripts/deploy-consumers.ts --network monadTestnet", sc);
+
+STEP(7, "wire the GraduationConsumer as each handle's graduator");
+run("npx hardhat run scripts/wire-graduators.ts --network monadTestnet", sc);
 
 // Env lines for the two services, straight from the deployment record.
 const d = JSON.parse(readFileSync(`${sc}/deployments/deployments.json`, "utf8"));

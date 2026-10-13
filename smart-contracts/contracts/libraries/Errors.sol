@@ -12,6 +12,7 @@ library Errors {
     error NotRevenue();
     error NotProtocol();
     error NotCurator();
+    error NotGraduator();
     error NotUpdater();
     error NotGraduated();
     error NotOracle();

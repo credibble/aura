@@ -80,6 +80,11 @@ contract Handle is IHandle, Ownable2Step, ReentrancyGuard {
     /// graduation, window length, updater rotation). Zero = fall back to
     /// `auraUpdater`, which is the pre-split behaviour.
     address public curator;
+    /// Dedicated graduation role (the CRE graduation consumer). Graduation is
+    /// split out of `curator` so the protocol backend can keep curating
+    /// metadata/sources/verification while an off-chain workflow graduates
+    /// handles. Zero = no dedicated graduator (curator still may).
+    address public graduator;
     /// Trading-prediction graduation: only graduated handles can open windows.
     bool public graduated;
     /// Content categories - each a plain small integer the UI maps to a family:
@@ -115,6 +120,19 @@ contract Handle is IHandle, Ownable2Step, ReentrancyGuard {
     /// Only the reward distributor may credit fees.
     modifier onlyRevenue() {
         if (msg.sender != revenue) revert Errors.NotRevenue();
+        _;
+    }
+
+    /// Graduation is callable by the factory, the dedicated `graduator` (the CRE
+    /// graduation consumer), or the curator (the pre-split fallback, so an
+    /// existing deployment keeps working).
+    modifier onlyGraduator() {
+        address allowed = curator == address(0) ? auraUpdater : curator;
+        if (
+            msg.sender != factory &&
+            msg.sender != graduator &&
+            msg.sender != allowed
+        ) revert Errors.NotGraduator();
         _;
     }
 
@@ -203,8 +221,10 @@ contract Handle is IHandle, Ownable2Step, ReentrancyGuard {
         emit AuraUpdaterSet(updater);
     }
 
-    /// Graduate (or un-graduate) the handle for trading prediction. Backend-only.
-    function setGraduated(bool ok) external onlyCurator {
+    /// Graduate (or un-graduate) the handle for trading prediction. Callable by
+    /// the factory, the dedicated `graduator` (CRE graduation consumer), or the
+    /// curator.
+    function setGraduated(bool ok) external onlyGraduator {
         graduated = ok;
         emit GraduatedSet(ok);
     }
@@ -226,6 +246,15 @@ contract Handle is IHandle, Ownable2Step, ReentrancyGuard {
     function setCurator(address _curator) external onlyFactory {
         curator = _curator;
         emit CuratorSet(_curator);
+    }
+
+    /// Factory wires the dedicated graduation role (the CRE graduation
+    /// consumer), so an off-chain workflow can graduate handles without taking
+    /// the backend's curation rights. Leaving it unset keeps the curator (or
+    /// aura updater) as the graduator.
+    function setGraduator(address _graduator) external onlyFactory {
+        graduator = _graduator;
+        emit GraduatorSet(_graduator);
     }
 
     /// Backend sets the handle's category codes (1-9).

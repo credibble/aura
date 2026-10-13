@@ -3,6 +3,6 @@
   "chainSelectorName": "monad-testnet",
   "indexerUrl": "https://indexer.dev.hyperindex.xyz/61835aa/v1/graphql",
   "minGraduationAura": "1000",
-  "consumerAddress": "",
-  "gasLimit": "1000000"
+  "consumerAddress": "0x52eB131085C8472D5dc2B2fc6Dc0A25Ebe04cdDE",
+  "gasLimit": "8000000"
 }

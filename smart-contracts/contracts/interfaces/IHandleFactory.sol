@@ -51,4 +51,6 @@ interface IHandleFactory {
     function setAuraUpdater(bytes32 handleId, address updater) external;
 
     function setCurator(bytes32 handleId, address curator) external;
+
+    function setGraduator(bytes32 handleId, address graduator) external;
 }

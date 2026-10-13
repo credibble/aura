@@ -50,6 +50,8 @@ function build(opts: {
   history?: { value: number }[];
   /** Inject a different AI model (e.g. the real DEBUG_MODE sampler). */
   ai?: unknown;
+  /** Item ids already scored — makes `freshItems` return nothing. */
+  sentIds?: string[];
 }) {
   const updates: { aura: number; summary: string }[] = [];
   const appends: { value: number; delta: number; inputsHash?: string }[] = [];
@@ -64,7 +66,7 @@ function build(opts: {
     },
   };
   const cache = {
-    get: async () => null,
+    get: async () => (opts.sentIds ? { ids: opts.sentIds } : null),
     set: async () => {},
     wrap: async (_k: unknown, _ttl: number, fetch: () => Promise<unknown>) => fetch(),
   };
@@ -203,5 +205,17 @@ describe("AuraEngineService — one series (on-chain is the source of truth)", (
       if (previous === undefined) delete process.env.DEBUG_MODE;
       else process.env.DEBUG_MODE = previous;
     }
+  });
+
+  it("still ticks when no NEW items arrived — falls back to recent items (no starved windows)", async () => {
+    // Every item is already in the Redis `sent` set, so `freshItems` returns
+    // nothing. Before, the engine skipped the tick entirely (no aura point → the
+    // window had no observation → void). It must now score the recent items.
+    const { engine, updates, appends } = build({ onChain: 3040, sentIds: ["item-1"] });
+    const tick = await engine.compute(HANDLE, 1_700_000_000_000);
+
+    expect(tick).not.toBeNull();
+    expect(updates).toHaveLength(1); // written on-chain → observable in the window
+    expect(appends).toHaveLength(1); // and mirrored into the resolution series
   });
 });

@@ -235,7 +235,10 @@ One tick, and what constrains it:
   always moves ≥ 1 unit (a 0.2% floor rounds to zero on a low aura), and a window
   with no aura observations is deliberately left unsettled — the market's grace
   window VOIDs it and `redeemVoid` refunds traders, instead of resolving YES on an
-  unchanged series.
+  unchanged series. The aura engine must therefore keep ticking: when no brand-new
+  source items arrived, it scores the most RECENT items instead of skipping
+  (`AuraEngineService.signalFor`), or the window engine starves and every window
+  voids. `AURA_AI_MIN_INTERVAL_MS` is the only gate on how often a handle ticks.
 - **Every tick is replayable.** `hashTick` commits to the handle, timestamp, base
   level, the item ids the model saw, its raw reply and the applied percent; the
   hash is logged and pushed with the aura event. To verify a resolution: re-fetch

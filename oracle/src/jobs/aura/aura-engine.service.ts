@@ -366,6 +366,14 @@ export class AuraEngineService {
     // Only NEW (not-yet-scored) items within the last 24h reach the AI —
     // Redis tracks the sent ids with a TTL so the same item never scores twice.
     const fresh = await this.freshItems(source, handle, items, now);
+    // The window engine needs ≥1 aura observation per window, but genuinely new
+    // items arrive sporadically (RSS/Reddit repeat their top items for hours, and
+    // the `sent` set then filters every one of them out). Scoring ONLY brand-new
+    // items left the aura frozen between news cycles, so most windows closed with
+    // no observation and were voided. When nothing new arrived, fall back to the
+    // most recent items so the index keeps a live observation stream; the AI call
+    // itself is still gated by AURA_AI_MIN_INTERVAL_MS (per handle).
+    const scored = fresh.length > 0 ? fresh : recentItems(items, now);
 
     const metrics: { name: string; value: number; delta: number }[] = [];
     let primary: number[] = [];
@@ -399,13 +407,14 @@ export class AuraEngineService {
       metrics,
       engagement,
       series: primary,
-      // The actual item texts — this is the SENTIMENT the AI scores on. Only
-      // fresh (<24h, not already scored) items; deduped via Redis. Economic
-      // caps: 8 items x 240 chars per source is plenty of sentiment signal.
+      // The actual item texts — this is the SENTIMENT the AI scores on. Fresh
+      // (<24h, not already scored) when any arrived, else the most recent items
+      // (see `scored` above); deduped via Redis. Economic caps: 8 items x 240
+      // chars per source is plenty of sentiment signal.
       //
       // Each line carries the endpoint's own engagement when it has one, so the
       // model can weigh reach ("88K views · 12.4K likes") against the words.
-      items: fresh
+      items: scored
         .slice(0, 8)
         .map((d) => {
           const text = d.text.length > 240 ? d.text.slice(0, 240) : d.text;
@@ -459,6 +468,18 @@ export function countLine(stats: Record<string, number> | undefined): string {
     parts.push(`${formatCount(value)}${label === "% upvoted" ? "" : " "}${label}`);
   }
   return parts.slice(0, 4).join(" · ");
+}
+
+/**
+ * The items to score when nothing NEW arrived this tick: the most recent ones
+ * within the 24h window (the fetcher returns them newest-first), falling back to
+ * the whole batch when even those have aged out. Keeps the aura's observation
+ * stream continuous so a market window always has a level to settle against,
+ * instead of starving the window engine (→ "no aura observations — void").
+ */
+function recentItems(items: RawDatum[], now: number): RawDatum[] {
+  const aged = items.filter((d) => !d.publishedAt || d.publishedAt >= now - FRESH_WINDOW_MS);
+  return aged.length > 0 ? aged : items;
 }
 
 /**

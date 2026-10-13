@@ -142,6 +142,16 @@ export function useTradeExecutor() {
 
   const needOpen = async (oracle: Address): Promise<boolean> =>
     preflight(async () => {
+      // A SETTLED window is not tradable even though `isOpen` is still true
+      // until its scheduled end (freeze-on-resolve settles early). Check
+      // settlement first so a resolved market can't be traded.
+      const settled = await api.readWindowSettled(oracle);
+      if (settled) {
+        toast.error("Window has settled", {
+          description: "Claim your winnings or review the result instead.",
+        });
+        return false;
+      }
       const open = await api.readWindowOpen(oracle);
       if (open) return true;
       toast.error("Window is closed", {
@@ -264,9 +274,12 @@ export function useTradeExecutor() {
       if (!requireWallet()) return false;
       const oracle = t.oracle as Address;
       const ready = await preflight(async () => {
-        // Claims only exist after settlement: a still-open window has no winner.
-        const open = await api.readWindowOpen(oracle);
-        if (open) {
+        // Claims exist only after settlement. Gate on `settled`, NOT `isOpen`:
+        // `isOpen` is the trading deadline and stays true until `windowEnd`, so
+        // checking it blocked winners of an early-settled (freeze-on-resolve)
+        // window until the slot ended.
+        const settled = await api.readWindowSettled(oracle);
+        if (!settled) {
           toast.info("Window is still trading", {
             description: "Claims unlock once it settles — you can sell instead.",
           });

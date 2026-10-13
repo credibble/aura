@@ -240,6 +240,22 @@ export function useAuraContracts() {
           args: [oracle],
         }) as Promise<boolean>,
       /**
+       * Has this window RESOLVED? Distinct from `isOpen`: `isOpen` is purely the
+       * trading deadline (`windowEnd > now`) and ignores `settled`, but
+       * freeze-on-resolve settles a window minutes after it opens — so a settled
+       * window still reports `isOpen = true` until its scheduled end. Gating
+       * claims on `isOpen` locked winners out for the rest of the slot.
+       */
+      readWindowSettled: async (oracle: Address): Promise<boolean> => {
+        const w = (await publicClient.readContract({
+          address: market(),
+          abi: MARKET_MAKER_ABI,
+          functionName: "windows",
+          args: [oracle],
+        })) as readonly unknown[];
+        return w[5] as boolean;
+      },
+      /**
        * USDC cash held inside a window (1e18). `sell` reverts `LedgerShort` when
        * the proceeds exceed this, so the executor pre-checks it instead of
        * letting the wallet burn gas on a revert.

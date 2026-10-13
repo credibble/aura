@@ -8,6 +8,13 @@ import { REDIS } from "./queue.constants";
  * Shared ioredis instance for the oracle (dedup, pub/sub). BullMQ manages its
  * own connection internally; this one is for our direct needs. Tolerant of a
  * down Redis so the API still boots in development.
+ *
+ * `enableOfflineQueue: false` is what actually makes it tolerant: with the
+ * default offline queue (and `maxRetriesPerRequest: null`) a command issued
+ * while Redis is down is queued forever and never rejects, so every caller's
+ * `try/catch` fallback is dead code — `onModuleInit` hangs and the process
+ * never reaches `listen()`. Fail-fast lets the documented "redis down" paths
+ * run instead.
  */
 @Global()
 @Module({
@@ -21,6 +28,7 @@ import { REDIS } from "./queue.constants";
           maxRetriesPerRequest: null,
           retryStrategy: (times) => Math.min(times * 500, 5000),
           lazyConnect: true,
+          enableOfflineQueue: false,
         });
         client.on("error", (err) => logger.warn(`Redis unavailable: ${err.message}`));
         client.on("connect", () => logger.log("Redis connected"));

@@ -46,7 +46,7 @@ export function HowItWorks({ children, className }: { children: ReactNode; class
       >
         <DialogTitle className="sr-only">How Aura works</DialogTitle>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[76px_1fr] sm:grid-cols-[240px_1fr]">
+        <div className="grid min-h-0 flex-1 grid-cols-[76px_1fr] grid-rows-[minmax(0,1fr)] overflow-hidden sm:grid-cols-[240px_1fr]">
           {/* Rail — where you are in the guide. */}
           <nav
             aria-label="How Aura works steps"

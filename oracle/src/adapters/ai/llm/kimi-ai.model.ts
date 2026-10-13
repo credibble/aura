@@ -4,6 +4,7 @@ import { AI_FETCH } from "../../../core/ports/tokens";
 import { KimiWebSearchService } from "../../../jobs/ai/kimi-web-search.service";
 import { isDebugMode, sampleAuraPercent, sampleAuraSummary } from "../../../config/debug";
 import { kimiRequest } from "./kimi-limiter";
+import { resolveKimiEndpoint } from "./kimi-endpoint";
 
 export type AiFetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -139,6 +140,8 @@ export class KimiAiModel {
   private readonly maxTokensJson: number;
   private readonly fetchFn: AiFetch;
   private readonly baseUrl: string;
+  private readonly viaZeroG: boolean;
+  private readonly keyName: string;
   private readonly webSearch?: KimiWebSearchService;
 
   constructor(
@@ -146,11 +149,14 @@ export class KimiAiModel {
     @Inject(AI_FETCH) fetchFn: AiFetch,
     @Optional() webSearch?: KimiWebSearchService,
   ) {
-    this.apiKey = config.get<string>("KIMI_API_KEY") ?? undefined;
-    this.model = config.get<string>("KIMI_MODEL") ?? "kimi-k2.6";
-    // `kimi-k2.*` rejects any temperature but 1 with a 400 ("invalid
-    // temperature: only 1 is allowed for this model"); the env override is only
-    // honoured for older moonshot-v1 models.
+    // One endpoint for the whole AI layer: Moonshot by default, or 0G's
+    // OpenAI-compatible router when KIMI_VIA_0G=true.
+    const endpoint = resolveKimiEndpoint(config);
+    this.apiKey = endpoint.apiKey;
+    this.model = endpoint.model;
+    this.viaZeroG = endpoint.viaZeroG;
+    this.keyName = endpoint.keyName;
+    // `kimi-k2.*` only accepts 1; older moonshot-v1 models take 0..1.
     const configuredTemperature = Number(config.get<string>("KIMI_TEMPERATURE") ?? 1);
     this.temperature = /^kimi-k2/i.test(this.model) ? 1 : configuredTemperature;
     // Reasoning-model budgets: thinking tokens are spent BEFORE any answer and
@@ -163,10 +169,9 @@ export class KimiAiModel {
     this.maxTokensTools = Number(config.get<string>("KIMI_MAX_TOKENS_TOOLS") ?? 8192);
     this.maxTokensJson = Number(config.get<string>("KIMI_MAX_TOKENS_JSON") ?? 8192);
     this.fetchFn = fetchFn;
-    this.baseUrl = (
-      config.get<string>("KIMI_BASE_URL") ?? "https://api.moonshot.ai/v1"
-    ).replace(/\/$/, "");
+    this.baseUrl = endpoint.baseUrl;
     this.webSearch = webSearch;
+    this.logger.log(`Aura scorer LLM: ${this.model} @ ${this.baseUrl}${this.viaZeroG ? " (0G router)" : ""}`);
   }
 
   /** Score the aura delta for ONE handle given its source groups. */
@@ -221,7 +226,7 @@ export class KimiAiModel {
     if (sources.length === 0) return null;
     if (!this.apiKey) {
       this.logger.warn(
-        "KIMI_API_KEY not set — returning neutral 0 delta.",
+        `${this.keyName} not set — returning neutral 0 delta.`,
       );
       return null;
     }

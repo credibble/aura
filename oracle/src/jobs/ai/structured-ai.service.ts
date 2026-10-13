@@ -2,13 +2,15 @@
 import { ConfigService } from "@nestjs/config";
 import { AI_FETCH } from "../../core/ports/tokens";
 import { kimiRequest } from "../../adapters/ai/llm/kimi-limiter";
+import { resolveKimiEndpoint } from "../../adapters/ai/llm/kimi-endpoint";
 import { unfenceJson, type AiFetch } from "../../adapters/ai/llm/kimi-ai.model";
 import { isDebugMode, DEBUG_TEXT_SAMPLE, debugJsonSample } from "../../config/debug";
 
 /**
  * Structured Kimi completion used by the job engines (aura scoring, feed
  * writing). Prompts always demand a strict JSON object so the engines get a
- * typed, sanitized reply. Shared with the interpret model (same key/model).
+ * typed, sanitized reply. Shared with the interpret model (same endpoint —
+ * Moonshot, or 0G's router when KIMI_VIA_0G=true).
  */
 @Injectable()
 export class StructuredAiService {
@@ -16,14 +18,18 @@ export class StructuredAiService {
   private readonly apiKey?: string;
   private readonly model: string;
   private readonly baseUrl: string;
+  private readonly keyName: string;
 
   constructor(
     config: ConfigService,
     @Inject(AI_FETCH) private readonly fetchFn: AiFetch,
   ) {
-    this.apiKey = config.get<string>("KIMI_API_KEY") ?? undefined;
-    this.model = config.get<string>("KIMI_MODEL") ?? "kimi-k2.6";
-    this.baseUrl = (config.get<string>("KIMI_BASE_URL") ?? "https://api.moonshot.ai/v1").replace(/\/$/, "");
+    const endpoint = resolveKimiEndpoint(config);
+    this.apiKey = endpoint.apiKey;
+    this.model = endpoint.model;
+    this.baseUrl = endpoint.baseUrl;
+    this.keyName = endpoint.keyName;
+    this.logger.log(`Structured LLM: ${this.model} @ ${this.baseUrl}${endpoint.viaZeroG ? " (0G router)" : ""}`);
   }
 
   /** Raw completion — returns the model's text verbatim (integer-only prompts).
@@ -35,7 +41,7 @@ export class StructuredAiService {
       return DEBUG_TEXT_SAMPLE;
     }
     if (!this.apiKey) {
-      this.logger.warn("KIMI_API_KEY not set — returning null.");
+      this.logger.warn(`${this.keyName} not set — returning null.`);
       return null;
     }
     try {
@@ -85,7 +91,7 @@ export class StructuredAiService {
       return debugJsonSample(fallback);
     }
     if (!this.apiKey) {
-      this.logger.warn("KIMI_API_KEY not set — returning fallback.");
+      this.logger.warn(`${this.keyName} not set — returning fallback.`);
       return fallback;
     }
     try {

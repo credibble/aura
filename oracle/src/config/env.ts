@@ -34,6 +34,16 @@ export const envSchema = z.object({
   KIMI_MODEL: z.string().default("kimi-k2.6"),
   /** Kimi chat base URL - Moonshot by default (chat completions). */
   KIMI_BASE_URL: z.string().url().default("https://api.moonshot.ai/v1"),
+  /** Route AI chat completions through 0G's OpenAI-compatible router
+   *  (`https://router-api.0g.ai/v1`, model `kimi-k2.5`) instead of Moonshot —
+   *  same `/chat/completions` shape, so only host/key/model change. Enabled with
+   *  `KIMI_VIA_0G=true`; the key is `ZERO_G_API_KEY` (see `resolveKimiEndpoint`). */
+  KIMI_VIA_0G: z
+    .preprocess((v) => (v === undefined ? false : String(v).toLowerCase() === "true"), z.boolean())
+    .default(false),
+  ZERO_G_API_KEY: z.string().optional(),
+  ZERO_G_BASE_URL: z.string().url().default("https://router-api.0g.ai/v1"),
+  ZERO_G_MODEL: z.string().default("kimi-k2.5"),
   /** Kimi web search — standalone Web Search API the aura AI calls for live
    *  context (`POST /v1/tools/search`). Search runs on the Kimi platform
    *  while chat stays on KIMI_BASE_URL. */

@@ -11,7 +11,7 @@
 # `node smart-contracts/scripts/sync-indexer.mjs --write` (run by deploy-all.mjs).
 #
 # Deploy note: fresh Monad testnet stack (start_block 70555935, 16 handles,
-# CRE Reward/Graduation consumers wired). Bump this line to trigger a redeploy.
+# CRE Reward/Graduation consumers wired). Redeploy trigger: 2.
 #
 # yaml-language-server: $schema=./node_modules/envio/evm.schema.json
 name: aura-indexer

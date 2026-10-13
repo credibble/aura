@@ -20,6 +20,7 @@ import { PortfolioService } from "./portfolio.service";
 const HANDLE_FACTORY_ABI = parseAbi([
   "function createHandle(bytes32 handleId, address creator, string name, string symbol, string metadata, uint256 windowMinutes, uint256[] categories) returns (address)",
   "function handleOf(bytes32 handleId) view returns (address)",
+  "function setAuraUpdater(bytes32 handleId, address updater)",
 ]);
 
 /** Owner-side writes on a deployed Handle (the oracle holds the owner key). */
@@ -107,6 +108,23 @@ export class HandleCreateService {
       this.config.get<string>("ALCHEMY_RPC_URL") ?? this.config.get<string>("RPC_URL");
     if (!key || !factory || !rpc) return null;
     return { key: key as `0x${string}`, factory: factory as Address, rpc };
+  }
+
+  /**
+   * The oracle relayer EOA that must be the handle's `auraUpdater` — and, through
+   * the curator fallback, its curator. `HandleFactory.createHandle` leaves both
+   * roles unset, so without wiring this the oracle cannot push aura
+   * (`NotUpdater`) or curate sources (`NotCurator`) on a handle it just created.
+   * Null when ORACLE_PRIVATE_KEY is unset (the oracle can't write anyway).
+   */
+  private get relayer(): Address | null {
+    const key = this.config.get<string>("ORACLE_PRIVATE_KEY");
+    if (!key) return null;
+    try {
+      return privateKeyToAccount(key as `0x${string}`).address;
+    } catch {
+      return null;
+    }
   }
 
   async create(creator: string, input: HandleCreateInput): Promise<HandleCreateResult> {
@@ -201,6 +219,26 @@ export class HandleCreateService {
       functionName: "handleOf",
       args: [handleId],
     })) as Address;
+
+    // Wire the oracle relayer as the handle's auraUpdater (factory owner signs).
+    // `createHandle` leaves it unset; the curator role falls back to it, so this
+    // is what lets the oracle push aura and add/remove the handle's sources.
+    const relayer = this.relayer;
+    if (relayer) {
+      const wire = await walletClient.writeContract({
+        address: signer.factory,
+        abi: HANDLE_FACTORY_ABI,
+        functionName: "setAuraUpdater",
+        args: [handleId, relayer],
+        chain,
+        account,
+      });
+      await publicClient.waitForTransactionReceipt({ hash: wire });
+    } else {
+      this.logger.warn(
+        `ORACLE_PRIVATE_KEY unset — @${label} created with no auraUpdater; the oracle cannot curate it until one is set`,
+      );
+    }
 
     this.logger.log(`Created handle @${label} → ${address} (tx ${hash})`);
     return { handleId, label, address, tx: hash };

@@ -37,7 +37,14 @@ WebSocket support is plan-dependent — never *require* the socket.
   subscriptions, notifications (`queries/posts.ts`, `queries/social.ts`, `queries/notifications.ts`)
 - handle creation `POST /handles` and **profile updates `PATCH /handles/:id`** (multipart
   `photo` → Cloudinary → oracle-signed `Handle.setMetadata`)
-- source connections `GET/PUT/DELETE /handles/:id/connection`, `verify`, `availability/check`
+- source connections `GET/PUT/DELETE /handles/:id/connection`, `verify`, `availability/check`.
+  Connect/disconnect **also mirror the connection as a `Handle.sources[]` entry on-chain**
+  (`PortfolioService` → `ChainGateway.addSource`/`removeSource`), so the aura engine actually
+  reads the platform. Only the five per-user `connections/` adapters do this
+  (`spotify`/`instagram`/`facebook`/`linkedin`/`shopify`); the config's `account` is the
+  credential key (the handle bytes32 for Supabase OAuth, the shop for Shopify) and the
+  platform's subject field is set too so source ids stay unique. A failed write is healed by
+  the `CONNECTION_RECONCILE_MS` sweep, which never touches seeded feeds or app-key sources.
 - social OAuth `GET /connections/oauth/:platform/auth-url` (returns the Supabase
   authorize URL) → Supabase → `GET /connections/oauth/:platform/callback` (the
   oracle exchanges the code + stores the token + links the handle to it, then

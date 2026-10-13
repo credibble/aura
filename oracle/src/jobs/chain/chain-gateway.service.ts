@@ -446,6 +446,76 @@ export class ChainGateway implements OnModuleInit {
     }
   }
 
+  /** The handle's current on-chain source configs (`[]` when none). `null` means
+   *  the RPC couldn't answer — callers must retry rather than assume "none". */
+  async handleSources(handleContract: string): Promise<string[] | null> {
+    if (!this.enabled) return null;
+    try {
+      const count = Number(
+        (await this.read({
+          address: handleContract,
+          abi: HandleAbi,
+          functionName: "sourcesCount",
+          args: [],
+        })) as bigint,
+      );
+      const out: string[] = [];
+      for (let i = 0; i < count; i++) {
+        out.push(
+          (await this.read({
+            address: handleContract,
+            abi: HandleAbi,
+            functionName: "sources",
+            args: [BigInt(i)],
+          })) as string,
+        );
+      }
+      return out;
+    } catch (error) {
+      this.logger.warn(`handleSources failed (${handleContract}): ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /** Add a source config to the handle (`Handle.addSource`, onlyCurator — the
+   *  relayer is the handle's auraUpdater). Idempotent: the contract dedupes an
+   *  exact-string repeat. Returns false when the chain or curation rights are
+   *  unavailable, so the caller can reconcile later. */
+  async addSource(handleContract: string, source: string): Promise<boolean> {
+    if (!this.enabled || !this.account) return false;
+    try {
+      await this.write({
+        address: handleContract,
+        abi: HandleAbi,
+        functionName: "addSource",
+        args: [source],
+      });
+      return true;
+    } catch (error) {
+      this.logger.error(`addSource failed (${handleContract}): ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  /** Remove the source at `index` (`Handle.removeSource`, onlyCurator). Removal
+   *  swaps the last entry into the freed slot, so the index must be read fresh
+   *  on every call (never cached). */
+  async removeSource(handleContract: string, index: number): Promise<boolean> {
+    if (!this.enabled || !this.account) return false;
+    try {
+      await this.write({
+        address: handleContract,
+        abi: HandleAbi,
+        functionName: "removeSource",
+        args: [BigInt(index)],
+      });
+      return true;
+    } catch (error) {
+      this.logger.error(`removeSource failed (${handleContract}#${index}): ${(error as Error).message}`);
+      return false;
+    }
+  }
+
   // --- loose-typed viem wrappers (runtime JSON ABIs) -------------------------
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

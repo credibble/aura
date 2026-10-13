@@ -28,6 +28,7 @@ function portfolio(owner: string, onChain: boolean | null) {
     {} as never,
     svc("true"),
     chain as never,
+    { get: () => 0 } as never,
   );
   return { service, writes };
 }

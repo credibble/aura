@@ -80,6 +80,9 @@ export const envSchema = z.object({
   APP_URL: z.string().url().default("http://localhost:5173"),
   /** Passphrase for AES-256-GCM encryption of stored connection credentials. */
   CONNECTION_ENCRYPTION_KEY: z.string().default("aura-dev-connection-key"),
+  /** How often to reconcile each handle's on-chain `sources[]` with its stored
+   *  connection (heals a dropped add/removeSource write). 0 disables the sweep. */
+  CONNECTION_RECONCILE_MS: z.coerce.number().int().min(0).default(600_000),
   /** Shopify app — merchant OAuth for the commerce adapter. */
   SHOPIFY_CLIENT_ID: z.string().optional(),
   SHOPIFY_CLIENT_SECRET: z.string().optional(),

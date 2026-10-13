@@ -1,38 +1,38 @@
 {
   "chainId": "10143",
-  "deployer": "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a",
-  "relayer": "0xC0Ffb5dF60843E8cb1647F651062aFA3e494dd7a",
+  "deployer": "0x09fd7bbE0422a864a01BD906A8A8E8F88bcdE082",
+  "relayer": "0x09fd7bbE0422a864a01BD906A8A8E8F88bcdE082",
   "startBlocks": {
-    "usdc": 70137402,
-    "auraToken": 70137407,
-    "configurator": 70137412,
-    "addressesProvider": 70137417,
-    "marketRegistry": 70137422,
-    "feeCollector": 70137426,
-    "oracleFactory": 70137431,
-    "handleFactory": 70137436,
-    "pool": 70137443,
-    "revenueSharing": 70137448,
-    "marketMaker": 70137453,
-    "orderBook": 70137460
+    "usdc": 70529265,
+    "auraToken": 70529270,
+    "configurator": 70529275,
+    "addressesProvider": 70529280,
+    "marketRegistry": 70529285,
+    "feeCollector": 70529290,
+    "oracleFactory": 70529295,
+    "handleFactory": 70529301,
+    "pool": 70529307,
+    "revenueSharing": 70529312,
+    "marketMaker": 70529317,
+    "orderBook": 70529323
   },
-  "usdc": "0x74CF9B6ad93aAB6Ed9A6416507952Ad696a4dA17",
-  "auraToken": "0xf76A06bA9B00756631C2Ac499304ebD9bF179Ac2",
-  "configurator": "0xdfc2AC388B8E727B42280455F0245e7d82A8EA73",
-  "addressesProvider": "0x0E2E371621938Cd846390a25bF64A9cd166D4bb6",
-  "marketRegistry": "0xFE7a7f71c114e07b5E77d20540D171CC1C9FBEe4",
-  "feeCollector": "0xB6C80e18935128981e6E2C661Db3a513E32caFf4",
-  "oracleFactory": "0x468441235948d3b75C0bCabF240929c6291e50Da",
-  "handleFactory": "0x45406FD5bE92D9989fA8BF33A558056D9dBd948f",
-  "pool": "0x9b4393a05DF812481a09185af424d789AAF6fbF8",
-  "revenueSharing": "0xac450C97114F6042C0E98fB7A6CCE163c364752d",
-  "marketMaker": "0x57A58Db70D9DEF8153F0e7160B639923cB295458",
-  "orderBook": "0xC8c97Be9fc94E3Dd25fbFB302483acdBff555F0A",
+  "usdc": "0xe959aCd4Fd93a9adBB59d28d64b8057C03b49822",
+  "auraToken": "0x32D5B6C6B578915D1fc7d085eC39ac51c87F0afa",
+  "configurator": "0x72c10a1396dEfc581021e940e3036e4C7A30F6d4",
+  "addressesProvider": "0xcABfc8c28ED21Bbc8c4F8B5166F6446352321759",
+  "marketRegistry": "0xeBDB458297C5b70d93FBbAec6D7931c3B3F2bA4E",
+  "feeCollector": "0x545c475afcF21D16F12fC751c4CA27e783dE0501",
+  "oracleFactory": "0xBb90D7533ac2f461f10f6c5e789bc318B91CF5A4",
+  "handleFactory": "0x4c92D7E1399DaEB71F6c5bDa0274EFAFe728c707",
+  "pool": "0x295E6C3e282a48862138AA39d118B87761BdA9aF",
+  "revenueSharing": "0x870C105c926466Ba180f6366b2d671D29FfD2c9C",
+  "marketMaker": "0x88511b1327042ADA8497B7d19945597a8C78F789",
+  "orderBook": "0x48B4a9052F60e562387719868415086931539945",
   "handles": {
     "ronaldo": {
       "id": "0x726f6e616c646f00000000000000000000000000000000000000000000000000",
-      "contract": "0x3Fd8e5095a3A7d4Ce6088B1Cd42EcdDFbdD1799c",
-      "stake": "0xbfA919f98F6c40E670f55e113578feAe6D1e13B8",
+      "contract": "0x1220Ee5eC25d920d7B5231365F5392896B5512D7",
+      "stake": "0x1E9458cC91C58246fE4B40C81a9a48d5c888b7Dc",
       "categories": [
         3,
         1
@@ -49,8 +49,8 @@
     },
     "messi": {
       "id": "0x6d65737369000000000000000000000000000000000000000000000000000000",
-      "contract": "0x57B66a477AC0D76f5d40e42B00E01Eef610d0241",
-      "stake": "0x8dCe0D318950Dbbf5e9413B5134497b63840a308",
+      "contract": "0xd011D72F098D61dA82D04257F69E10Ab93983F8e",
+      "stake": "0xac5e209fA7C67A901f847C954Bc721573473657d",
       "categories": [
         3,
         1
@@ -67,8 +67,8 @@
     },
     "btc": {
       "id": "0x6274630000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x6540765b39F22EF9A8733B12a46157011be420A3",
-      "stake": "0xE54f344d8D44BD0197D609a9E328A4875F3F9032",
+      "contract": "0x9D0c3Afb2F5aDdE3a4F91037D7426A5Ef6D55739",
+      "stake": "0x7DA92B470b8F3E6e9bC98D4296bd43ACE8c7eb47",
       "categories": [
         2
       ],
@@ -84,8 +84,8 @@
     },
     "eth": {
       "id": "0x6574680000000000000000000000000000000000000000000000000000000000",
-      "contract": "0xF3c25C0926407DC4e169Ee0B527D57aB75eCE217",
-      "stake": "0x375c61692ae7D8Caea3b9BBf6Cb6fbdf826B300E",
+      "contract": "0x19e5FA8087FD004F728F579cEf35978D76265765",
+      "stake": "0x190007551Bf052c62Df9F3063702015C68436B8F",
       "categories": [
         2
       ],
@@ -101,8 +101,8 @@
     },
     "sol": {
       "id": "0x736f6c0000000000000000000000000000000000000000000000000000000000",
-      "contract": "0x87245aC95DF6D800125551c7A6cB7E95F4e9c5bc",
-      "stake": "0x6979a7dBBF108abaCAc9a967e10C9f6a978eb405",
+      "contract": "0xf6b133Ea310B564f9bb720c99F3284ed6F1ebfe9",
+      "stake": "0x72e601E77750b58F7bbADEA771d2e7147c888Ac8",
       "categories": [
         2
       ],
@@ -118,8 +118,8 @@
     },
     "openai": {
       "id": "0x6f70656e61690000000000000000000000000000000000000000000000000000",
-      "contract": "0x42c642fFC42dE497A820d919113c062bDeBA40e5",
-      "stake": "0x2162049DAFa06610C74f59FA7ed841AbC7AF7E8C",
+      "contract": "0x1bbfAF123EfC3dc0cEd5Aa8802F19b03b352b6e2",
+      "stake": "0x896ac74B68666E27FE31AAbA7aB9a539Ce16D730",
       "categories": [
         4,
         5
@@ -137,8 +137,8 @@
     },
     "tesla": {
       "id": "0x7465736c61000000000000000000000000000000000000000000000000000000",
-      "contract": "0x03496CD84B62a21f8C4A3E6456824b37160895cE",
-      "stake": "0xb43b7eB9B605e020Cd7769307021e995CC10184F",
+      "contract": "0xe7bf80967f7fE617164Df2CCEcbA2E793c8F340B",
+      "stake": "0x4D14E4d4629de55E7d3C99A687C4013E229c7676",
       "categories": [
         5,
         1
@@ -156,8 +156,8 @@
     },
     "elon": {
       "id": "0x656c6f6e00000000000000000000000000000000000000000000000000000000",
-      "contract": "0x67f26D1d13148c8E151Fb95F3A5603318BEdE8AA",
-      "stake": "0xE43594d2e4020561f846076adefd0a5001bad236",
+      "contract": "0x4E5Af3cF88750CF4aBc0Fa2B62Ac0CE7802F11f4",
+      "stake": "0xBbA290736B2c056E6523db9edF81783227AADE08",
       "categories": [
         1,
         5
@@ -174,8 +174,8 @@
     },
     "trump": {
       "id": "0x7472756d70000000000000000000000000000000000000000000000000000000",
-      "contract": "0x3F4A7Cf751371C3afcb4E74C40ee4D815025768E",
-      "stake": "0xa72a5a3bE010ec55818a41E59A74754D80e93d71",
+      "contract": "0xee9B9B31995446815edE0E075c9b13725b900821",
+      "stake": "0x9b486e1DfCD50221b58662A10E629395461600da",
       "categories": [
         1
       ],
@@ -191,8 +191,8 @@
     },
     "taylor": {
       "id": "0x7461796c6f720000000000000000000000000000000000000000000000000000",
-      "contract": "0xdBfb2C7bB4f3EA4982c703Daa431605Bc6C3BD3d",
-      "stake": "0xb2973d633672195E1F07cC804BdDE58Fd4E1e550",
+      "contract": "0x681969D49Cd5f2D73e85f9190d24Dc03538b9f04",
+      "stake": "0x83B1BfEC83C0b400609b1Fe122301B11A6D52e76",
       "categories": [
         7,
         1
@@ -205,6 +205,111 @@
         "gnews-taylor",
         "x-taylor",
         "reddit-taylor"
+      ]
+    },
+    "adidas": {
+      "id": "0x6164696461730000000000000000000000000000000000000000000000000000",
+      "contract": "0x8b60A14997e16781B0A66Af2e09d6B0bD61e1B60",
+      "stake": "0x2Cc689AC00119C7f73DA974C2049d3026df3f1C2",
+      "categories": [
+        6
+      ],
+      "aura": 2650,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/Adidas_2022_logo.svg/960px-Adidas_2022_logo.svg.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-adidas",
+        "x-adidas",
+        "reddit-adidas"
+      ]
+    },
+    "nike": {
+      "id": "0x6e696b6500000000000000000000000000000000000000000000000000000000",
+      "contract": "0x3EF439a5112bE760a301a099EEbaf155CAa0446f",
+      "stake": "0xC64eecAB6ca86A8CDE7053a73D14118818116E1a",
+      "categories": [
+        6
+      ],
+      "aura": 2900,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Logo_NIKE.svg/960px-Logo_NIKE.svg.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-nike",
+        "x-nike",
+        "reddit-nike"
+      ]
+    },
+    "brainrot": {
+      "id": "0x627261696e726f74000000000000000000000000000000000000000000000000",
+      "contract": "0x655cbbA0734a50e09ad5501dD66cD364AB99ef13",
+      "stake": "0xAF09b18b0B746a80a850155fB06Afa17F2c59b0c",
+      "categories": [
+        8
+      ],
+      "aura": 1400,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/df/Italian_brainrot_characters.png/960px-Italian_brainrot_characters.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-brainrot",
+        "x-brainrot",
+        "reddit-brainrot"
+      ]
+    },
+    "kpop": {
+      "id": "0x6b706f7000000000000000000000000000000000000000000000000000000000",
+      "contract": "0xaE62C5fC13F7Ea7DD5d97c09B3FADb44564859F7",
+      "stake": "0x7118781A86eC83503879cA685aFea5f0e5D36A07",
+      "categories": [
+        9,
+        7
+      ],
+      "aura": 3300,
+      "graduated": true,
+      "photo": "https://upload.wikimedia.org/wikipedia/commons/5/59/2023_K-Content_Expo_in_UAE_%28KOCCA%29_K-pop_Concert_%281%29.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-kpop",
+        "x-kpop",
+        "reddit-kpop"
+      ]
+    },
+    "country": {
+      "id": "0x636f756e74727900000000000000000000000000000000000000000000000000",
+      "contract": "0x9bb015325A6D7fA1EEf241623c8F2495F1F46fd1",
+      "stake": "0x606929a7bef5c54D7694807ac158700D0e7daC25",
+      "categories": [
+        9,
+        7
+      ],
+      "aura": 2350,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Jimmie_Rodgers_in_1931.jpg/960px-Jimmie_Rodgers_in_1931.jpg",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-country",
+        "x-country",
+        "reddit-country",
+        "tasteofcountry"
+      ]
+    },
+    "hackathon": {
+      "id": "0x6861636b6174686f6e0000000000000000000000000000000000000000000000",
+      "contract": "0x6cc5Be2BF29c1Ac536A2acc4e8E8fCAe8915E34B",
+      "stake": "0x580dDA49eE4BE81741b3B1Bddc2446d2F8A00953",
+      "categories": [
+        9
+      ],
+      "aura": 1150,
+      "graduated": true,
+      "photo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Wikimedia_Hackathon_Prague_2019_-_Group_Photo_-_CLK.png/960px-Wikimedia_Hackathon_Prague_2019_-_Group_Photo_-_CLK.png",
+      "windowMinutes": 60,
+      "sources": [
+        "gnews-hackathon",
+        "x-hackathon",
+        "reddit-hackathon"
       ]
     }
   }

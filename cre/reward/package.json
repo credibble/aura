@@ -1,0 +1,17 @@
+{
+  "name": "aura-stake-reward",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.22.0",
+    "viem": "^2.54.2"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

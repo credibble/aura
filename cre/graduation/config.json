@@ -1,5 +1,8 @@
 {
   "schedule": "0 */15 * * * *",
+  "chainSelectorName": "monad-testnet",
   "indexerUrl": "https://indexer.dev.hyperindex.xyz/61835aa/v1/graphql",
-  "minGraduationAura": "1000"
+  "minGraduationAura": "1000",
+  "consumerAddress": "",
+  "gasLimit": "1000000"
 }

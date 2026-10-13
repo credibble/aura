@@ -1,13 +1,30 @@
 # CRE workflow config — the Aura handle-graduation workflow on Monad testnet.
-# The workflow code lives in ./main.ts; params (schedule, the Envio indexer
-# endpoint, aura floor) are injected from config.json at runtime via
-# `runtime.config`. There is one target (`testnet-settings`) — the whole
-# protocol lives on Monad testnet, there is no mainnet/production deploy.
+# The workflow code lives in ./main.ts; params (schedule, chain selector, the
+# Envio indexer endpoint, aura floor) are injected from config at runtime via
+# `runtime.config`.
+#
+# Two targets:
+#   - `local-simulation`: receiver-free handler-0 run. Exercises the REAL Envio
+#     read + decision path (config.local-simulation.json, mode: local-simulation)
+#     and returns a labeled result without needing a deployed consumer contract.
+#   - `testnet-settings`: the production Monad deploy. Requires the deployed
+#     graduation consumer contract address in config.json; fails closed without it.
+# There is no mainnet/production target — the whole protocol lives on Monad testnet.
 
 testnet-settings:
   user-workflow:
     workflow-name: "aura-graduation-testnet"
+    deployment-registry: "private"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.json"
-    secrets-path: "./secrets.yaml"
+    secrets-path: ""
+
+local-simulation:
+  user-workflow:
+    workflow-name: "aura-graduation-local-simulation"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.local-simulation.json"
+    secrets-path: ""

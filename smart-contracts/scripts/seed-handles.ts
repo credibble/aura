@@ -3,16 +3,17 @@ import { readFileSync, writeFileSync } from "node:fs";
 import type { Contract } from "ethers";
 
 /**
- * Seed the demo market — 10 handles, each with SOURCES THAT ARE ABOUT IT.
+ * Seed the demo market — 16 handles, each with SOURCES THAT ARE ABOUT IT.
  *
  *   PRIVATE_KEY=$PK ORACLE_PRIVATE_KEY=$PK npx hardhat run scripts/seed-handles.ts --network monadTestnet
  *
  * SOURCING RULE (the point of this list): a handle's sources must be *scoped to
  * that handle*, never a general outlet desk. "@ronaldo" reads an exact-phrase
  * feed for "Cristiano Ronaldo", not a football section that mostly talks about
- * other players. Every feed below was verified to return 90+ items about its
+ * other players. Every feed below was verified to return real items about its
  * handle, and each carries `topic` (drives the AI's <<MENTION>> flag) and
- * `context` (tells the model what the outlet is and how to read it).
+ * `context` (tells the model what the outlet is and how to read it). Low-volume
+ * subjects (brainrot, hackathon) widen the news window to 7d for enough signal.
  *
  * Idempotent: an existing handle is skipped and its metadata/aura/sources are
  * refreshed; `addSource` appends only sources it doesn't already have.
@@ -61,35 +62,49 @@ type SourceSeed = {
  * What high-reach accounts are saying — the anti-noise source. Requires
  * `X_BEARER_TOKEN`; without it the source yields nothing (never invented data).
  */
-function xTalk(label: string, query: string, minFollowers = 100_000): SourceSeed {
+function xTalk(label: string, query: string, minFollowers = 100_000, topic?: string): SourceSeed {
   return {
     platform: "x",
     outlet: `x-${label}`,
     query,
     minFollowers,
     label: `X · ${query}`,
-    topic: query.split(" ").pop()!.toLowerCase(),
+    topic: topic ?? query.split(" ").pop()!.toLowerCase(),
     context: `Posts about ${query} from accounts with ${minFollowers.toLocaleString()}+ followers (or verified). Reach is pre-filtered: score what these credible accounts report or argue, not the volume of replies.`,
   };
 }
 
 /** Community chatter about the subject, engagement-floor applied. */
-function redditTalk(label: string, query: string, minScore = 50): SourceSeed {
+function redditTalk(label: string, query: string, minScore = 50, topic?: string): SourceSeed {
   return {
     platform: "reddit",
     outlet: `reddit-${label}`,
     query,
     minScore,
     label: `Reddit · ${query}`,
-    topic: query.split(" ").pop()!.toLowerCase(),
+    topic: topic ?? query.split(" ").pop()!.toLowerCase(),
     context: `Reddit threads about ${query} with real traction (score ≥ ${minScore}). Community sentiment and eyewitness detail; weigh opinion down, concrete reports up.`,
   };
 }
 
-/** Google News exact-phrase feed — one query, about one subject. */
-function gnews(query: string): string {
-  return `https://news.google.com/rss/search?q=${encodeURIComponent(`"${query}" when:1d`)}&hl=en-US&gl=US&ceid=US:en`;
+/** Google News exact-phrase feed — one query, about one subject. `window`
+ *  widens the recency filter for low-volume subjects (default 1d). */
+function gnews(query: string, window = "1d"): string {
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(`"${query}" when:${window}`)}&hl=en-US&gl=US&ceid=US:en`;
 }
+
+/** Per-handle themed-character config — archetype, palette, emoji fallback
+ *  (the `character` key written into the on-chain metadata JSON). */
+type CharacterSeed = {
+  /** Archetype that frames the handle (athlete, musician, brand, crypto, …). */
+  type: string;
+  /** For person/group handles; "none" for brands and concepts. */
+  gender: "female" | "male" | "neutral" | "none";
+  /** A representative emoji — cheap avatar fallback before a Jazzicon. */
+  emoji: string;
+  /** Palette for card gradients / avatar backdrop (hex strings). */
+  colors: { primary: string; secondary: string; accent: string };
+};
 
 type Seed = {
   label: string;
@@ -107,13 +122,47 @@ type Seed = {
   sources: SourceSeed[];
 };
 
+/** Themed-character config per handle — archetype, palette, emoji fallback.
+ *  A standalone table so every handle's identity is scannable in one place and
+ *  the source listings above stay about sourcing. */
+const CHARACTER: Record<string, CharacterSeed> = {
+  ronaldo:   { type: "athlete",   gender: "male",    emoji: "⚽", colors: { primary: "#1B5E3F", secondary: "#BF0A30", accent: "#D4AF37" } },
+  messi:     { type: "athlete",   gender: "male",    emoji: "⚽", colors: { primary: "#75AADB", secondary: "#FFFFFF", accent: "#C9A227" } },
+  btc:       { type: "crypto",    gender: "none",    emoji: "₿",  colors: { primary: "#F7931A", secondary: "#000000", accent: "#FFFFFF" } },
+  eth:       { type: "crypto",    gender: "none",    emoji: "Ξ",  colors: { primary: "#627EEA", secondary: "#000000", accent: "#8A92B2" } },
+  sol:       { type: "crypto",    gender: "none",    emoji: "◎",  colors: { primary: "#9945FF", secondary: "#14F195", accent: "#000000" } },
+  openai:    { type: "ai",        gender: "none",    emoji: "✳",  colors: { primary: "#10A37F", secondary: "#000000", accent: "#FFFFFF" } },
+  tesla:     { type: "brand",     gender: "none",    emoji: "🚗", colors: { primary: "#E82127", secondary: "#000000", accent: "#FFFFFF" } },
+  elon:      { type: "founder",   gender: "male",    emoji: "🚀", colors: { primary: "#0A1A2F", secondary: "#4A6FA5", accent: "#FFFFFF" } },
+  trump:     { type: "politician", gender: "male",   emoji: "🎩", colors: { primary: "#002868", secondary: "#BF0A30", accent: "#FFFFFF" } },
+  taylor:    { type: "musician",  gender: "female",  emoji: "🎤", colors: { primary: "#E91E8C", secondary: "#F5C518", accent: "#FFFFFF" } },
+  adidas:    { type: "brand",     gender: "none",    emoji: "👟", colors: { primary: "#000000", secondary: "#FFFFFF", accent: "#0071CE" } },
+  nike:      { type: "brand",     gender: "none",    emoji: "👟", colors: { primary: "#000000", secondary: "#FFFFFF", accent: "#FA5400" } },
+  brainrot:  { type: "meme",      gender: "none",    emoji: "🧠", colors: { primary: "#39FF14", secondary: "#FF00FF", accent: "#00E5FF" } },
+  kpop:      { type: "musician",  gender: "neutral", emoji: "💜", colors: { primary: "#FF69B4", secondary: "#9B59B6", accent: "#FFFFFF" } },
+  country:   { type: "musician",  gender: "neutral", emoji: "🤠", colors: { primary: "#8B4513", secondary: "#D4AF37", accent: "#F5DEB3" } },
+  hackathon: { type: "event",     gender: "none",    emoji: "💻", colors: { primary: "#0077B6", secondary: "#2DC653", accent: "#FFFFFF" } },
+};
+
+/** The on-chain metadata JSON for a seed — one shape for create + refresh. */
+function seedMetadata(s: Seed): string {
+  return JSON.stringify({
+    name: s.name,
+    symbol: s.symbol,
+    photo: s.photo,
+    imageFit: s.imageFit ?? "cover",
+    categories: s.categories.map(String),
+    character: CHARACTER[s.label],
+  });
+}
+
 /** The handle-scoped source set for a person/brand: one exact-phrase news feed. */
-function newsSource(label: string, query: string, what: string): SourceSeed {
+function newsSource(label: string, query: string, what: string, window = "1d", topic?: string): SourceSeed {
   return {
     outlet: `gnews-${label}`,
-    feed: gnews(query),
+    feed: gnews(query, window),
     label: `Google News · ${what}`,
-    topic: query.split(" ").pop()!.toLowerCase(),
+    topic: topic ?? query.split(" ").pop()!.toLowerCase(),
     context: `News articles matching the exact phrase "${query}" — score only what this says about ${what} (results, records, deals, injuries, controversies). Ignore pieces that merely mention ${what} in passing.`,
   };
 }
@@ -237,6 +286,78 @@ const SEEDS: Seed[] = [
       redditTalk("taylor", "Taylor Swift"),
     ],
   },
+  {
+    label: "adidas", name: "Adidas", symbol: "ADIDAS", categories: [CAT.brands],
+    aura: 2650, windowMinutes: 60, imageFit: "contain", summary: "Three-stripes sportswear giant",
+    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/Adidas_2022_logo.svg/960px-Adidas_2022_logo.svg.png",
+    sources: [
+      newsSource("adidas", "Adidas", "Adidas"),
+      xTalk("adidas", "Adidas"),
+      redditTalk("adidas", "Adidas"),
+    ],
+  },
+  {
+    label: "nike", name: "Nike", symbol: "NIKE", categories: [CAT.brands],
+    aura: 2900, windowMinutes: 60, imageFit: "contain", summary: "Swoosh · largest sportswear brand",
+    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Logo_NIKE.svg/960px-Logo_NIKE.svg.png",
+    sources: [
+      newsSource("nike", "Nike", "Nike"),
+      xTalk("nike", "Nike"),
+      redditTalk("nike", "Nike"),
+    ],
+  },
+  {
+    label: "brainrot", name: "Brainrot", symbol: "BRAINROT", categories: [CAT.memes],
+    aura: 1400, windowMinutes: 60, summary: "AI-absurdist meme cycle",
+    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/df/Italian_brainrot_characters.png/960px-Italian_brainrot_characters.png",
+    sources: [
+      // Low-volume subject → widen the news window to 7d for enough signal.
+      newsSource("brainrot", "brainrot", "brainrot", "7d"),
+      xTalk("brainrot", "brainrot"),
+      redditTalk("brainrot", "brainrot", 30),
+    ],
+  },
+  {
+    label: "kpop", name: "K-pop", symbol: "KPOP", categories: [CAT.culture, CAT.music],
+    aura: 3300, windowMinutes: 60, summary: "Korean pop-culture export engine",
+    photo: "https://upload.wikimedia.org/wikipedia/commons/5/59/2023_K-Content_Expo_in_UAE_%28KOCCA%29_K-pop_Concert_%281%29.png",
+    sources: [
+      newsSource("kpop", "K-pop", "K-pop"),
+      xTalk("kpop", "K-pop"),
+      redditTalk("kpop", "K-pop", 30),
+    ],
+  },
+  {
+    label: "country", name: "Country Music", symbol: "COUNTRY", categories: [CAT.culture, CAT.music],
+    aura: 2350, windowMinutes: 60, summary: "Nashville sound · storytelling genre",
+    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Jimmie_Rodgers_in_1931.jpg/960px-Jimmie_Rodgers_in_1931.jpg",
+    sources: [
+      // topic override: the derived last word of "Country music" is "music",
+      // too generic — flag the full phrase as the mention instead.
+      newsSource("country", "Country music", "Country music", "1d", "country music"),
+      xTalk("country", "Country music", 100_000, "country music"),
+      redditTalk("country", "Country music", 30, "country music"),
+      {
+        // A country-music-ONLY outlet (single-genre focus, not a general desk).
+        outlet: "tasteofcountry",
+        feed: "https://tasteofcountry.com/feed/",
+        label: "Taste of Country",
+        topic: "country music",
+        context: "A country-music-dedicated site: releases, tours, chart moves, artist news. Single-genre focus, so treat as a primary record for the scene; newsworthiness still depends on how big the story is.",
+      },
+    ],
+  },
+  {
+    label: "hackathon", name: "Hackathon", symbol: "HACK", categories: [CAT.culture],
+    aura: 1150, windowMinutes: 60, summary: "Build-in-public dev event culture",
+    photo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Wikimedia_Hackathon_Prague_2019_-_Group_Photo_-_CLK.png/960px-Wikimedia_Hackathon_Prague_2019_-_Group_Photo_-_CLK.png",
+    sources: [
+      // Low-volume subject → widen the news window to 7d for enough signal.
+      newsSource("hackathon", "Hackathon", "Hackathon", "7d"),
+      xTalk("hackathon", "Hackathon"),
+      redditTalk("hackathon", "Hackathon", 30),
+    ],
+  },
 ];
 
 const h = (s: string): string => ethers.encodeBytes32String(s);
@@ -308,13 +429,7 @@ async function main(): Promise<void> {
       if (!(await registry.isRegistered(id))) {
         await (await registry.registerHandle(id, s.windowMinutes)).wait();
       }
-      const metadata = JSON.stringify({
-        name: s.name,
-        symbol: s.symbol,
-        photo: s.photo,
-        imageFit: s.imageFit ?? "cover",
-        categories: s.categories.map(String),
-      });
+      const metadata = seedMetadata(s);
       await (
         await handleFactory.createHandle(
           id,
@@ -337,15 +452,7 @@ async function main(): Promise<void> {
       await (await handleFactory.setAuraUpdater(id, relayer.address)).wait();
     }
     await (
-      await handle.connect(relayer).setMetadata(
-        JSON.stringify({
-          name: s.name,
-          symbol: s.symbol,
-          photo: s.photo,
-          imageFit: s.imageFit ?? "cover",
-          categories: s.categories.map(String),
-        }),
-      )
+      await handle.connect(relayer).setMetadata(seedMetadata(s))
     ).wait();
 
     // --- sources: handle-scoped feeds, each with topic + context -----------------

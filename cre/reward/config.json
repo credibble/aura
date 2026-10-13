@@ -1,7 +1,10 @@
 {
   "schedule": "0 */6 * * * *",
+  "chainSelectorName": "monad-testnet",
   "indexerUrl": "https://indexer.dev.hyperindex.xyz/61835aa/v1/graphql",
-  "auraTokenAddress": "0xf76A06bA9B00756631C2Ac499304ebD9bF179Ac2",
+  "auraTokenAddress": "0x32D5B6C6B578915D1fc7d085eC39ac51c87F0afa",
   "rewardAmount": "1000000000000000000000",
-  "skipIfBalanceAbove": "1000000000000000000000"
+  "skipIfBalanceAbove": "1000000000000000000000",
+  "consumerAddress": "",
+  "gasLimit": "1000000"
 }

@@ -1,0 +1,9 @@
+{
+  "mode": "local-simulation",
+  "schedule": "0 */6 * * * *",
+  "chainSelectorName": "monad-testnet",
+  "indexerUrl": "https://indexer.dev.hyperindex.xyz/61835aa/v1/graphql",
+  "auraTokenAddress": "0xf76A06bA9B00756631C2Ac499304ebD9bF179Ac2",
+  "rewardAmount": "1000000000000000000000",
+  "skipIfBalanceAbove": "1000000000000000000000"
+}

@@ -7,6 +7,18 @@
  * never silently dropped — the previous split (one parser in the query layer,
  * none in the component) meant only some surfaces showed the image.
  */
+/** Per-handle themed-character config — archetype, palette, emoji fallback. */
+export type HandleCharacter = {
+  /** Archetype that frames the handle (athlete, musician, brand, crypto, …). */
+  type?: string;
+  /** For person/group handles; "none" for brands and concepts. */
+  gender?: string;
+  /** A representative emoji — cheap avatar fallback before a Jazzicon. */
+  emoji?: string;
+  /** Palette for card gradients / avatar backdrop (hex strings). */
+  colors?: { primary?: string; secondary?: string; accent?: string };
+};
+
 export type HandleMetadata = {
   name?: string;
   symbol?: string;
@@ -15,6 +27,8 @@ export type HandleMetadata = {
   /** "contain" keeps transparent logos uncropped; photos default to cover. */
   imageFit?: "cover" | "contain";
   category?: string | number;
+  /** Themed-character config (seeded) — drives UI theming when present. */
+  character?: HandleCharacter;
 };
 
 /** Parse metadata from a JSON string, an object, or nothing — never throws. */
@@ -45,6 +59,27 @@ export function parseHandleMetadata(
     imageFit: fit === "contain" || fit === "cover" ? fit : undefined,
     category:
       typeof o.category === "string" || typeof o.category === "number" ? o.category : undefined,
+    character: parseCharacter(o.character),
+  };
+}
+
+/** Parse the nested `character` object — never throws, every field optional. */
+function parseCharacter(raw: unknown): HandleCharacter | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const c = raw as Record<string, unknown>;
+  const cr = c.colors;
+  const colors = cr && typeof cr === "object" && !Array.isArray(cr) ? (cr as Record<string, unknown>) : undefined;
+  return {
+    type: typeof c.type === "string" ? c.type : undefined,
+    gender: typeof c.gender === "string" ? c.gender : undefined,
+    emoji: typeof c.emoji === "string" ? c.emoji : undefined,
+    colors: colors
+      ? {
+          primary: typeof colors.primary === "string" ? colors.primary : undefined,
+          secondary: typeof colors.secondary === "string" ? colors.secondary : undefined,
+          accent: typeof colors.accent === "string" ? colors.accent : undefined,
+        }
+      : undefined,
   };
 }
 

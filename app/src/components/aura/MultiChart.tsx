@@ -30,27 +30,59 @@ export type MultiChartAxis = "percent" | "points";
 
 const xAt = (i: number, n: number) => (i / Math.max(1, n - 1)) * PLOT_W;
 
-/** Catmull-Rom-smoothed path over already-mapped (and coincidence-offset) y
- *  values at explicit x positions. `start` lets the recent slice share the full
- *  series' x-axis instead of being stretched across the plot. */
+/**
+ * Monotone cubic (Fritsch–Carlson) path through already-mapped points at
+ * explicit x positions. Catmull-Rom assumed evenly-spaced x and overshot badly
+ * once the x-axis became TIME-based (samples minutes or hours apart): the curve
+ * bulged past real peaks and dipped below real troughs. This interpolant is
+ * spacing-aware and clamps tangents so it never overshoots the data. `start`
+ * lets the recent slice share the full series' x-axis instead of being
+ * stretched across the plot.
+ */
 function pathFor(xs: number[], y: number[], start = 0): string {
-  const n = y.length;
-  const pts: [number, number][] = [];
-  for (let i = start; i < n; i++) pts.push([xs[i]!, y[i]!]);
-  if (pts.length < 2) return "";
-  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+  const idx: number[] = [];
+  for (let i = start; i < y.length; i++) idx.push(i);
+  const m = idx.length;
+  if (m < 2) return "";
+  const px = idx.map((i) => xs[i]!);
+  const py = idx.map((i) => y[i]!);
+  // Secant slopes between consecutive points (dx = 0 when two share a time).
+  const d: number[] = [];
+  for (let i = 0; i < m - 1; i++) {
+    const dx = px[i + 1]! - px[i]!;
+    d.push(dx === 0 ? 0 : (py[i + 1]! - py[i]!) / dx);
   }
-  return d;
+  // Tangents: one-sided at the ends, averaged inside.
+  const t: number[] = new Array(m).fill(0);
+  t[0] = d[0]!;
+  t[m - 1] = d[m - 2]!;
+  for (let i = 1; i < m - 1; i++) t[i] = (d[i - 1]! + d[i]!) / 2;
+  // Fritsch–Carlson limiter — clamp so no segment overshoots its endpoints.
+  for (let i = 0; i < m - 1; i++) {
+    if (d[i] === 0) {
+      t[i] = 0;
+      t[i + 1] = 0;
+      continue;
+    }
+    const a = t[i]! / d[i]!;
+    const b = t[i + 1]! / d[i]!;
+    const s = a * a + b * b;
+    if (s > 9) {
+      const tau = 3 / Math.sqrt(s);
+      t[i] = tau * a * d[i]!;
+      t[i + 1] = tau * b * d[i]!;
+    }
+  }
+  let out = `M ${px[0]!.toFixed(1)} ${py[0]!.toFixed(1)}`;
+  for (let i = 0; i < m - 1; i++) {
+    const dx = px[i + 1]! - px[i]!;
+    const c1x = px[i]! + dx / 3;
+    const c1y = py[i]! + (t[i]! * dx) / 3;
+    const c2x = px[i + 1]! - dx / 3;
+    const c2y = py[i + 1]! - (t[i + 1]! * dx) / 3;
+    out += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${px[i + 1]!.toFixed(1)} ${py[i + 1]!.toFixed(1)}`;
+  }
+  return out;
 }
 
 /**

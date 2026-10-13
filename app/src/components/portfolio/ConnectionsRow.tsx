@@ -8,8 +8,9 @@ import { Avatar } from "@/components/Avatar";
 import { cn } from "@/lib/utils";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { notifyError } from "@/lib/notify";
-import { oauthUrl, shopifyUrl } from "@/lib/privy";
+import { oauthUrl, shopifyCallbackUrl, shopifyUrl } from "@/lib/privy";
 import { platformLogo } from "@/lib/platform-logos";
+import { atHandle } from "@/lib/handle-id";
 import { portfolio, type ConnectionLink, type HandleLink } from "@/lib/portfolio";
 import { qk } from "@/queries/keys";
 
@@ -35,6 +36,16 @@ const PLATFORMS: Platform[] = [
   { key: "shopify", label: "Shopify", feeds: "orders and storefront traffic", shop: true },
 ];
 
+/** Accept "mystore", "mystore.myshopify.com", or a pasted URL → "mystore". */
+function normaliseShop(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .replace(/\.myshopify\.com$/, "");
+}
+
 /**
  * Connections as a quiet row of platform marks: one tap opens a small popover
  * with the account it feeds, what it contributes to the aura index, and the one
@@ -50,6 +61,8 @@ export function ConnectionsRow({
 }) {
   const [conn, setConn] = useState<ConnectionLink | null>(connection);
   const [busy, setBusy] = useState<string | null>(null);
+  /** The merchant's Shopify store handle (may be typed as `x.myshopify.com`). */
+  const [shopDomain, setShopDomain] = useState("");
   const { auth, login } = useAuraAuth();
   const qc = useQueryClient();
 
@@ -66,12 +79,18 @@ export function ConnectionsRow({
       toast.info("Connect a wallet to link sources");
       return;
     }
+    // A store can't be derived from the handle — the merchant must name it.
+    const shop = p.shop ? normaliseShop(shopDomain) : "";
+    if (p.shop && !shop) {
+      toast.info("Enter your Shopify store domain first");
+      return;
+    }
     setBusy(p.key);
     try {
       // The oracle callback exchanges the code and returns the browser to this
       // exact page; the app reads the `?connection=` flag on the way back.
       const url = p.shop
-        ? shopifyUrl(`${handle.id}-store`, window.location.origin)
+        ? shopifyUrl(shop, shopifyCallbackUrl(), window.location.href, handle.id)
         : oauthUrl(p.key, handle.id, window.location.href);
       const res = await fetch(url);
       const j = (await res.json()) as { url?: string | null };
@@ -164,11 +183,27 @@ export function ConnectionsRow({
                     )}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {isOn ? (p.shop ? conn.account : `@${conn?.account ?? ""}`) : "Not connected"}
+                    {isOn ? (p.shop ? conn?.account : atHandle(conn?.account ?? "")) : "Not connected"}
                   </div>
                 </div>
                 {isOn && <span className="h-2 w-2 shrink-0 rounded-full bg-up" />}
               </div>
+
+              {p.shop && !isOn && (
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                    Store domain
+                  </span>
+                  <input
+                    value={shopDomain}
+                    onChange={(e) => setShopDomain(e.target.value)}
+                    placeholder="your-store.myshopify.com"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="h-9 w-full rounded-xl border border-border/70 bg-background px-3 text-[13px] outline-none placeholder:text-muted-foreground/60 focus:border-primary/60"
+                  />
+                </label>
+              )}
 
               <p className="mt-2.5 text-[12px] leading-relaxed text-muted-foreground">
                 Feeds <span className="text-foreground">{p.feeds}</span> into @{handle.name}&apos;s
@@ -179,7 +214,7 @@ export function ConnectionsRow({
                 <button
                   type="button"
                   onClick={() => void startOAuth(p)}
-                  disabled={busy !== null}
+                  disabled={busy !== null || (p.shop && !isOn && !normaliseShop(shopDomain))}
                   className={cn(
                     "flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl text-[13px] font-semibold transition-colors",
                     isOn

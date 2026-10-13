@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { PrismaConnectionStore } from "../src/persistence/prisma-connection-store.service";
 import {
   SupabaseAuthService,
@@ -10,6 +10,7 @@ import {
   oauthErrorPage,
 } from "../src/auth/supabase-auth.service";
 import { ShopifyAuthService } from "../src/auth/shopify-auth.service";
+import { ConnectionsController } from "../src/api/connections.controller";
 
 /** Fake Prisma `connection` delegate for the store tests. */
 class FakeConnectionModel {
@@ -272,8 +273,93 @@ describe("Supabase-facilitated OAuth for social connections", () => {
   });
 });
 
+describe("ConnectionsController — OAuth callback", () => {
+  /** Minimal express-Response stand-in: the controller 302s on success. */
+  function fakeRes() {
+    const seen: { status: number; url: string }[] = [];
+    const res = {
+      status: () => res,
+      type: () => res,
+      send: () => {},
+      redirect: (status: number, url: string) => {
+        seen.push({ status, url });
+      },
+    };
+    return { res, seen };
+  }
+
+  it("exchanges the code AND links the handle to the stored credential", async () => {
+    const exchanged: unknown[][] = [];
+    const linked: unknown[][] = [];
+    const supabase = {
+      returnUrl: (r?: string) => r ?? "http://localhost:5173",
+      verifierFor: () => "verifier",
+      exchangeCode: async (...args: unknown[]) => {
+        exchanged.push(args);
+        return { account: args[1] as string };
+      },
+    };
+    const portfolio = {
+      connect: async (...args: unknown[]) => {
+        linked.push(args);
+        return { handleId: args[0] as string };
+      },
+    };
+    const ctrl = new ConnectionsController(
+      {} as never,
+      supabase as never,
+      {} as never,
+      portfolio as never,
+    );
+
+    const state = encodeOAuthState({ account: "0xhandle", returnTo: "https://app.x/me" });
+    const { res, seen } = fakeRes();
+    await ctrl.oauthCallback("spotify", "code-123", state, res as never);
+
+    // The credential is keyed under (platform, account)…
+    expect(exchanged).toEqual([["spotify", "0xhandle", "code-123", "verifier"]]);
+    // …and the handle's single connection row is created (the UI reads that).
+    expect(linked).toEqual([["0xhandle", "spotify", "0xhandle"]]);
+    expect(seen).toEqual([
+      { status: 302, url: "https://app.x/me?connection=spotify%3Aconnected" },
+    ]);
+  });
+
+  it("reports an error (no link) when the exchange fails", async () => {
+    const linked: unknown[][] = [];
+    const supabase = {
+      returnUrl: () => "https://app.x/me",
+      verifierFor: () => "verifier",
+      exchangeCode: async () => {
+        throw new Error("supabase token HTTP 400");
+      },
+    };
+    const portfolio = {
+      connect: async (...args: unknown[]) => {
+        linked.push(args);
+        return {};
+      },
+    };
+    const ctrl = new ConnectionsController(
+      {} as never,
+      supabase as never,
+      {} as never,
+      portfolio as never,
+    );
+
+    const state = encodeOAuthState({ account: "0xhandle", returnTo: "https://app.x/me" });
+    const { res, seen } = fakeRes();
+    await ctrl.oauthCallback("spotify", "code-123", state, res as never);
+
+    expect(linked).toEqual([]);
+    expect(seen).toEqual([
+      { status: 302, url: "https://app.x/me?connection=spotify%3Aerror" },
+    ]);
+  });
+});
+
 describe("Shopify merchant OAuth", () => {
-  it("builds the authorize URL with read_orders/read_customers scopes", () => {
+  it("builds the authorize URL with scopes, the oracle callback and a state payload", () => {
     const svc = new ShopifyAuthService(
       {
         get: (k: string) => (k === "SHOPIFY_CLIENT_ID" ? "abc123" : undefined),
@@ -281,18 +367,69 @@ describe("Shopify merchant OAuth", () => {
       store(),
     );
     const url = svc.authUrl(
-      "my-store.myshopify.com",
-      "https://app.auramarkets.world/oauth/shopify",
+      "My-Store.myshopify.com",
+      "https://oracle.auramarkets.world/v1/connections/shopify/callback",
+      "0xhandle",
+      "https://app.auramarkets.world/me",
     )!;
-    expect(url).toContain(
-      "https://my-store.myshopify.com/admin/oauth/authorize",
-    );
+    expect(url).toContain("https://my-store.myshopify.com/admin/oauth/authorize");
     expect(url).toContain("client_id=abc123");
     // URLSearchParams encodes the comma-separated scopes.
     expect(decodeURIComponent(url)).toContain(
       "scope=read_orders,read_customers,read_products,read_inventory,read_discounts",
     );
-    expect(url).toContain("state=my-store");
+    const params = new URL(url).searchParams;
+    // Shopify sends the browser to the ORACLE callback, not the app root.
+    expect(params.get("redirect_uri")).toBe(
+      "https://oracle.auramarkets.world/v1/connections/shopify/callback",
+    );
+    // The handle to link + the app page to return to ride through echoed `state`.
+    expect(decodeOAuthState(params.get("state"))).toEqual({
+      account: "0xhandle",
+      returnTo: "https://app.auramarkets.world/me",
+    });
+  });
+
+  it("accepts a bare store, a domain or a pasted URL (and defaults account to the shop)", () => {
+    const svc = new ShopifyAuthService(
+      { get: (k: string) => (k === "SHOPIFY_CLIENT_ID" ? "abc123" : undefined) } as never,
+      store(),
+    );
+    const url = svc.authUrl(" https://my-store.myshopify.com/admin ", "https://oracle/cb")!;
+    expect(url.startsWith("https://my-store.myshopify.com/admin/oauth/authorize")).toBe(true);
+    expect(decodeOAuthState(new URL(url).searchParams.get("state"))).toEqual({
+      account: "my-store",
+    });
+    expect(svc.authUrl("bare", "https://oracle/cb")!.startsWith("https://bare.myshopify.com/")).toBe(
+      true,
+    );
+  });
+
+  it("verifies Shopify's hmac (sorted params, excluding hmac, timing-safe)", () => {
+    const secret = "shpss_secret";
+    const svc = new ShopifyAuthService(
+      { get: (k: string) => (k === "SHOPIFY_CLIENT_SECRET" ? secret : undefined) } as never,
+      store(),
+    );
+    const query: Record<string, unknown> = {
+      code: "abc",
+      shop: "my-store.myshopify.com",
+      state: "st",
+      timestamp: "1700000000",
+    };
+    const message = Object.keys(query)
+      .sort()
+      .map((k) => `${k}=${query[k]}`)
+      .join("&");
+    const hmac = createHmac("sha256", secret).update(message).digest("hex");
+
+    expect(svc.verifyHmac(query, hmac)).toBe(true);
+    // `hmac` itself is excluded from the digest…
+    expect(svc.verifyHmac({ ...query, hmac }, hmac)).toBe(true);
+    // …and a tampered param or missing/minmatched hmac fails closed.
+    expect(svc.verifyHmac({ ...query, code: "tampered" }, hmac)).toBe(false);
+    expect(svc.verifyHmac(query, "deadbeef")).toBe(false);
+    expect(svc.verifyHmac(query, undefined)).toBe(false);
   });
 
   it("returns null when the app is not configured", () => {
@@ -301,5 +438,94 @@ describe("Shopify merchant OAuth", () => {
       store(),
     );
     expect(svc.authUrl("my-store", "https://x")).toBeNull();
+  });
+});
+
+describe("ConnectionsController — Shopify callback", () => {
+  function fakeRes() {
+    const seen: { status: number; url: string }[] = [];
+    const res = {
+      status: () => res,
+      type: () => res,
+      send: () => {},
+      redirect: (status: number, url: string) => {
+        seen.push({ status, url });
+      },
+    };
+    return { res, seen };
+  }
+
+  it("exchanges, links the handle and redirects back with the flag", async () => {
+    const linked: unknown[][] = [];
+    const shopify = {
+      decodeState: () => ({ account: "0xhandle", returnTo: "https://app.x/me" }),
+      verifyHmac: () => true,
+      exchangeCode: async () => ({ account: "my-store", connected: true }),
+    };
+    const portfolio = {
+      connect: async (...args: unknown[]) => {
+        linked.push(args);
+        return {};
+      },
+    };
+    const supabase = { returnUrl: (r?: string) => r ?? "http://localhost:5173" };
+    const ctrl = new ConnectionsController(
+      {} as never,
+      supabase as never,
+      shopify as never,
+      portfolio as never,
+    );
+
+    const { res, seen } = fakeRes();
+    await ctrl.shopifyCallback(
+      { query: {} } as never,
+      "code-123",
+      "my-store.myshopify.com",
+      "st",
+      "hmac",
+      res as never,
+    );
+
+    expect(linked).toEqual([["0xhandle", "shopify", "my-store"]]);
+    expect(seen).toEqual([
+      { status: 302, url: "https://app.x/me?connection=shopify%3Aconnected" },
+    ]);
+  });
+
+  it("fails closed on a bad hmac (no exchange, no link)", async () => {
+    const linked: unknown[][] = [];
+    const shopify = {
+      decodeState: () => ({ account: "0xhandle", returnTo: "https://app.x/me" }),
+      verifyHmac: () => false,
+      exchangeCode: async () => ({ account: "my-store" }),
+    };
+    const portfolio = {
+      connect: async (...args: unknown[]) => {
+        linked.push(args);
+        return {};
+      },
+    };
+    const supabase = { returnUrl: () => "https://app.x/me" };
+    const ctrl = new ConnectionsController(
+      {} as never,
+      supabase as never,
+      shopify as never,
+      portfolio as never,
+    );
+
+    const { res, seen } = fakeRes();
+    await ctrl.shopifyCallback(
+      { query: {} } as never,
+      "code-123",
+      "my-store.myshopify.com",
+      "st",
+      "bad",
+      res as never,
+    );
+
+    expect(linked).toEqual([]);
+    expect(seen).toEqual([
+      { status: 302, url: "https://app.x/me?connection=shopify%3Aerror" },
+    ]);
   });
 });

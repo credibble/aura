@@ -125,5 +125,19 @@ export const oauthUrl = (platform: string, account: string, returnTo: string): s
   `&redirectTo=${encodeURIComponent(oauthCallbackUrl(platform))}` +
   `&returnTo=${encodeURIComponent(returnTo)}`;
 
-export const shopifyUrl = (shop: string, redirectTo: string): string =>
-  `${API_BASE}/connections/shopify/auth-url?shop=${encodeURIComponent(shop)}&redirectTo=${encodeURIComponent(redirectTo)}`;
+/** The oracle's Shopify callback — Shopify sends the browser here with the code;
+ *  the oracle exchanges it and bounces back to the app page. */
+export const shopifyCallbackUrl = (): string => `${API_BASE}/connections/shopify/callback`;
+
+/**
+ * Build the oracle request for a Shopify store. `redirectTo` is the oracle
+ * callback (registered in the Shopify app), `returnTo` the app page to land on,
+ * `account` the handle to link; the oracle carries the latter two through
+ * Shopify's echoed `state`.
+ */
+export const shopifyUrl = (shop: string, redirectTo: string, returnTo: string, account: string): string =>
+  `${API_BASE}/connections/shopify/auth-url` +
+  `?shop=${encodeURIComponent(shop)}` +
+  `&redirectTo=${encodeURIComponent(redirectTo)}` +
+  `&returnTo=${encodeURIComponent(returnTo)}` +
+  `&account=${encodeURIComponent(account)}`;

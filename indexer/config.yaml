@@ -10,6 +10,9 @@
 # Addresses are synced from ../smart-contracts/deployments/deployments.json by
 # `node smart-contracts/scripts/sync-indexer.mjs --write` (run by deploy-all.mjs).
 #
+# Deploy note: fresh Monad testnet stack (start_block 70555935, 16 handles,
+# CRE Reward/Graduation consumers wired). Bump this line to trigger a redeploy.
+#
 # yaml-language-server: $schema=./node_modules/envio/evm.schema.json
 name: aura-indexer
 description: Aura — the internet aura market (handles, windows, trades, orders, auraLP vault, staking)

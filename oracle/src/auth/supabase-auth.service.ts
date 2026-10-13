@@ -19,13 +19,33 @@ const SUPABASE_PROVIDERS: Readonly<Record<string, string>> = {
 };
 
 /**
- * What we round-trip through Supabase's `state` parameter: the account that
- * owns the connection, plus (best-effort) where to send the browser back to.
- * Supabase echoes `state` on the callback, so the oracle can finish the
- * exchange without trusting anything the browser tells it. `n` is a per-attempt
- * nonce — it makes each attempt's PKCE verifier distinct (see `verifierFor`).
+ * What we round-trip through the OAuth flow: the account that owns the
+ * connection, plus (best-effort) where to send the browser back to.
+ *
+ * NOT through Supabase's `state` parameter: GoTrue reserves that and overwrites
+ * it with its own flow-state UUID (see supabase/auth
+ * `GetExternalProviderRedirectURL`, which deletes it from `reservedOAuthParams`).
+ * Instead the payload rides on the oracle callback URL's own query string via
+ * {@link callbackUrlWithState}, which GoTrue preserves on the redirect back
+ * (`prepPKCERedirectURL` only sets `code`). `n` is a per-attempt nonce — it keeps
+ * each attempt's PKCE verifier distinct (see `verifierFor`).
  */
 export type OAuthState = { account: string; returnTo?: string; n?: string };
+
+/**
+ * Query parameter on the oracle callback URL that carries the {@link OAuthState}
+ * payload back to us. Any non-reserved name works; `state` is taken by Supabase.
+ */
+export const OAUTH_STATE_PARAM = "c";
+
+/**
+ * Attach the flow payload to the callback URL Supabase will redirect back to.
+ * `redirectTo` already points at the oracle's `/connections/oauth/:platform/callback`.
+ */
+export function callbackUrlWithState(redirectTo: string, state: string): string {
+  const sep = redirectTo.includes("?") ? "&" : "?";
+  return `${redirectTo}${sep}${OAUTH_STATE_PARAM}=${encodeURIComponent(state)}`;
+}
 
 /** Encode the state as a URL-safe token (base64url JSON). */
 export function encodeOAuthState(state: OAuthState): string {
@@ -137,13 +157,17 @@ export class SupabaseAuthService {
    *
    * `redirectTo` is where SUPABASE sends the browser back (the oracle's
    * `/connections/oauth/:platform/callback`, which does the code exchange);
-   * `returnTo` is where the ORACLE then sends the browser (the app page). Both
-   * go through `state` so the callback can trust them.
+   * `returnTo` is where the ORACLE then sends the browser (the app page).
+   *
+   * We cannot use Supabase's `state` for that (GoTrue reserves and overwrites
+   * it), so `{account, returnTo}` is attached to `redirect_to`'s own query
+   * string — see {@link callbackUrlWithState}. The PKCE verifier is derived from
+   * the same payload, and Supabase echoes the `redirect_to` query back.
    *
    * We request the PKCE flow (`code_challenge`/`s256`): without it Supabase uses
    * the implicit flow and returns the tokens in the URL *fragment*
    * (`#access_token=…`), which a server never sees — there'd be no code to
-   * exchange. With it, Supabase sends `?code=…&state=…` to the callback.
+   * exchange. With it, Supabase sends `?code=…` to the callback.
    */
   authUrl(
     platform: string,
@@ -161,9 +185,8 @@ export class SupabaseAuthService {
     });
     const query = new URLSearchParams({
       provider,
-      redirect_to: redirectTo,
+      redirect_to: callbackUrlWithState(redirectTo, state),
       scopes: this.scopesFor(platform),
-      state,
       code_challenge: this.challengeFor(this.verifierFor(state)),
       code_challenge_method: "s256",
     });

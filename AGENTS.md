@@ -41,9 +41,13 @@ WebSocket support is plan-dependent — never *require* the socket.
 - social OAuth `GET /connections/oauth/:platform/auth-url` (returns the Supabase
   authorize URL) → Supabase → `GET /connections/oauth/:platform/callback` (the
   oracle exchanges the code + stores the token, then **302s the browser back to
-  the app page** it came from via `state`; `APP_URL` is the fallback). The app
-  passes the oracle callback as `redirectTo` and the current page as `returnTo`,
-  then reads the `?connection=<platform>:<result>` flag on return.
+  the app page** it came from; `APP_URL` is the fallback). The app passes the
+  oracle callback as `redirectTo` and the current page as `returnTo`; both ride
+  on the callback URL's own `?c=` query param — **not** Supabase's `state`, which
+  GoTrue reserves and overwrites with its own flow-state UUID (so the PKCE
+  verifier is derived from that payload too). The app then reads the
+  `?connection=<platform>:<result>` flag on return. The oracle callback must be
+  allow-listed in Supabase Redirect URLs with a wildcard, since it carries `?c=`.
 - auth: `POST /auth/login` (EIP-191 → JWT, stored per device in `localStorage`)
 
 **Chain (viem public client, Monad testnet)** — anything that must be exact and fresh:

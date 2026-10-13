@@ -7,6 +7,7 @@ import {
   SupabaseAuthService,
   connectionResultUrl,
   decodeOAuthState,
+  OAUTH_STATE_PARAM,
   oauthErrorPage,
 } from "../auth/supabase-auth.service";
 import { ShopifyAuthService } from "../auth/shopify-auth.service";
@@ -44,8 +45,13 @@ export class ConnectionsController {
 
   /**
    * Supabase sends the browser HERE after the user authorizes (the app passes
-   * this URL as `redirect_to`). We exchange the code for the provider token and
-   * store it, then bounce the browser back to the app.
+   * this URL as `redirect_to`, with our flow payload on its query string). We
+   * exchange the code for the provider token and store it, then bounce the
+   * browser back to the app.
+   *
+   * The payload is NOT in `state`: GoTrue reserves `state` for its own flow and
+   * drops the client value, so it rides on `redirect_to`'s `?c=` instead (see
+   * `OAUTH_STATE_PARAM`).
    *
    * On error Supabase puts the details in the URL *fragment* (invisible to the
    * server), so the no-code path returns a tiny page that forwards it onward.
@@ -54,7 +60,7 @@ export class ConnectionsController {
   async oauthCallback(
     @Param("platform") platform: string,
     @Query("code") code: string,
-    @Query("state") state: string,
+    @Query(OAUTH_STATE_PARAM) state: string,
     @Res() res: Response,
   ): Promise<void> {
     const { account, returnTo } = decodeOAuthState(state);
@@ -68,7 +74,7 @@ export class ConnectionsController {
         platform,
         account,
         code,
-        this.supabase.verifierFor(state),
+        this.supabase.verifierFor(state ?? ""),
       );
       res.redirect(302, connectionResultUrl(back, `${platform}:connected`));
     } catch (e) {

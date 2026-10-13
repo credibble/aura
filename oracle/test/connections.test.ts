@@ -6,6 +6,7 @@ import {
   connectionResultUrl,
   decodeOAuthState,
   encodeOAuthState,
+  OAUTH_STATE_PARAM,
   oauthErrorPage,
 } from "../src/auth/supabase-auth.service";
 import { ShopifyAuthService } from "../src/auth/shopify-auth.service";
@@ -194,25 +195,46 @@ describe("Supabase-facilitated OAuth for social connections", () => {
       "https://aura.supabase.co/auth/v1/authorize?provider=spotify",
     );
     const params = new URL(url).searchParams;
-    // Supabase sends the browser to the ORACLE callback (server-side exchange)…
-    expect(params.get("redirect_to")).toBe(
+    // Supabase reserves `state` for its own flow state UUID and deletes any
+    // client value, so we must NOT rely on it (the payload rides on redirect_to).
+    expect(params.get("state")).toBeNull();
+    // Supabase sends the browser to the ORACLE callback (server-side exchange),
+    // with our account + app return URL on its own query string…
+    const redirectTo = new URL(params.get("redirect_to")!);
+    expect(`${redirectTo.origin}${redirectTo.pathname}`).toBe(
       "https://oracle.auramarkets.world/v1/connections/oauth/spotify/callback",
     );
-    // …and the oracle carries account + app return URL through `state`.
-    expect(decodeOAuthState(params.get("state"))).toMatchObject({
+    const state = redirectTo.searchParams.get(OAUTH_STATE_PARAM)!;
+    expect(decodeOAuthState(state)).toMatchObject({
       account: "taylorswift",
       returnTo: "https://app.auramarkets.world/me",
     });
     // PKCE flow: without a challenge Supabase returns `#access_token=…` in the
     // fragment (invisible to the server); with it, it returns `?code=…`, and the
-    // verifier is re-derived from `state` at the callback.
+    // verifier is re-derived from the preserved payload at the callback.
     expect(params.get("code_challenge_method")).toBe("s256");
-    const state = params.get("state")!;
     const challenge = params.get("code_challenge")!;
     expect(challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(createHash("sha256").update(svc.verifierFor(state)).digest("base64url")).toBe(
       challenge,
     );
+  });
+
+  it("carries the flow payload on redirect_to's query so Supabase preserves it", () => {
+    const svc = new SupabaseAuthService(
+      {
+        get: (k: string) =>
+          k === "SUPABASE_URL" ? "https://aura.supabase.co" : undefined,
+      } as never,
+      store(),
+    );
+    const url = svc.authUrl("x", "0xabc", "https://oracle.auramarkets.world/v1/connections/oauth/x/callback")!;
+    const redirectTo = new URL(new URL(url).searchParams.get("redirect_to")!);
+    expect(redirectTo.searchParams.get(OAUTH_STATE_PARAM)).toBeTruthy();
+    // No returnTo → the callback falls back to APP_URL, not a broken redirect.
+    expect(decodeOAuthState(redirectTo.searchParams.get(OAUTH_STATE_PARAM))).toMatchObject({
+      account: "0xabc",
+    });
   });
 
   it("round-trips account/returnTo through state, tolerating legacy bare-account state", () => {

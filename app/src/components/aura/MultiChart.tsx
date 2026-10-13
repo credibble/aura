@@ -2,7 +2,7 @@ import { useId } from "react";
 import { percentDomain, strikeCenteredDomain, tightDomain } from "@/lib/chart-domain";
 import { formatCents } from "@/lib/format";
 
-type Series = { data: number[]; color: string; label: string };
+type Series = { data: number[]; color: string; label: string; ts?: number[] };
 
 /** Chart viewBox units. The plot stops at `PLOT_W`; `GUTTER` is the right-hand
  *  strip the value axis lives in. */
@@ -31,12 +31,12 @@ export type MultiChartAxis = "percent" | "points";
 const xAt = (i: number, n: number) => (i / Math.max(1, n - 1)) * PLOT_W;
 
 /** Catmull-Rom-smoothed path over already-mapped (and coincidence-offset) y
- *  values. `start` lets the recent slice share the full series' x-axis instead
- *  of being stretched across the plot. */
-function pathFor(y: number[], start = 0): string {
+ *  values at explicit x positions. `start` lets the recent slice share the full
+ *  series' x-axis instead of being stretched across the plot. */
+function pathFor(xs: number[], y: number[], start = 0): string {
   const n = y.length;
   const pts: [number, number][] = [];
-  for (let i = start; i < n; i++) pts.push([xAt(i, n), y[i]]);
+  for (let i = start; i < n; i++) pts.push([xs[i]!, y[i]!]);
   if (pts.length < 2) return "";
   let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -92,6 +92,8 @@ export function MultiChart({
   mode = "line",
   strike,
   axis = "percent",
+  from,
+  to,
 }: {
   series: Series[];
   height?: number;
@@ -99,6 +101,12 @@ export function MultiChart({
   /** Threshold from the market question (aura points), e.g. 41.5. */
   strike?: number | null;
   axis?: MultiChartAxis;
+  /** Time range (epoch ms) the x-axis spans. When present — and the series
+   *  carry per-point `ts` — points are placed by TIME, not by index, so samples
+   *  that are hours apart aren't drawn equidistant (and time-anchored overlays
+   *  such as the memo markers land on the curve). */
+  from?: number;
+  to?: number;
 }) {
   const id = useId();
   const h = height;
@@ -120,6 +128,22 @@ export function MultiChart({
         : tightDomain(all);
 
   const yFor = (v: number) => h - ((v - min) / (max - min || 1)) * (h - 8) - 4;
+
+  // x positions: by TIME when the series carry timestamps and a range is known,
+  // else by index (the legacy equal-spacing fallback). Every series here shares
+  // one time base, so a single range maps them all.
+  const timeAxis =
+    typeof from === "number" &&
+    typeof to === "number" &&
+    to > from &&
+    series.some((s) => s.ts && s.ts.length === s.data.length);
+  const xsBySeries = series.map((s) => {
+    const n = s.data.length;
+    if (timeAxis && s.ts && s.ts.length === n && from !== undefined && to !== undefined) {
+      return s.ts.map((t) => ((t - from) / (to - from)) * PLOT_W);
+    }
+    return s.data.map((_, i) => xAt(i, n));
+  });
 
   // --- Coincidence separation -----------------------------------------------
   // Several binary outcomes can read the same value (they start 50/50 and can
@@ -227,7 +251,7 @@ export function MultiChart({
                 const up = cur >= prev;
                 const y1 = ys[si]![i - step]!;
                 const y2 = ys[si]![i]!;
-                const x = xAt(i, s.data.length);
+                const x = xsBySeries[si]![i]!;
                 bars.push(
                   <g key={i}>
                     <line
@@ -260,8 +284,8 @@ export function MultiChart({
               // dimmed, the slice nearest "now" is full opacity.
               const count = s.data.length;
               const split = count > 6 ? Math.max(1, Math.floor(count * 0.65)) : 0;
-              const faint = split > 0 ? pathFor(ys[si]!, 0) : "";
-              const bright = pathFor(ys[si]!, split);
+              const faint = split > 0 ? pathFor(xsBySeries[si]!, ys[si]!, 0) : "";
+              const bright = pathFor(xsBySeries[si]!, ys[si]!, split);
               return (
                 <g key={s.label + id}>
                   {faint && (
@@ -295,7 +319,7 @@ export function MultiChart({
                   i % step === 0 ? (
                     <circle
                       key={i}
-                      cx={xAt(i, s.data.length)}
+                      cx={xsBySeries[si]![i]!}
                       cy={ys[si]![i]!}
                       r="3"
                       fill="hsl(var(--background))"
@@ -318,7 +342,7 @@ export function MultiChart({
             modes, so the newest value is unmistakable at a glance. */}
         {series.map((s, si) => {
           if (s.data.length === 0) return null;
-          const cx = xAt(s.data.length - 1, s.data.length);
+          const cx = xsBySeries[si]![s.data.length - 1]!;
           const cy = ys[si]![s.data.length - 1]!;
           return (
             <g key={`tail-${s.label}-${id}`}>
@@ -345,7 +369,7 @@ export function MultiChart({
           same last point the pulse dot is drawn at. */}
       {series.map((s, si) => {
         if (s.data.length === 0) return null;
-        const cx = xAt(s.data.length - 1, s.data.length);
+        const cx = xsBySeries[si]![s.data.length - 1]!;
         const cy = endLabelY[si] ?? yFor(s.data[s.data.length - 1]);
         return (
           <span

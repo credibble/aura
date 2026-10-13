@@ -256,6 +256,7 @@ function TradePage() {
     const from = Number.isFinite(cfg.spanMs) ? Math.max(startMs, endMs - cfg.spanMs) : startMs;
     const to = Number.isFinite(cfg.spanMs) ? endMs : Math.max(endMs, startMs + 1);
     const filtered = arr.filter((p) => Number(p.ts) * 1000 >= from);
+    const seriesTs = filtered.map((p) => Number(p.ts) * 1000);
     const series = market.outcomes.map((o, i) => {
       const data = filtered.map((p) => Number(p.prices?.[i] ?? 0) / 1e16);
       return {
@@ -265,6 +266,9 @@ function TradePage() {
         // window draws its true level immediately as a flat line (the x axis is
         // point-indexed, so this spans the plot exactly like the other series).
         data: data.length === 1 ? [data[0]!, data[0]!] : data,
+        // Real timestamps so the chart places points by time, not index. A
+        // single point spans the whole range (flat line) rather than collapsing.
+        ts: seriesTs.length === 1 ? [from, to] : seriesTs,
       };
     });
     return { series, from, to };
@@ -289,13 +293,19 @@ function TradePage() {
     const cfg = RANGES.find((r) => r.id === range)!;
     const to = dataEnd;
     const from = Number.isFinite(cfg.spanMs) ? Math.max(dataStart, to - cfg.spanMs) : dataStart;
-    const visible = all.filter((p) => p.ts >= from).map((p) => p.v);
+    const visible = all.filter((p) => p.ts >= from);
     if (visible.length === 0) return null;
-    const data = visible.length === 1 ? [visible[0]!, visible[0]!] : visible;
+    const values = visible.map((p) => p.v);
+    const data = values.length === 1 ? [values[0]!, values[0]!] : values;
+    // Real timestamps so samples hours apart aren't drawn equidistant — the
+    // time-anchored memo markers then sit on the curve. A lone point spans the
+    // range so its flat line still reads.
+    const ts = visible.map((p) => p.ts);
+    const dataTs = ts.length === 1 ? [from, to] : ts;
     // Green while the index rises over the last 24h — the same rule every other
     // chart uses. Anchored to the day, not to the range chip, so switching from
     // 1D to 1H never flips the line's colour.
-    return { series: [{ label: "Aura", color: trendColorFrom(all), data }], from, to };
+    return { series: [{ label: "Aura", color: trendColorFrom(all), data, ts: dataTs }], from, to };
   }, [auraHistory, range]);
 
   // The strike is an AURA level: only draw it when the Aura series is what's
@@ -703,6 +713,8 @@ function TradePage() {
                     height={280}
                     strike={auraShown ? market.strike : undefined}
                     axis={auraShown ? "points" : "percent"}
+                    from={auraShown ? auraChart!.from : chart?.from}
+                    to={auraShown ? auraChart!.to : chart?.to}
                   />
 
                   {/* Aura snapshot markers — the memo behind each point */}

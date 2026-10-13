@@ -20545,6 +20545,11 @@ var onCron = (runtime) => {
   }
   const underfunded = stakes.filter((s) => BigInt(s.totalAssets) < skipAbove);
   runtime.log(`CRE: ${stakes.length} vaults, ${underfunded.length} underfunded (< ${skipIfBalanceAbove})`);
+  const MAX_BATCH = 100;
+  const batch = underfunded.slice(0, MAX_BATCH);
+  if (underfunded.length > batch.length) {
+    runtime.log(`CRE: capping batch ${underfunded.length} → ${batch.length} (next run takes the rest)`);
+  }
   if (mode === "local-simulation") {
     const result = {
       mode: "local-simulation",
@@ -20568,7 +20573,7 @@ var onCron = (runtime) => {
     runtime.log("CRE: all vaults funded — no write due");
     return JSON.stringify({ mode: "production", rewarded: 0 });
   }
-  const targets = underfunded.map((s) => s.id);
+  const targets = batch.map((s) => s.id);
   const encoded = encodeAbiParameters(parseAbiParameters("address[] stakes, uint256 amount"), [targets, amount]);
   const report = runtime.report(prepareReportRequest(encoded)).result();
   const network = getNetwork({
@@ -20589,8 +20594,8 @@ var onCron = (runtime) => {
   if (!write.txHash)
     throw new Error("write succeeded without a transaction hash");
   const tx = bytesToHex3(write.txHash);
-  runtime.log(`CRE: rewarded ${underfunded.length} vaults, tx ${tx}`);
-  return JSON.stringify({ mode: "production", rewarded: underfunded.length, txHash: tx });
+  runtime.log(`CRE: rewarded ${batch.length} vaults, tx ${tx}`);
+  return JSON.stringify({ mode: "production", rewarded: batch.length, txHash: tx });
 };
 var initWorkflow = (config) => {
   const cron = new CronCapability;

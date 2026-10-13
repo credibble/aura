@@ -1,7 +1,7 @@
 {
   "schedule": "0 */6 * * * *",
   "chainSelectorName": "monad-testnet",
-  "indexerUrl": "https://indexer.dev.hyperindex.xyz/61835aa/v1/graphql",
+  "indexerUrl": "https://indexer.dev.hyperindex.xyz/e4823c3/v1/graphql",
   "rewardAmount": "1000000000000000000000",
   "skipIfBalanceAbove": "1000000000000000000000",
   "consumerAddress": "0x217248a521603DcF46F73E148081e00D66c1b5F2",

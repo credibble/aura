@@ -18,6 +18,7 @@ const d = JSON.parse(readFileSync("deployments/deployments.json", "utf8"));
 const TARGETS = {
   app: {
     file: "../app/.env",
+    indexerKey: "VITE_INDEXER_URL",
     keys: {
       VITE_MARKET_MAKER_ADDRESS: d.marketMaker,
       VITE_ORDER_BOOK_ADDRESS: d.orderBook,
@@ -30,6 +31,7 @@ const TARGETS = {
   },
   oracle: {
     file: "../oracle/.env",
+    indexerKey: "INDEXER_URL",
     keys: {
       CHAIN_ID: String(d.chainId),
       MARKET_MAKER_ADDRESS: d.marketMaker,
@@ -79,6 +81,12 @@ for (const name of targets) {
     }
     content = upsert(content, key, value);
     updated.push(key);
+  }
+  // Optional: point the service at a specific indexer (e.g. the deployed
+  // HyperIndex endpoint) via the INDEXER_URL env var.
+  if (process.env.INDEXER_URL && t.indexerKey) {
+    content = upsert(content, t.indexerKey, process.env.INDEXER_URL);
+    updated.push(t.indexerKey);
   }
   if (!content.endsWith("\n")) content += "\n";
   writeFileSync(path, content);

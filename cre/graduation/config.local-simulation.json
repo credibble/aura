@@ -2,6 +2,6 @@
   "mode": "local-simulation",
   "schedule": "0 */15 * * * *",
   "chainSelectorName": "monad-testnet",
-  "indexerUrl": "http://localhost:8080/v1/graphql",
+  "indexerUrl": "https://indexer.dev.hyperindex.xyz/e4823c3/v1/graphql",
   "minGraduationAura": "1000"
 }

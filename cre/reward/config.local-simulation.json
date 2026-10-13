@@ -2,7 +2,7 @@
   "mode": "local-simulation",
   "schedule": "0 */6 * * * *",
   "chainSelectorName": "monad-testnet",
-  "indexerUrl": "https://indexer.dev.hyperindex.xyz/61835aa/v1/graphql",
+  "indexerUrl": "http://localhost:8080/v1/graphql",
   "rewardAmount": "1000000000000000000000",
   "skipIfBalanceAbove": "1000000000000000000000"
 }

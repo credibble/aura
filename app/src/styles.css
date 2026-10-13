@@ -548,14 +548,14 @@ input[type="number"] {
    the six diagrams read as one system instead of six borrowed scenes. */
 .hiw-plate {
   position: relative;
-  height: 180px;
+  height: 340px;
   overflow: hidden;
-  padding: 14px 16px;
-  border-radius: 18px;
+  padding: 24px 28px;
+  border-radius: 24px;
   border: 1px solid hsl(var(--border));
   background-color: hsl(var(--secondary) / 0.35);
-  background-image: radial-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px);
-  background-size: 14px 14px;
+  background-image: radial-gradient(hsl(var(--foreground) / 0.05) 1.5px, transparent 1.5px);
+  background-size: 22px 22px;
 }
 
 /* One shared entrance, staggered per element via animation-delay. */

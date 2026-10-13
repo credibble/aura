@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
-/** Official USDC mark (Wikimedia). Hot-linked, like the other real artwork. */
-export const USDC_LOGO = "https://upload.wikimedia.org/wikipedia/commons/4/4a/Circle_USDC_Logo.svg";
+/** Official USDC mark, vendored locally (was a hot-linked Wikimedia URL). */
+export const USDC_LOGO = "/tokens/usdc.svg";
 
 /**
  * The USDC mark — used instead of a bare `$` next to amounts, so a figure reads

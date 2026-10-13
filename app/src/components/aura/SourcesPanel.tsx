@@ -1,24 +1,8 @@
 import { Avatar } from "@/components/Avatar";
+import { platformLogo } from "@/lib/platform-logos";
 import { cn } from "@/lib/utils";
 
 type SourceKind = "social" | "community" | "media" | "search";
-
-/**
- * Real platform artwork for the source row — the same logos used on the
- * portfolio connectors. Unknown platforms fall back to their identicon.
- */
-const SOURCE_LOGOS: Record<string, string> = {
-  x: "https://upload.wikimedia.org/wikipedia/commons/6/6f/X_Logo_2023.svg",
-  twitter: "https://upload.wikimedia.org/wikipedia/commons/6/6f/X_Logo_2023.svg",
-  youtube:
-    "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg",
-  instagram: "https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg",
-  facebook: "https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg",
-  linkedin: "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
-  twitch: "https://upload.wikimedia.org/wikipedia/commons/2/26/Twitch_logo.svg",
-  spotify: "https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg",
-  github: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
-};
 
 const KIND_RING: Record<SourceKind, string> = {
   social: "group-hover/row:border-sky-500/50",
@@ -121,7 +105,7 @@ export function SourcesPanel({ sources, label }: { sources: string[]; label?: st
             >
               <Avatar
                 seed={s.platform}
-                image={SOURCE_LOGOS[s.platform.toLowerCase()] ?? null}
+                image={platformLogo(s.platform)}
                 size={28}
                 alt={s.name}
                 className="shrink-0"

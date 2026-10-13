@@ -165,9 +165,9 @@ function SlideAura() {
 }
 
 const SOURCES = [
-  { src: "https://upload.wikimedia.org/wikipedia/commons/6/6f/X_Logo_2023.svg", alt: "X", bg: "bg-foreground", invert: true },
-  { src: "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg", alt: "YouTube", bg: "bg-white", invert: false },
-  { src: "https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png", alt: "Reddit", bg: "bg-[#FF4500]", invert: false },
+  { src: "/platforms/x.svg", alt: "X" },
+  { src: "/platforms/youtube.svg", alt: "YouTube" },
+  { src: "/platforms/reddit.svg", alt: "Reddit" },
 ] as const;
 
 /** Slide 2 — where the read comes from: platforms + the news/web-search feeds. */
@@ -177,16 +177,11 @@ function SlideSources() {
       <div className="flex w-full items-start justify-center gap-8">
         {SOURCES.map((s) => (
           <div key={s.alt} className="flex flex-col items-center">
-            <span
-              className={cn(
-                "grid h-12 w-12 place-items-center overflow-hidden rounded-2xl shadow-sm",
-                s.bg,
-              )}
-            >
+            <span className="grid h-12 w-12 place-items-center overflow-hidden rounded-2xl bg-secondary shadow-sm">
               <img
                 src={s.src}
                 alt={s.alt}
-                className={cn("h-6 w-6 object-contain", s.invert && "invert")}
+                className="h-6 w-6 object-contain"
               />
             </span>
             <span className="h-8 w-px border-l border-dashed border-muted-foreground/40" />

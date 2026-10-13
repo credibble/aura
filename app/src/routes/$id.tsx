@@ -37,6 +37,7 @@ import { StakePopup } from "@/components/portfolio/StakePopup";
 import { StakeButton } from "@/components/aura/StakeButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toMarket } from "@/lib/aura-markets";
+import { selectWindow } from "@/lib/window-state";
 import { CATEGORY_MAP, indexLabel, type CategoryId } from "@/lib/aura-data";
 import { findHandle, handleSlug, labelOf } from "@/lib/handle-id";
 import { formatCents, formatCompact, formatIndex, formatPct, formatUsd } from "@/lib/format";
@@ -125,7 +126,7 @@ function TradePage() {
     () => windows.filter((w) => w.outcomes.length > 0 && Number(w.windowEnd) > 0),
     [windows],
   );
-  const live = viewable.find((w) => !w.settled) ?? null;
+  const live = selectWindow(viewable).live;
 
   const [range, setRange] = useState<(typeof RANGES)[number]["id"]>("1D");
   /**

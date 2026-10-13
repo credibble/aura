@@ -9,6 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   marketWindowState,
+  selectWindow,
   WINDOW_SETTLE_GRACE_MS,
   type MarketWindowState,
 } from "./window-state.ts";
@@ -64,4 +65,26 @@ test("a four-hour window keeps trading for its full length", () => {
     "trading",
   );
   assert.equal(stateAfterClose(0), "awaiting");
+});
+
+test("selectWindow: the newest open window is live", () => {
+  const newest = { id: "new", settled: false };
+  const older = { id: "old", settled: false };
+  const { newest: n, live } = selectWindow([newest, older]);
+  assert.equal(n, newest);
+  assert.equal(live, newest);
+});
+
+test("selectWindow: a settled NEWEST window is not skipped for an older unsettled one", () => {
+  // The regression: freeze-on-resolve settles the current window early, and the
+  // page used to fall back to an OLD unsettled window and render "will void".
+  const settledNow = { id: "now", settled: true };
+  const staleOld = { id: "old", settled: false };
+  const { newest, live } = selectWindow([settledNow, staleOld]);
+  assert.equal(newest, settledNow);
+  assert.equal(live, null);
+});
+
+test("selectWindow: empty list has no window", () => {
+  assert.deepEqual(selectWindow([]), { newest: null, live: null });
 });

@@ -44,3 +44,21 @@ export function marketWindowState(
   if (market.windowEnd > now) return "trading";
   return now - market.windowEnd > WINDOW_SETTLE_GRACE_MS ? "voiding" : "awaiting";
 }
+
+/**
+ * Which window a market page should present. The windows arrive newest-first,
+ * so the page follows the NEWEST one and treats it as `live` (tradable) only
+ * while it is unsettled.
+ *
+ * The previous rule — `find(w => !w.settled)` — skipped a just-settled CURRENT
+ * window in favour of an OLDER unsettled one. A handle whose window resolved
+ * early (freeze-on-resolve) then rendered as an ancient "No activity — will
+ * void" window instead of its settled result, which made every healthy handle
+ * look like it was voiding.
+ */
+export function selectWindow<T extends { settled: boolean }>(
+  windows: T[],
+): { newest: T | null; live: T | null } {
+  const newest = windows[0] ?? null;
+  return { newest, live: newest && !newest.settled ? newest : null };
+}

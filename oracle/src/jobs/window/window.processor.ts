@@ -60,7 +60,13 @@ export class WindowProcessor extends WorkerHost {
           attempts: 6,
           backoff: { type: "exponential", delay: 3000 },
           removeOnComplete: 200,
-          removeOnFail: 0,
+          // A FAILED job must be removed, or BullMQ ignores every later `add`
+          // with the same jobId (it dedupes against a job that still exists) and
+          // the slot is never retried. That silently killed a whole slot when
+          // `openWindow` failed transiently (e.g. InsufficientIdle while the
+          // auraLP Pool was drained): after the Pool recovered, the failed job
+          // blocked the re-add and the handle sat windowless until the next slot.
+          removeOnFail: true,
         },
       );
     }

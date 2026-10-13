@@ -89,6 +89,17 @@ describe("oracle api (e2e)", () => {
     expect(res.status).toBe(401);
   });
 
+  it("mounts connections OAuth under /v1 (not the bare path)", async () => {
+    // Regression: ConnectionsController once lacked the `v1/` prefix, so the
+    // app's `${API_BASE}/connections/oauth/...` calls 404'd in production.
+    const res = await fetch(`${BASE}/v1/connections/oauth/x/auth-url?account=0x1&redirectTo=https://app.auramarkets.world`);
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ provider: "twitter" });
+
+    const bare = await fetch(`${BASE}/connections/oauth/x/auth-url`);
+    expect(bare.status).toBe(404);
+  });
+
   it("404s an unknown route with a JSON body", async () => {
     const res = await fetch(`${BASE}/v1/definitely-not-a-route`);
     expect(res.status).toBe(404);

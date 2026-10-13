@@ -18,6 +18,61 @@ const SUPABASE_PROVIDERS: Readonly<Record<string, string>> = {
 };
 
 /**
+ * What we round-trip through Supabase's `state` parameter: the account that
+ * owns the connection, plus (best-effort) where to send the browser back to.
+ * Supabase echoes `state` on the callback, so the oracle can finish the
+ * exchange without trusting anything the browser tells it.
+ */
+export type OAuthState = { account: string; returnTo?: string };
+
+/** Encode the state as a URL-safe token (base64url JSON). */
+export function encodeOAuthState(state: OAuthState): string {
+  return Buffer.from(JSON.stringify(state), "utf8").toString("base64url");
+}
+
+/**
+ * Decode a state token. Tolerant of the legacy format where the whole state was
+ * just the account string (pre-returnTo flows), so in-flight links don't break.
+ */
+export function decodeOAuthState(raw: string | null | undefined): OAuthState {
+  if (!raw) return { account: "" };
+  try {
+    const parsed = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as OAuthState;
+    if (parsed && typeof parsed.account === "string") return parsed;
+  } catch {
+    /* legacy: a bare account string */
+  }
+  return { account: raw };
+}
+
+/** Append the `connection=<platform>:<result>` flag to an app return URL. */
+export function connectionResultUrl(returnTo: string, value: string): string {
+  const url = new URL(returnTo);
+  url.searchParams.set("connection", value);
+  return url.toString();
+}
+
+/**
+ * Browser shim for the error path. Supabase reports provider errors in the URL
+ * *fragment* (`#error=…`), which never reaches the server — so instead of a 302
+ * (which would drop it) we return a tiny page that forwards the fragment, plus a
+ * `connection=<platform>:error` flag, to the app's return URL.
+ */
+export function oauthErrorPage(returnTo: string, platform: string): string {
+  const target = JSON.stringify(returnTo);
+  const flag = JSON.stringify(`connection=${encodeURIComponent(`${platform}:error`)}`);
+  return (
+    '<!doctype html><meta charset="utf-8"><title>Connecting…</title><script>(function(){' +
+    `var base=${target};` +
+    'var hash=window.location.hash.replace(/^#/,"");' +
+    `var url=base+(base.indexOf("?")<0?"?":"&")+${flag};` +
+    'if(hash)url+="&"+hash;' +
+    "window.location.replace(url);" +
+    "})();<\\/script>"
+  );
+}
+
+/**
  * Supabase-facilitated OAuth for social connections. Supabase Auth runs the
  * OAuth dance for the providers it supports (Spotify, Facebook, GitHub,
  * LinkedIn, Twitch, X/Twitter); the resulting PROVIDER tokens (access +
@@ -39,8 +94,30 @@ export class SupabaseAuthService {
     return SUPABASE_PROVIDERS[platform] ?? null;
   }
 
-  /** Build the Supabase Auth authorize URL for a social platform. */
-  authUrl(platform: string, account: string, redirectTo: string): string | null {
+  /**
+   * Where to bounce the browser after the callback. Only an absolute http(s)
+   * `returnTo` is honoured — anything else falls back to the configured app
+   * origin, so a crafted `state` can't turn the callback into an open redirect.
+   */
+  returnUrl(raw?: string | null): string {
+    if (raw && /^https?:\/\//i.test(raw)) return raw;
+    return this.config.get<string>("APP_URL") ?? "http://localhost:5173";
+  }
+
+  /**
+   * Build the Supabase Auth authorize URL for a social platform.
+   *
+   * `redirectTo` is where SUPABASE sends the browser back (the oracle's
+   * `/connections/oauth/:platform/callback`, which does the code exchange);
+   * `returnTo` is where the ORACLE then sends the browser (the app page). Both
+   * go through `state` so the callback can trust them.
+   */
+  authUrl(
+    platform: string,
+    account: string,
+    redirectTo: string,
+    returnTo?: string,
+  ): string | null {
     const provider = this.providerFor(platform);
     const base = this.config.get<string>("SUPABASE_URL");
     if (!provider || !base) return null;
@@ -49,8 +126,7 @@ export class SupabaseAuthService {
       redirect_to: redirectTo,
       scopes: this.scopesFor(platform),
     });
-    // Carry the account through the callback via the state param.
-    query.set("state", account);
+    query.set("state", encodeOAuthState({ account, returnTo }));
     return `${base.replace(/\/$/, "")}/auth/v1/authorize?${query.toString()}`;
   }
 

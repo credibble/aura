@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { PrismaConnectionStore } from "../src/persistence/prisma-connection-store.service";
-import { SupabaseAuthService } from "../src/auth/supabase-auth.service";
+import {
+  SupabaseAuthService,
+  connectionResultUrl,
+  decodeOAuthState,
+  encodeOAuthState,
+  oauthErrorPage,
+} from "../src/auth/supabase-auth.service";
 import { ShopifyAuthService } from "../src/auth/shopify-auth.service";
 
 /** Fake Prisma `connection` delegate for the store tests. */
@@ -180,12 +186,48 @@ describe("Supabase-facilitated OAuth for social connections", () => {
     const url = svc.authUrl(
       "spotify",
       "taylorswift",
-      "https://app.auramarkets.world/oauth/cb",
-    );
+      "https://oracle.auramarkets.world/v1/connections/oauth/spotify/callback",
+      "https://app.auramarkets.world/me",
+    )!;
     expect(url).toContain(
       "https://aura.supabase.co/auth/v1/authorize?provider=spotify",
     );
-    expect(url).toContain("state=taylorswift");
+    const params = new URL(url).searchParams;
+    // Supabase sends the browser to the ORACLE callback (server-side exchange)…
+    expect(params.get("redirect_to")).toBe(
+      "https://oracle.auramarkets.world/v1/connections/oauth/spotify/callback",
+    );
+    // …and the oracle carries account + app return URL through `state`.
+    expect(decodeOAuthState(params.get("state"))).toEqual({
+      account: "taylorswift",
+      returnTo: "https://app.auramarkets.world/me",
+    });
+  });
+
+  it("round-trips account/returnTo through state, tolerating legacy bare-account state", () => {
+    const state = encodeOAuthState({ account: "dev", returnTo: "https://app.x/me" });
+    expect(decodeOAuthState(state)).toEqual({ account: "dev", returnTo: "https://app.x/me" });
+    expect(decodeOAuthState("dev")).toEqual({ account: "dev" }); // legacy
+    expect(decodeOAuthState(undefined)).toEqual({ account: "" });
+  });
+
+  it("only honours an absolute http(s) return URL (no open redirect)", () => {
+    const svc = new SupabaseAuthService({ get: () => undefined } as never, store());
+    expect(svc.returnUrl("https://app.auramarkets.world/me")).toBe(
+      "https://app.auramarkets.world/me",
+    );
+    expect(svc.returnUrl("javascript:alert(1)")).toBe("http://localhost:5173");
+    expect(svc.returnUrl(undefined)).toBe("http://localhost:5173");
+  });
+
+  it("appends the connection flag (preserving existing query) and escapes the error relay", () => {
+    expect(connectionResultUrl("https://app.x/me?tab=1", "spotify:connected")).toBe(
+      "https://app.x/me?tab=1&connection=spotify%3Aconnected",
+    );
+    const page = oauthErrorPage("https://app.x/me", "spotify");
+    expect(page).toContain('"https://app.x/me"');
+    expect(page).toContain("connection=spotify%3Aerror");
+    expect(page).toContain("window.location.hash");
   });
 
   it("returns null auth URLs when Supabase or the platform is unavailable", () => {

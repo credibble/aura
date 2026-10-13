@@ -9,78 +9,30 @@ import { cn } from "@/lib/utils";
 import { useAuraAuth } from "@/lib/aura-auth";
 import { notifyError } from "@/lib/notify";
 import { oauthUrl, shopifyUrl } from "@/lib/privy";
+import { platformLogo } from "@/lib/platform-logos";
 import { portfolio, type ConnectionLink, type HandleLink } from "@/lib/portfolio";
 import { qk } from "@/queries/keys";
 
 type Platform = {
   key: string;
   label: string;
-  logo?: string;
   /** What the connection feeds into the handle's aura. */
   feeds: string;
   shop?: boolean;
 };
 
+/** Logo comes from the shared, vendored set (`@/lib/platform-logos`). */
 const PLATFORMS: Platform[] = [
-  {
-    key: "x",
-    label: "X",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/6/6f/X_Logo_2023.svg",
-    feeds: "posts, reposts and replies",
-  },
-  {
-    key: "youtube",
-    label: "YouTube",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg",
-    feeds: "uploads, views and comment volume",
-  },
-  {
-    key: "reddit",
-    label: "Reddit",
-    feeds: "subreddit mentions and upvotes",
-  },
-  {
-    key: "instagram",
-    label: "Instagram",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg",
-    feeds: "posts, reels and reach",
-  },
-  {
-    key: "spotify",
-    label: "Spotify",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg",
-    feeds: "streams and playlist adds",
-  },
-  {
-    key: "github",
-    label: "GitHub",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
-    feeds: "commits, stars and release activity",
-  },
-  {
-    key: "twitch",
-    label: "Twitch",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/2/26/Twitch_logo.svg",
-    feeds: "stream hours and chat volume",
-  },
-  {
-    key: "facebook",
-    label: "Facebook",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg",
-    feeds: "page posts and reactions",
-  },
-  {
-    key: "linkedin",
-    label: "LinkedIn",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
-    feeds: "company posts and reach",
-  },
-  {
-    key: "shopify",
-    label: "Shopify",
-    feeds: "orders and storefront traffic",
-    shop: true,
-  },
+  { key: "x", label: "X", feeds: "posts, reposts and replies" },
+  { key: "youtube", label: "YouTube", feeds: "uploads, views and comment volume" },
+  { key: "reddit", label: "Reddit", feeds: "subreddit mentions and upvotes" },
+  { key: "instagram", label: "Instagram", feeds: "posts, reels and reach" },
+  { key: "spotify", label: "Spotify", feeds: "streams and playlist adds" },
+  { key: "github", label: "GitHub", feeds: "commits, stars and release activity" },
+  { key: "twitch", label: "Twitch", feeds: "stream hours and chat volume" },
+  { key: "facebook", label: "Facebook", feeds: "page posts and reactions" },
+  { key: "linkedin", label: "LinkedIn", feeds: "company posts and reach" },
+  { key: "shopify", label: "Shopify", feeds: "orders and storefront traffic", shop: true },
 ];
 
 /**
@@ -116,10 +68,11 @@ export function ConnectionsRow({
     }
     setBusy(p.key);
     try {
-      const redirect = window.location.origin;
+      // The oracle callback exchanges the code and returns the browser to this
+      // exact page; the app reads the `?connection=` flag on the way back.
       const url = p.shop
-        ? shopifyUrl(`${handle.id}-store`, redirect)
-        : oauthUrl(p.key, handle.id, redirect);
+        ? shopifyUrl(`${handle.id}-store`, window.location.origin)
+        : oauthUrl(p.key, handle.id, window.location.href);
       const res = await fetch(url);
       const j = (await res.json()) as { url?: string | null };
       if (j.url) window.location.href = j.url;
@@ -153,6 +106,7 @@ export function ConnectionsRow({
     <div className="flex flex-wrap items-center gap-2">
       {PLATFORMS.map((p) => {
         const isOn = active === p.key && connected;
+        const logo = platformLogo(p.key);
         return (
           <Popover key={p.key}>
             <Tooltip>
@@ -167,7 +121,7 @@ export function ConnectionsRow({
                     )}
                   >
                     <Avatar
-                      image={p.logo}
+                      image={logo}
                       seed={p.key}
                       size={34}
                       alt={p.label}
@@ -194,7 +148,7 @@ export function ConnectionsRow({
             >
               <div className="flex items-center gap-2.5">
                 <Avatar
-                  image={p.logo}
+                  image={logo}
                   seed={p.key}
                   size={34}
                   alt={p.label}
@@ -272,12 +226,28 @@ export function ConnectionsSection({
   handle: HandleLink;
   connection: ConnectionLink | null;
 }) {
+  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["handle-connection", handle.id],
     queryFn: () => portfolio.connection(handle.id),
     initialData: connection ?? undefined,
     staleTime: 15_000,
   });
+
+  // The oracle bounces the browser back here with `?connection=<platform>:<result>`
+  // after an OAuth exchange. Surface it, then drop the flag so a refresh is clean.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("connection");
+    if (!status) return;
+    const [platform, result] = status.split(":");
+    if (result === "connected") toast.success(`${platform} connected`);
+    else toast.error(`Couldn't connect ${platform}`);
+    params.delete("connection");
+    const qs = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    void qc.invalidateQueries({ queryKey: ["handle-connection", handle.id] });
+  }, [handle.id, qc]);
 
   return (
     <section>

@@ -72,6 +72,9 @@ export const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_JWKS_URL: z.string().url().optional(),
+  /** Public app origin — the OAuth callback bounces the browser back here when
+   *  the flow's `state` has no usable return URL. */
+  APP_URL: z.string().url().default("http://localhost:5173"),
   /** Passphrase for AES-256-GCM encryption of stored connection credentials. */
   CONNECTION_ENCRYPTION_KEY: z.string().default("aura-dev-connection-key"),
   /** Shopify app — merchant OAuth for the commerce adapter. */

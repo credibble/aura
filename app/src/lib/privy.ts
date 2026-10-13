@@ -109,9 +109,21 @@ export const aura = {
   notifications: (userId: string) => api(`/social/${encodeURIComponent(userId)}/notifications`),
 };
 
-/** Privy OAuth URLs for social connections (Supabase-facilitated). */
-export const oauthUrl = (platform: string, account: string, redirectTo: string): string =>
-  `${API_BASE}/connections/oauth/${platform}/auth-url?account=${encodeURIComponent(account)}&redirectTo=${encodeURIComponent(redirectTo)}`;
+/** The oracle's OAuth return endpoint — Supabase sends the browser here with the
+ *  code; the oracle exchanges it and bounces back to `returnTo`. */
+export const oauthCallbackUrl = (platform: string): string =>
+  `${API_BASE}/connections/oauth/${platform}/callback`;
+
+/**
+ * Build the oracle auth-url request for a social platform. `returnTo` is the app
+ * page to land on once the exchange finishes (pass the current page); the oracle
+ * carries it through Supabase's `state`.
+ */
+export const oauthUrl = (platform: string, account: string, returnTo: string): string =>
+  `${API_BASE}/connections/oauth/${platform}/auth-url` +
+  `?account=${encodeURIComponent(account)}` +
+  `&redirectTo=${encodeURIComponent(oauthCallbackUrl(platform))}` +
+  `&returnTo=${encodeURIComponent(returnTo)}`;
 
 export const shopifyUrl = (shop: string, redirectTo: string): string =>
   `${API_BASE}/connections/shopify/auth-url?shop=${encodeURIComponent(shop)}&redirectTo=${encodeURIComponent(redirectTo)}`;

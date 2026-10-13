@@ -1,8 +1,14 @@
-import { Body, Controller, Delete, Get, Inject, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Logger, Param, Post, Query, Res } from "@nestjs/common";
+import type { Response } from "express";
 import { CONNECTION_STORE } from "../core/ports/tokens";
 import type { IConnectionStore } from "../core/ports/connection-store";
 import type { AdapterCredentials } from "../core/domain/source";
-import { SupabaseAuthService } from "../auth/supabase-auth.service";
+import {
+  SupabaseAuthService,
+  connectionResultUrl,
+  decodeOAuthState,
+  oauthErrorPage,
+} from "../auth/supabase-auth.service";
 import { ShopifyAuthService } from "../auth/shopify-auth.service";
 
 /**
@@ -12,7 +18,7 @@ import { ShopifyAuthService } from "../auth/shopify-auth.service";
  * 256-GCM encrypted in Postgres (the only connection store — no Redis); API
  * keys can be registered manually.
  */
-@Controller("connections")
+@Controller("v1/connections")
 export class ConnectionsController {
   constructor(
     @Inject(CONNECTION_STORE) private readonly store: IConnectionStore,
@@ -20,28 +26,50 @@ export class ConnectionsController {
     private readonly shopify: ShopifyAuthService,
   ) {}
 
+  private readonly logger = new Logger(ConnectionsController.name);
+
   /** Start the Supabase-facilitated OAuth flow for a social platform. */
   @Get("oauth/:platform/auth-url")
   async oauthUrl(
     @Param("platform") platform: string,
     @Query("account") account: string,
     @Query("redirectTo") redirectTo: string,
+    @Query("returnTo") returnTo: string,
   ): Promise<{ url: string | null; provider: string | null }> {
     return {
-      url: this.supabase.authUrl(platform, account, redirectTo),
+      url: this.supabase.authUrl(platform, account, redirectTo, returnTo),
       provider: this.supabase.providerFor(platform),
     };
   }
 
-  /** Supabase redirects here after the user authorizes — exchange + store. */
+  /**
+   * Supabase sends the browser HERE after the user authorizes (the app passes
+   * this URL as `redirect_to`). We exchange the code for the provider token and
+   * store it, then bounce the browser back to the app.
+   *
+   * On error Supabase puts the details in the URL *fragment* (invisible to the
+   * server), so the no-code path returns a tiny page that forwards it onward.
+   */
   @Get("oauth/:platform/callback")
   async oauthCallback(
     @Param("platform") platform: string,
     @Query("code") code: string,
     @Query("state") state: string,
-  ): Promise<{ account: string; connected: boolean }> {
-    const { account } = await this.supabase.exchangeCode(platform, state, code);
-    return { account, connected: true };
+    @Res() res: Response,
+  ): Promise<void> {
+    const { account, returnTo } = decodeOAuthState(state);
+    const back = this.supabase.returnUrl(returnTo);
+    if (!code) {
+      res.status(200).type("html").send(oauthErrorPage(back, platform));
+      return;
+    }
+    try {
+      await this.supabase.exchangeCode(platform, account, code);
+      res.redirect(302, connectionResultUrl(back, `${platform}:connected`));
+    } catch (e) {
+      this.logger.warn(`OAuth exchange failed for ${platform}: ${(e as Error).message}`);
+      res.redirect(302, connectionResultUrl(back, `${platform}:error`));
+    }
   }
 
   /** Start the Shopify OAuth flow for a merchant store. */

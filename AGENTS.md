@@ -38,6 +38,12 @@ WebSocket support is plan-dependent — never *require* the socket.
 - handle creation `POST /handles` and **profile updates `PATCH /handles/:id`** (multipart
   `photo` → Cloudinary → oracle-signed `Handle.setMetadata`)
 - source connections `GET/PUT/DELETE /handles/:id/connection`, `verify`, `availability/check`
+- social OAuth `GET /connections/oauth/:platform/auth-url` (returns the Supabase
+  authorize URL) → Supabase → `GET /connections/oauth/:platform/callback` (the
+  oracle exchanges the code + stores the token, then **302s the browser back to
+  the app page** it came from via `state`; `APP_URL` is the fallback). The app
+  passes the oracle callback as `redirectTo` and the current page as `returnTo`,
+  then reads the `?connection=<platform>:<result>` flag on return.
 - auth: `POST /auth/login` (EIP-191 → JWT, stored per device in `localStorage`)
 
 **Chain (viem public client, Monad testnet)** — anything that must be exact and fresh:
@@ -280,7 +286,8 @@ to their component. Keep the `check-routes.mjs` markers (page H1s) intact.
 
 - `oracle/.env` needs `DATABASE_URL`, `HANDLE_OWNER_PRIVATE_KEY`, `HANDLE_FACTORY_ADDRESS`,
   `CLOUDINARY_*`, `ALCHEMY_RPC_URL`/`RPC_URL`, `INDEXER_URL` (default
-  `http://localhost:8080/v1/graphql`). Migrations run automatically on container
+  `http://localhost:8080/v1/graphql`), `SUPABASE_*` and `APP_URL` (the OAuth return
+  origin; default `http://localhost:5173`). Migrations run automatically on container
   boot via `oracle/docker-entrypoint.sh` (`npx prisma migrate deploy` + the
   pg_trgm indexes); run it by hand only outside Docker.
 - `indexer/.env` needs `ENVIO_API_TOKEN` (HyperSync) and `ENVIO_RPC_URL` (the

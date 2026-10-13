@@ -1,6 +1,7 @@
 import { memo, useId, type CSSProperties, type ReactNode } from "react";
 import { hashUnit } from "@/lib/world-layout";
 import type { CategoryId } from "@/lib/aura-data";
+import type { HandleCharacter } from "@/lib/handle-metadata";
 import { cn } from "@/lib/utils";
 
 /**
@@ -128,6 +129,21 @@ type Duo = readonly [string, string];
 function pick<T>(palette: readonly T[], id: string, salt: number): T {
   return palette[Math.floor(hashUnit(id, salt) * palette.length)] ?? palette[0]!;
 }
+
+/** Index into a palette, or undefined when absent/out of range. Metadata is
+ *  untrusted, so a bad index just falls back to the hashed default. */
+function atOr<T>(arr: readonly T[], i: number | undefined): T | undefined {
+  return typeof i === "number" && Number.isInteger(i) && i >= 0 && i < arr.length
+    ? arr[i]
+    : undefined;
+}
+
+/** Palettes exposed so "Start farming aura" can render swatches + a live preview
+ *  without duplicating the sprite's colour lists. */
+export const CHARACTER_SKIN = SKIN;
+export const CHARACTER_HAIR = HAIR;
+export const CHARACTER_OUTFIT = GARMENT;
+export const CHARACTER_HAIR_STYLES = HAIR_PATHS.length;
 
 // ----------------------------------------------------------------------------
 // Archetype resolution.
@@ -955,6 +971,7 @@ export const CharacterSprite = memo(function CharacterSprite({
   category,
   className,
   style,
+  character,
 }: {
   id: string;
   /** The display name — iconic brands (Tesla, Apple…) render as their object. */
@@ -964,18 +981,26 @@ export const CharacterSprite = memo(function CharacterSprite({
   category: CategoryId;
   className?: string;
   style?: CSSProperties;
+  /** The handle's saved appearance (on-chain metadata `character`). When its
+   *  `look` is present it overrides the hashed skin / hair / style / outfit, so
+   *  the user's customisation wins; everything else stays hashed from `id`. */
+  character?: HandleCharacter;
 }) {
   // Gradient ids must be unique per instance — React's useId, sanitised.
   const uid = `v${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const key = (name ?? "").trim().toLowerCase();
-  const skin = pick(SKIN, id, 11);
-  const hair = pick(HAIR, id, 12);
-  // Female handles get shoulder-length hair (two hashed long styles).
-  const hairPath = LONG_HAIR.has(key)
-    ? (HAIR_LONG_PATHS[Math.floor(hashUnit(id, 19) * HAIR_LONG_PATHS.length)] ?? HAIR_LONG_PATHS[0]!)
-    : (HAIR_PATHS[Math.floor(hashUnit(id, 13) * HAIR_PATHS.length)] ?? HAIR_PATHS[0]!);
+  const look = character?.look;
+  const skin = atOr(SKIN, look?.skin) ?? pick(SKIN, id, 11);
+  const hair = atOr(HAIR, look?.hair) ?? pick(HAIR, id, 12);
+  // A chosen style wins; otherwise female handles get hashed shoulder-length
+  // hair (two long styles) and everyone else a hashed short style.
+  const hairPath =
+    atOr(HAIR_PATHS, look?.style) ??
+    (LONG_HAIR.has(key)
+      ? (HAIR_LONG_PATHS[Math.floor(hashUnit(id, 19) * HAIR_LONG_PATHS.length)] ?? HAIR_LONG_PATHS[0]!)
+      : (HAIR_PATHS[Math.floor(hashUnit(id, 13) * HAIR_PATHS.length)] ?? HAIR_PATHS[0]!));
   const iris = pick(IRIS, id, 14);
-  const garment = pick(GARMENT, id, 15);
+  const garment = atOr(GARMENT, look?.outfit) ?? pick(GARMENT, id, 15);
   const pants = pick(PANTS, id, 16);
   const shoe = pick(SHOES, id, 17);
 

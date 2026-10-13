@@ -17,6 +17,22 @@ export type HandleCharacter = {
   emoji?: string;
   /** Palette for card gradients / avatar backdrop (hex strings). */
   colors?: { primary?: string; secondary?: string; accent?: string };
+  /**
+   * Appearance overrides the user picked in "Start farming aura" — indices into
+   * the vector sprite's own palettes. The sprite hashes these from the handle id
+   * by default; a saved `look` wins so the user's character is theirs. Kept as
+   * small integers to stay inside the on-chain metadata's 512-char budget.
+   */
+  look?: {
+    /** Index into the skin-tone palette. */
+    skin?: number;
+    /** Index into the hair-colour palette. */
+    hair?: number;
+    /** Index into the hair-style palette. */
+    style?: number;
+    /** Index into the outfit-colour palette. */
+    outfit?: number;
+  };
 };
 
 export type HandleMetadata = {
@@ -69,6 +85,18 @@ function parseCharacter(raw: unknown): HandleCharacter | undefined {
   const c = raw as Record<string, unknown>;
   const cr = c.colors;
   const colors = cr && typeof cr === "object" && !Array.isArray(cr) ? (cr as Record<string, unknown>) : undefined;
+  const lr = c.look;
+  const lookRaw = lr && typeof lr === "object" && !Array.isArray(lr) ? (lr as Record<string, unknown>) : undefined;
+  const asIndex = (v: unknown): number | undefined =>
+    typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : undefined;
+  const look = lookRaw
+    ? {
+        skin: asIndex(lookRaw.skin),
+        hair: asIndex(lookRaw.hair),
+        style: asIndex(lookRaw.style),
+        outfit: asIndex(lookRaw.outfit),
+      }
+    : undefined;
   return {
     type: typeof c.type === "string" ? c.type : undefined,
     gender: typeof c.gender === "string" ? c.gender : undefined,
@@ -80,6 +108,7 @@ function parseCharacter(raw: unknown): HandleCharacter | undefined {
           accent: typeof colors.accent === "string" ? colors.accent : undefined,
         }
       : undefined,
+    look,
   };
 }
 

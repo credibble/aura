@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Sparkline } from "@/components/aura/charts";
 import { trendColor } from "@/lib/chart-domain";
 import { handleSlug } from "@/lib/handle-id";
+import { parseHandleMetadata } from "@/lib/handle-metadata";
 import { formatIndex, formatPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CHAR_SIZE, type WorldPlotData } from "@/lib/world-layout";
@@ -73,6 +74,7 @@ export const WorldPlotMarker = memo(function WorldPlotMarker({ plot }: { plot: W
           id={a.id}
           name={a.name}
           category={a.category}
+          character={parseHandleMetadata(a.metadata).character}
           style={{ animationDelay: `${breatheDelay}s` }}
         />
       </span>

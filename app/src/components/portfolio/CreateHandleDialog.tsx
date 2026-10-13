@@ -19,6 +19,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, GUEST_SEED } from "@/components/Avatar";
 import {
+  CHARACTER_HAIR,
+  CHARACTER_HAIR_STYLES,
+  CHARACTER_OUTFIT,
+  CHARACTER_SKIN,
+  CharacterSprite,
+} from "@/components/aura/CharacterSprite";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -30,7 +37,7 @@ import { useAuraAuth } from "@/lib/aura-auth";
 import { useAuraContracts } from "@/lib/contracts";
 import { reloadHandles } from "@/lib/handle-store";
 import { useEnsureJwt } from "@/lib/jwt";
-import { windowLabels } from "@/queries/handles";
+import { categoryFromCode, windowLabels } from "@/queries/handles";
 import { qk } from "@/queries/keys";
 
 type CreateHandleResult = { handleId: string; label: string; address: string; tx: string };
@@ -77,6 +84,15 @@ export function CreateHandleDialog({
   const [windowMinutes, setWindowMinutes] = useState(WINDOW_OPTIONS[0]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  // Character builder: the appearance is saved in the handle's on-chain metadata
+  // (`character.look`) and the world sprite honours it, so the user's villager is
+  // theirs. Kept as small palette indices to fit the metadata budget.
+  const [look, setLook] = useState<{ skin: number; hair: number; style: number; outfit: number }>({
+    skin: 1,
+    hair: 0,
+    style: 0,
+    outfit: 0,
+  });
 
   // Object-URL preview for the picked photo; revoked on change/unmount.
   useEffect(() => {
@@ -105,6 +121,9 @@ export function CreateHandleDialog({
       // Repeated keys → the oracle reads them as `categories: number[]`.
       for (const code of categories) fd.append("categories", String(code));
       fd.append("windowMinutes", String(windowMinutes));
+      // The oracle merges this object into the on-chain metadata JSON; the world
+      // sprite reads `character.look` back.
+      fd.append("metadata", JSON.stringify({ character: { look } }));
       if (photo) fd.append("photo", photo);
       return api<CreateHandleResult>("/handles", { method: "POST", body: fd });
     },
@@ -123,6 +142,7 @@ export function CreateHandleDialog({
       setPhoto(null);
       setCategories([CATEGORY_OPTIONS[0].code]);
       setWindowMinutes(WINDOW_OPTIONS[0]);
+      setLook({ skin: 1, hair: 0, style: 0, outfit: 0 });
     },
     onError: (e: Error) => notifyError(e, "Create handle"),
   });
@@ -242,6 +262,64 @@ export function CreateHandleDialog({
               </Select>
             </div>
           </div>
+          <div className="space-y-2 rounded-xl border border-border/70 p-3">
+            <div className="flex items-center justify-between">
+              <Label>Character</Label>
+              <span className="text-xs text-muted-foreground">This is how you appear in the world</span>
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="relative h-[104px] w-[104px] shrink-0 place-items-center rounded-xl border border-border bg-secondary/20">
+                <CharacterSprite
+                  id={name || "preview"}
+                  name={name || undefined}
+                  category={categoryFromCode(categories[0] ?? CATEGORY_OPTIONS[0].code)}
+                  character={{ look }}
+                />
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <SwatchRow
+                  label="Skin"
+                  palette={CHARACTER_SKIN}
+                  value={look.skin}
+                  onPick={(i) => setLook((l) => ({ ...l, skin: i }))}
+                />
+                <SwatchRow
+                  label="Hair"
+                  palette={CHARACTER_HAIR}
+                  value={look.hair}
+                  onPick={(i) => setLook((l) => ({ ...l, hair: i }))}
+                />
+                <div className="flex items-center gap-2">
+                  <span className="w-12 shrink-0 text-xs text-muted-foreground">Style</span>
+                  <div className="flex gap-1.5">
+                    {Array.from({ length: CHARACTER_HAIR_STYLES }).map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        aria-label={`Hair style ${i + 1}`}
+                        aria-pressed={look.style === i}
+                        onClick={() => setLook((l) => ({ ...l, style: i }))}
+                        className={cn(
+                          "h-6 w-6 rounded-md border text-[10px] font-semibold transition-colors",
+                          look.style === i
+                            ? "border-primary bg-primary/15 text-foreground"
+                            : "border-border text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <SwatchRow
+                  label="Outfit"
+                  palette={CHARACTER_OUTFIT}
+                  value={look.outfit}
+                  onPick={(i) => setLook((l) => ({ ...l, outfit: i }))}
+                />
+              </div>
+            </div>
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="handle-photo">Photo (optional)</Label>
             <div className="flex items-center gap-3">
@@ -297,5 +375,40 @@ export function CreateHandleDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** One row of colour swatches for the character builder. */
+function SwatchRow({
+  label,
+  palette,
+  value,
+  onPick,
+}: {
+  label: string;
+  palette: readonly (readonly [string, string])[];
+  value: number;
+  onPick: (i: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-12 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {palette.map((c, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-label={`${label} option ${i + 1}`}
+            aria-pressed={value === i}
+            onClick={() => onPick(i)}
+            style={{ background: c[0] }}
+            className={cn(
+              "h-6 w-6 rounded-full border transition-transform hover:scale-110",
+              value === i ? "border-foreground ring-2 ring-primary/60" : "border-black/20",
+            )}
+          />
+        ))}
+      </div>
+    </div>
   );
 }

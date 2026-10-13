@@ -20,8 +20,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # app/ is a standalone npm project (its own lockfile), not a workspace of
+      # the root package, so it must be installed in-place — a root `npm ci`
+      # leaves app/node_modules empty and every react import unresolved.
       - run: npm ci
-        working-directory: .
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Every contract write encodes (ABI + arity)
@@ -41,6 +43,15 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      # The oracle imports @aura/contracts types, which resolve to
+      # packages/contracts/dist (gitignored, no postinstall build) — build it
+      # first or every `from "@aura/contracts"` is TS2307.
+      - name: Build shared contracts
+        run: npm run build:contracts
+      # @prisma/client ships ungenerated; without this Prisma.DbNull and the
+      # query return types are missing, so the client types are unusable.
+      - name: Generate Prisma client
+        run: npm run prisma:generate -w @aura/oracle
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
         working-directory: oracle

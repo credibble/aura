@@ -246,6 +246,13 @@ One tick, and what constrains it:
 - **Windows must be ≥ the aura cadence** (`AURA_AI_MIN_INTERVAL_MS`). The engine
   warns when a handle's window is shorter, because such a window can open and
   close between two observations (→ void).
+- **Windows trade their full length by default.** `WINDOW_EARLY_SETTLE=false`
+  (the default) means the first in-window observation does NOT close the window:
+  at `windowEnd` the slot sweep settles the closed window and opens the next slot
+  in the same tick, so a handle always has a live window. Set
+  `WINDOW_EARLY_SETTLE=true` to restore freeze-on-resolve (trading stops the
+  moment the outcome is public, at the cost of a live window only until the first
+  observation).
 
 **Not yet done (needs the next contract revision):** commit `inputsHash` into the
 `ResolutionReceipt` itself, so a settlement carries the evidence hash on-chain

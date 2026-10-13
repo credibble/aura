@@ -124,6 +124,14 @@ export const envSchema = z.object({
    *  graduated handle to open/settle its current slot. Keep it far below the
    *  handle window length (windowMinutes) so a slot is never missed. */
   WINDOW_EVERY_MS: z.coerce.number().int().positive().default(5_000),
+  /** Settle a window on its FIRST in-window aura observation ("freeze-on-resolve")
+   *  instead of waiting for `windowEnd`. OFF by default: a window trades its full
+   *  length, and at `windowEnd` the engine settles the closed one and opens the
+   *  next slot in the same tick — so there is always a live window. Set `true` to
+   *  restore the early freeze (trading stops the moment the outcome is public). */
+  WINDOW_EARLY_SETTLE: z
+    .preprocess((v) => (v === undefined ? false : String(v).toLowerCase() === "true"), z.boolean())
+    .default(false),
   /** Feed job cadence (ms) — how often the scheduler fans out to every handle
    *  to draft a digest from new source data. */
   FEED_EVERY_MS: z.coerce.number().int().positive().default(1_200_000),

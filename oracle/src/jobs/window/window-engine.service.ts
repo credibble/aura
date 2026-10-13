@@ -190,6 +190,11 @@ export class WindowEngineService {
     now: number,
     inputsHash?: string,
   ): Promise<boolean> {
+    // Freeze-on-resolve is opt-in (`WINDOW_EARLY_SETTLE`). Off by default so a
+    // window trades its full length: it is settled at `windowEnd` by the slot
+    // sweep (which then opens the next window), instead of being closed minutes
+    // after it opened — which left no live window for the rest of the slot.
+    if (!this.config.get<boolean>("WINDOW_EARLY_SETTLE")) return false;
     if (!handle.graduated || !this.chain.ready) return false;
     const nowSec = Math.floor(now / 1000);
     let live: LiveWindow | null;

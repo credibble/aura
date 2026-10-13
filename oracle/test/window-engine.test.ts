@@ -237,7 +237,7 @@ function settleHarness(opts: {
     { publishWindowOpened: () => {}, publishWindowResolved: () => {} } as never,
     { points } as never,
     redis as never,
-    { get: () => undefined } as never,
+    { get: (k: string) => (k === "WINDOW_EARLY_SETTLE" ? true : undefined) } as never,
   );
   return { engine, calls, settles };
 }
@@ -342,6 +342,8 @@ function earlyHarness(opts: {
   inWindow?: SettlePoint[];
   /** Points for the strike-reconstruction range (fallback sourcing only). */
   prior?: SettlePoint[];
+  /** Enable freeze-on-resolve for this harness (default true, the opt-in). */
+  earlySettle?: boolean;
 }) {
   const flags = new Map<string, string>();
   const calls: string[] = [];
@@ -402,7 +404,7 @@ function earlyHarness(opts: {
     { publishWindowOpened: () => {}, publishWindowResolved: () => {} } as never,
     { points } as never,
     redis as never,
-    { get: () => undefined } as never,
+    { get: (k: string) => (k === "WINDOW_EARLY_SETTLE" ? (opts.earlySettle ?? true) : undefined) } as never,
   );
   return { engine, calls, settles };
 }
@@ -459,5 +461,20 @@ describe("WindowEngineService — early close on the first in-window observation
     expect(settles).toHaveLength(1);
     expect(settles[0]!.winner).toBe(1); // 4230 < 4316
     expect(settles[0]!.receipt.expectation).toBe(4316);
+  });
+
+  it("is OFF by default — the window keeps trading to windowEnd", async () => {
+    // WINDOW_EARLY_SETTLE unset → settleOnObservation is a no-op, so the window
+    // is settled by the slot sweep at windowEnd (which then opens the next one).
+    const { engine, settles, calls } = earlyHarness({
+      open: true,
+      strikeRecord: 4316,
+      inWindow: [{ value: 4400 }],
+      earlySettle: false,
+    });
+    const settled = await engine.settleOnObservation(HANDLE, 4400, NOW + 60_000, EVIDENCE);
+    expect(settled).toBe(false);
+    expect(settles).toHaveLength(0);
+    expect(calls).not.toContain("settle");
   });
 });

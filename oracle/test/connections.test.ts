@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { PrismaConnectionStore } from "../src/persistence/prisma-connection-store.service";
 import {
   SupabaseAuthService,
@@ -198,10 +199,20 @@ describe("Supabase-facilitated OAuth for social connections", () => {
       "https://oracle.auramarkets.world/v1/connections/oauth/spotify/callback",
     );
     // …and the oracle carries account + app return URL through `state`.
-    expect(decodeOAuthState(params.get("state"))).toEqual({
+    expect(decodeOAuthState(params.get("state"))).toMatchObject({
       account: "taylorswift",
       returnTo: "https://app.auramarkets.world/me",
     });
+    // PKCE flow: without a challenge Supabase returns `#access_token=…` in the
+    // fragment (invisible to the server); with it, it returns `?code=…`, and the
+    // verifier is re-derived from `state` at the callback.
+    expect(params.get("code_challenge_method")).toBe("s256");
+    const state = params.get("state")!;
+    const challenge = params.get("code_challenge")!;
+    expect(challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(createHash("sha256").update(svc.verifierFor(state)).digest("base64url")).toBe(
+      challenge,
+    );
   });
 
   it("round-trips account/returnTo through state, tolerating legacy bare-account state", () => {

@@ -64,7 +64,12 @@ export class ConnectionsController {
       return;
     }
     try {
-      await this.supabase.exchangeCode(platform, account, code);
+      await this.supabase.exchangeCode(
+        platform,
+        account,
+        code,
+        this.supabase.verifierFor(state),
+      );
       res.redirect(302, connectionResultUrl(back, `${platform}:connected`));
     } catch (e) {
       this.logger.warn(`OAuth exchange failed for ${platform}: ${(e as Error).message}`);

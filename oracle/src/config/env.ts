@@ -72,6 +72,9 @@ export const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_JWKS_URL: z.string().url().optional(),
+  /** Secret behind the OAuth PKCE verifier (HMAC). Any stable server secret
+   *  works; defaults to the auth/connection secrets so local dev needs nothing. */
+  OAUTH_PKCE_SECRET: z.string().optional(),
   /** Public app origin — the OAuth callback bounces the browser back here when
    *  the flow's `state` has no usable return URL. */
   APP_URL: z.string().url().default("http://localhost:5173"),

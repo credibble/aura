@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Inject } from "@nestjs/common";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import type { IConnectionStore } from "../core/ports/connection-store";
 import { CONNECTION_STORE } from "../core/ports/tokens";
 import type { AdapterCredentials } from "../core/domain/source";
@@ -21,9 +22,10 @@ const SUPABASE_PROVIDERS: Readonly<Record<string, string>> = {
  * What we round-trip through Supabase's `state` parameter: the account that
  * owns the connection, plus (best-effort) where to send the browser back to.
  * Supabase echoes `state` on the callback, so the oracle can finish the
- * exchange without trusting anything the browser tells it.
+ * exchange without trusting anything the browser tells it. `n` is a per-attempt
+ * nonce — it makes each attempt's PKCE verifier distinct (see `verifierFor`).
  */
-export type OAuthState = { account: string; returnTo?: string };
+export type OAuthState = { account: string; returnTo?: string; n?: string };
 
 /** Encode the state as a URL-safe token (base64url JSON). */
 export function encodeOAuthState(state: OAuthState): string {
@@ -94,6 +96,32 @@ export class SupabaseAuthService {
     return SUPABASE_PROVIDERS[platform] ?? null;
   }
 
+  /** HMAC key behind the PKCE verifier. Any stable server secret works; the
+   *  point is that an intercepted code can't be exchanged without it. */
+  private pkceSecret(): string {
+    return (
+      this.config.get<string>("OAUTH_PKCE_SECRET") ??
+      this.config.get<string>("AUTH_JWT_SECRET") ??
+      this.config.get<string>("CONNECTION_ENCRYPTION_KEY") ??
+      "aura-dev-pkce"
+    );
+  }
+
+  /**
+   * The PKCE `code_verifier` for a flow, derived from the (server-secret-signed)
+   * state instead of being stored. 43 base64url chars — within PKCE's 43–128.
+   * The same state always yields the same verifier, so `authUrl` and the
+   * callback agree without server state.
+   */
+  verifierFor(state: string): string {
+    return createHmac("sha256", this.pkceSecret()).update(state).digest("base64url");
+  }
+
+  /** The PKCE `code_challenge` = base64url(SHA256(verifier)). */
+  private challengeFor(verifier: string): string {
+    return createHash("sha256").update(verifier).digest("base64url");
+  }
+
   /**
    * Where to bounce the browser after the callback. Only an absolute http(s)
    * `returnTo` is honoured — anything else falls back to the configured app
@@ -111,6 +139,11 @@ export class SupabaseAuthService {
    * `/connections/oauth/:platform/callback`, which does the code exchange);
    * `returnTo` is where the ORACLE then sends the browser (the app page). Both
    * go through `state` so the callback can trust them.
+   *
+   * We request the PKCE flow (`code_challenge`/`s256`): without it Supabase uses
+   * the implicit flow and returns the tokens in the URL *fragment*
+   * (`#access_token=…`), which a server never sees — there'd be no code to
+   * exchange. With it, Supabase sends `?code=…&state=…` to the callback.
    */
   authUrl(
     platform: string,
@@ -121,20 +154,35 @@ export class SupabaseAuthService {
     const provider = this.providerFor(platform);
     const base = this.config.get<string>("SUPABASE_URL");
     if (!provider || !base) return null;
+    const state = encodeOAuthState({
+      account,
+      returnTo,
+      n: randomBytes(16).toString("base64url"),
+    });
     const query = new URLSearchParams({
       provider,
       redirect_to: redirectTo,
       scopes: this.scopesFor(platform),
+      state,
+      code_challenge: this.challengeFor(this.verifierFor(state)),
+      code_challenge_method: "s256",
     });
-    query.set("state", encodeOAuthState({ account, returnTo }));
     return `${base.replace(/\/$/, "")}/auth/v1/authorize?${query.toString()}`;
   }
 
   /**
    * Exchange the Supabase Auth callback code for a session, then store the
    * platform's provider token as a Connection. Returns the stored account.
+   *
+   * PKCE: `/token?grant_type=pkce` with the code + the verifier derived from the
+   * same `state` we signed at authorize time.
    */
-  async exchangeCode(platform: string, account: string, code: string): Promise<{ account: string }> {
+  async exchangeCode(
+    platform: string,
+    account: string,
+    code: string,
+    verifier: string,
+  ): Promise<{ account: string }> {
     const base = this.config.get<string>("SUPABASE_URL");
     const serviceRole =
       this.config.get<string>("SUPABASE_SERVICE_ROLE_KEY") ??
@@ -143,14 +191,14 @@ export class SupabaseAuthService {
     const provider = this.providerFor(platform);
     if (!provider) throw new Error(`No Supabase OAuth provider for ${platform}`);
 
-    const res = await fetch(`${base.replace(/\/$/, "")}/auth/v1/token?grant_type=authorization_code`, {
+    const res = await fetch(`${base.replace(/\/$/, "")}/auth/v1/token?grant_type=pkce`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         apikey: serviceRole,
         authorization: `Bearer ${serviceRole}`,
       },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`supabase token HTTP ${res.status}`);

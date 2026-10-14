@@ -8,6 +8,12 @@
 
 *Aura turns real internet attention into a live, AI-scored on-chain index — then lets anyone trade prediction markets on where each name's aura goes next.*
 
+## Judge access instructions
+
+**Private to your team, judges, and organizers.**
+
+Visit **[https://app.auramarkets.world](https://app.auramarkets.world)** — the live product, no install required. Sign in with email; an embedded wallet is created automatically, so there is no seed phrase or extension to set up. Every trade is still a genuine, user-signed on-chain transaction.
+
 ---
 
 ## Description

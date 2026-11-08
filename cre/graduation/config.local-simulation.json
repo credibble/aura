@@ -3,5 +3,5 @@
   "schedule": "0 */15 * * * *",
   "chainSelectorName": "monad-testnet",
   "indexerUrl": "https://indexer.dev.hyperindex.xyz/e4823c3/v1/graphql",
-  "minGraduationAura": "1000"
+  "minGraduationAura": "1"
 }

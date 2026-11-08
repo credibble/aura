@@ -7,7 +7,8 @@
 > lets anyone trade prediction markets on where each name's aura goes next.
 
 **[▶ Live app](https://app.auramarkets.world)** ·
-**[🎬 Demo video](https://youtu.be/E2GSJJVkTLs)** ·
+**[🎤 Pitch video](https://youtu.be/bWrAWrAhGoA)** ·
+**[🎬 Technical demo](https://youtu.be/E2GSJJVkTLs)** ·
 **[⛓ Contracts on Monad testnet](#on-chain)** ·
 **[🧩 Sponsor deep dives](#built-with)** ·
 **[𝕏 @auramarkets_](https://x.com/auramarkets_)**

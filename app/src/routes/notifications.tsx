@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bell, CheckCheck, Flame, Repeat2, Sparkles, Trophy } from "lucide-react";
+import { Dish } from "@lucasmarkes/hairline/react";
 import type { LucideIcon } from "lucide-react";
 import { FeedLayout } from "@/components/social/FeedLayout";
 import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
@@ -125,8 +126,13 @@ function NotificationsPage() {
             items.map((n) => <Row key={n.id} item={n} onOpen={() => markRead.mutate(n.id)} />)}
 
           {!query.isPending && !query.isError && items.length === 0 && (
-            <div className="px-4 py-16 text-center sm:px-6">
-              <p className="text-[15px] font-semibold">Radio silence</p>
+            <div className="px-4 py-12 text-center sm:px-6">
+              {/* A dish on its gimbal, listening for a signal that hasn't come. */}
+              <Dish
+                label="A satellite dish on a gimbal, aimed and listening, with nothing coming in."
+                className="mx-auto w-full max-w-[220px]"
+              />
+              <p className="mt-2 text-[15px] font-semibold">Radio silence</p>
               <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">
                 Follow a handle and trade a window — that&apos;s when the pings start.
               </p>

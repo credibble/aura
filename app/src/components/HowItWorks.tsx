@@ -1,8 +1,10 @@
 import { useState, type ReactElement, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Check, Coins, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { Relay, Slow, Terrain, Vault } from "@lucasmarkes/hairline/react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Avatar } from "@/components/Avatar";
-import { UsdcIcon } from "@/components/aura/UsdcIcon";
+import { HairlineFigure } from "@/components/hairline/HairlineFigure";
+import windowFigure from "@/components/hairline/figures/window.js";
+import sidesFigure from "@/components/hairline/figures/sides.js";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,9 +13,9 @@ import { cn } from "@/lib/utils";
  * $AURA early.
  *
  * The layout is a large two-pane stepper: a numbered rail on the left, an
- * editorial pane on the right, and Back/Next chrome underneath. Each diagram is
- * built from plain shapes and the app's own tokens, so the guide belongs to this
- * codebase rather than reading as borrowed.
+ * editorial pane on the right, and Back/Next chrome underneath. Each step's
+ * visual is one Hairline line figure (see "Figures" below): an object you can
+ * poke that explains the idea, never a chart with made-up numbers.
  */
 export function HowItWorks({ children, className }: { children: ReactNode; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -215,318 +217,106 @@ const STEPS: {
 ];
 
 /* ----------------------------------------------------------------------------
-   Diagrams. Every one is drawn from the app's own tokens (primary / up / down /
-   secondary / border) so the guide looks like the rest of the product, and each
-   enters with the shared `.hiw-rise` stagger instead of bespoke motion.
+   Figures. Each step is one Hairline line figure that answers the pointer and
+   plays its own short lap until a hand arrives — an object for the idea, not a
+   chart: nothing here shows a price, a balance or a percentage (those live on
+   the market pages). Four come from @lucasmarkes/hairline; the window and the
+   YES/NO balance were drawn for Aura with the hairline-create skill
+   (app/hairline/*.js → components/hairline/figures).
    -------------------------------------------------------------------------- */
 
-/** Step 1 — signal in, one number out. */
-function AuraVisual() {
-  const R = 46;
-  const C = 2 * Math.PI * R;
+/** The plate a figure sits in: centred, as tall as the plate allows. */
+function FigurePlate({ children, caption }: { children: ReactNode; caption?: string }) {
   return (
-    <div className="flex h-full items-center justify-center gap-10">
-      <div className="relative h-[240px] w-[240px]">
-        <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden>
-          <circle cx="60" cy="60" r={R} fill="none" stroke="hsl(var(--border))" strokeWidth="9" />
-          <circle
-            cx="60"
-            cy="60"
-            r={R}
-            fill="none"
-            stroke="hsl(var(--primary))"
-            strokeWidth="9"
-            strokeLinecap="round"
-            strokeDasharray={C}
-            strokeDashoffset={C * 0.38}
-            className="hiw-arc"
-          />
-        </svg>
-        <div className="absolute inset-0 grid place-items-center">
-          <div className="text-center leading-none">
-            <div className="num text-5xl font-bold text-foreground">30.4</div>
-            <div className="num mt-2 text-xl font-semibold text-up">+1.20</div>
-          </div>
-        </div>
-      </div>
-      <ul className="space-y-4 text-lg font-medium text-muted-foreground">
-        <LegendDot className="bg-primary" label="one number" />
-        <LegendDot className="bg-up" label="moves all day" />
-        <LegendDot className="bg-muted-foreground/50" label="per handle" />
-      </ul>
+    <div className="relative flex h-full items-center justify-center">
+      {children}
+      {caption && caption !== "rest" && (
+        <span className="absolute bottom-0 right-0 rounded-full border border-border bg-card px-3 py-1 text-[13px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          {caption}
+        </span>
+      )}
     </div>
   );
 }
 
-function LegendDot({ className, label }: { className: string; label: string }) {
+const FIG = "h-full max-w-full";
+
+/** Step 1 — a field of handles; the one under the pointer rises. */
+function AuraVisual() {
   return (
-    <li className="flex items-center gap-3">
-      <span className={cn("h-2.5 w-2.5 rounded-full", className)} />
-      {label}
-    </li>
+    <FigurePlate>
+      <Terrain
+        play
+        className={FIG}
+        label="A field of pillars, one per handle, rising where the pointer is."
+      />
+    </FigurePlate>
   );
 }
 
-const PLATFORM_SOURCES = [
-  { src: "/platforms/x.svg", alt: "X" },
-  { src: "/platforms/youtube.svg", alt: "YouTube" },
-  { src: "/platforms/reddit.svg", alt: "Reddit" },
-  { src: "/platforms/rss.svg", alt: "RSS" },
-] as const;
-
-/** Step 2 — many feeds in, one scored index out. */
+/** Step 2 — sources feed the handle, hop by hop. */
 function SourcesVisual() {
   return (
-    <div className="flex h-full flex-col justify-center gap-5">
-      <div className="flex items-center gap-3">
-        {PLATFORM_SOURCES.map((s, i) => (
-          <span
-            key={s.alt}
-            className="hiw-rise grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-border bg-card"
-            style={{ animationDelay: `${i * 0.07}s` }}
-          >
-            <img src={s.src} alt={s.alt} className="h-8 w-8 object-contain" />
-          </span>
-        ))}
-        <span className="mx-2 h-px flex-1 bg-border" />
-        <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
-          <Sparkles className="h-7 w-7" aria-hidden="true" />
-        </span>
-      </div>
-
-      <div
-        className="hiw-rise flex flex-wrap items-center gap-2"
-        style={{ animationDelay: "0.24s" }}
-      >
-        {["BBC", "Reuters", "ESPN", "CoinDesk"].map((outlet) => (
-          <span
-            key={outlet}
-            className="rounded-full border border-border px-3 py-1 text-base font-semibold text-muted-foreground"
-          >
-            {outlet}
-          </span>
-        ))}
-        <span className="rounded-full bg-primary/15 px-3 py-1 text-base font-semibold text-primary">
-          + live web search
-        </span>
-      </div>
-
-      <div
-        className="hiw-rise flex items-center gap-4 rounded-2xl border border-border bg-secondary/60 px-4 py-3"
-        style={{ animationDelay: "0.34s" }}
-      >
-        <Avatar seed="ronaldo" size={48} alt="" />
-        <span className="truncate text-lg font-bold text-foreground">Ronaldo</span>
-        <span className="num ml-auto text-lg font-bold text-foreground">30.40</span>
-        <span className="num text-base font-semibold text-up">+1.20</span>
-      </div>
-    </div>
+    <FigurePlate>
+      <Relay
+        play
+        className={FIG}
+        label="A hub with branches of tiles: the path from a source to the hub lights up hop by hop."
+      />
+    </FigurePlate>
   );
 }
 
-/** Step 3 — a real development lands and the index reprices, fast. */
+/** Step 3 — the clock never stops; hovering slows it so you can read it. */
 function CadenceVisual() {
   return (
-    <div className="flex h-full flex-col justify-center">
-      <div className="flex items-baseline justify-between">
-        <span className="text-base font-semibold text-muted-foreground">Aura index</span>
-        <span className="num text-base font-semibold text-up">+8.4% today</span>
-      </div>
-      <svg
-        viewBox="0 0 300 110"
-        className="mt-3 h-[190px] w-full"
-        preserveAspectRatio="none"
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id="hiw-cad-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--up))" stopOpacity="0.32" />
-            <stop offset="100%" stopColor="hsl(var(--up))" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M0 88 C 40 92, 70 86, 96 74 C 128 60, 150 34, 186 26 C 220 18, 250 16, 300 8 L 300 110 L 0 110 Z"
-          fill="url(#hiw-cad-fill)"
-        />
-        <path
-          d="M0 88 C 40 92, 70 86, 96 74 C 128 60, 150 34, 186 26 C 220 18, 250 16, 300 8"
-          fill="none"
-          stroke="hsl(var(--up))"
-          strokeWidth="2.5"
-          className="hiw-draw"
-        />
-      </svg>
-      <div className="mt-2 flex items-center justify-between text-sm font-semibold text-muted-foreground">
-        <span>09:12</span>
-        <span>09:20</span>
-        <span>09:34</span>
-      </div>
-    </div>
+    <FigurePlate>
+      <Slow
+        play
+        className={FIG}
+        label="Crates riding a belt through a gate, always moving; hovering slows the belt."
+      />
+    </FigurePlate>
   );
 }
 
-/** Step 4 — a window on a clock: open, price, freeze, settle. */
+/** Step 4 — open, frozen, settled: the window as a machine. */
 function WindowsVisual() {
+  const [caption, setCaption] = useState("rest");
   return (
-    <div className="flex h-full flex-col justify-center gap-5">
-      <div className="flex items-center justify-between text-base font-semibold text-muted-foreground">
-        <span className="rounded-full bg-secondary px-3 py-1 text-foreground">
-          15-minute window
-        </span>
-        <span className="num">12:34 left</span>
-      </div>
-
-      <div className="relative h-3.5 w-full rounded-full bg-secondary">
-        <span className="hiw-sweep absolute inset-y-0 left-0 w-[62%] rounded-full bg-primary" />
-        <span className="absolute -top-1 left-[62%] grid h-4 w-4 -translate-x-1/2 place-items-center">
-          <span className="hiw-ping absolute h-4 w-4 rounded-full bg-primary/40" />
-          <span className="h-2.5 w-2.5 rounded-full border-2 border-card bg-primary" />
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <OutcomeChip outcome="YES" side="up" cents={62} detail="aura rises" />
-        <OutcomeChip outcome="NO" side="down" cents={38} detail="aura falls" />
-      </div>
-
-      <p className="flex items-center justify-center gap-2 text-base text-muted-foreground">
-        <Lock className="h-5 w-5" aria-hidden="true" />
-        Freezes at the end — then settles on the aura close
-      </p>
-    </div>
+    <FigurePlate caption={caption}>
+      <HairlineFigure
+        figure={windowFigure}
+        play
+        onRead={setCaption}
+        className={FIG}
+        label="A carriage rides a track to a gate; the gate drops to freeze the window, and the tray past it tips its coin to the settled side."
+      />
+    </FigurePlate>
   );
 }
 
-function OutcomeChip({
-  outcome,
-  side,
-  cents,
-  detail,
-}: {
-  outcome: string;
-  side: "up" | "down";
-  cents: number;
-  detail: string;
-}) {
-  const tone =
-    side === "up" ? "border-up/40 bg-up/10 text-up" : "border-down/40 bg-down/10 text-down";
-  return (
-    <div className={cn("rounded-2xl border px-5 py-4 leading-tight", tone)}>
-      <div className="flex items-center justify-between">
-        <span className="text-2xl font-bold">{outcome}</span>
-        <span className="num text-2xl font-bold">{cents}¢</span>
-      </div>
-      <div className="text-sm text-muted-foreground">{detail}</div>
-    </div>
-  );
-}
-
-const TRADES = [
-  {
-    seed: "elon",
-    handle: "@elon",
-    outcome: "YES",
-    cents: 74,
-    stake: 25,
-    up: true,
-    photo:
-      "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/330px-Elon_Musk_-_54820081119_%28cropped%29.jpg",
-  },
-  {
-    seed: "taylor",
-    handle: "@taylor",
-    outcome: "NO",
-    cents: 41,
-    stake: 10,
-    up: false,
-    photo:
-      "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png/330px-Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png",
-  },
-  {
-    seed: "btc",
-    handle: "@btc",
-    outcome: "YES",
-    cents: 56,
-    stake: 100,
-    up: true,
-    photo:
-      "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/330px-Bitcoin.svg.png",
-  },
-] as const;
-
-/** Step 5 — a ticket: USDC in on an outcome, shares out. */
+/** Step 5 — pick a side; coins drop into that pan and it tips. */
 function TradeVisual() {
+  const [caption, setCaption] = useState("rest");
   return (
-    <div className="flex h-full flex-col justify-center gap-3">
-      {TRADES.map((t, i) => (
-        <div
-          key={t.seed}
-          className="hiw-rise flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3"
-          style={{ animationDelay: `${i * 0.09}s` }}
-        >
-          <Avatar
-            seed={t.seed}
-            image={t.photo}
-            imageFit={t.seed === "btc" ? "contain" : "cover"}
-            size={48}
-            alt={t.handle}
-          />
-          <div className="min-w-0 flex-1 leading-tight">
-            <div className="truncate text-lg font-bold text-foreground">{t.handle}</div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className={cn("font-bold", t.up ? "text-up" : "text-down")}>{t.outcome}</span>
-              <span className="num">@ {t.cents}¢</span>
-            </div>
-          </div>
-          <span className="flex items-center gap-1.5">
-            <UsdcIcon size={16} />
-            <span className="num text-lg font-bold text-foreground">{t.stake}</span>
-          </span>
-        </div>
-      ))}
-    </div>
+    <FigurePlate caption={caption}>
+      <HairlineFigure
+        figure={sidesFigure}
+        play
+        onRead={setCaption}
+        className={FIG}
+        label="A two-pan balance, YES and NO: coins drop into the side you pick and the beam tips toward it."
+      />
+    </FigurePlate>
   );
 }
 
-/** Step 6 — back a handle early; earn a cut of every window it settles. */
+/** Step 6 — stake into a handle's vault. */
 function StakeVisual() {
   return (
-    <div className="flex h-full flex-col justify-center gap-4">
-      <div className="hiw-rise flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
-          <Coins className="h-7 w-7" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="text-lg font-bold text-foreground">$AURA vault</div>
-          <div className="truncate text-sm text-muted-foreground">
-            @ronaldo · fees from every window
-          </div>
-        </div>
-        <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-sm font-bold text-primary-foreground">
-          <Sparkles className="h-4 w-4" aria-hidden="true" />
-          Early bird
-        </span>
-      </div>
-
-      <div
-        className="hiw-rise space-y-2.5 rounded-2xl border border-border bg-secondary/60 px-5 py-4"
-        style={{ animationDelay: "0.12s" }}
-      >
-        <StatRow label="You stake" value="4,200 $AURA" />
-        <StatRow label="Vault share" value="1.8%" />
-        <StatRow label="Earned so far" value="+38.40 $AURA" tone="up" />
-      </div>
-    </div>
-  );
-}
-
-function StatRow({ label, value, tone }: { label: string; value: string; tone?: "up" }) {
-  return (
-    <div className="flex items-center justify-between text-lg">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("num font-bold", tone === "up" ? "text-up" : "text-foreground")}>
-        {value}
-      </span>
-    </div>
+    <FigurePlate>
+      <Vault play className={FIG} label="A vault door: turning the dial draws its bolts back." />
+    </FigurePlate>
   );
 }

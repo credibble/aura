@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Basket } from "@lucasmarkes/hairline/react";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -385,11 +386,18 @@ function PortfolioPage() {
               {!positionsQuery.isPending &&
                 !positionsQuery.isError &&
                 shownPositions.length === 0 && (
-                  <p className="py-6 text-[13px] text-muted-foreground">
-                    {posTab === "open"
-                      ? "Nothing open yet — go buy a side on any market."
-                      : "No receipts yet."}
-                  </p>
+                  <div className="py-6 text-center">
+                    {/* An empty wire basket: nothing picked up yet. */}
+                    <Basket
+                      label="An empty wire shopping basket, its bare floor showing."
+                      className="mx-auto w-full max-w-[180px]"
+                    />
+                    <p className="mt-1 text-[13px] text-muted-foreground">
+                      {posTab === "open"
+                        ? "Nothing open yet — go buy a side on any market."
+                        : "No receipts yet."}
+                    </p>
+                  </div>
                 )}
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
+import { Plug } from "@lucasmarkes/hairline/react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
@@ -37,11 +38,21 @@ function NotFoundComponent() {
         >
           <div className="flex min-h-[60vh] items-center justify-center px-4">
             <div className="max-w-md text-center">
-              {/* The page title is the h1; "404" is decoration, not the heading. */}
-              <p aria-hidden="true" className="num text-7xl font-bold text-foreground">
+              {/* A plug drawn up toward its socket that stops short and falls
+                  back — the 404 as an object. Plays its lap until a hand
+                  arrives. The page title is the h1; "404" is decoration. */}
+              <Plug
+                play
+                label="A plug that rises toward its wall socket and falls back short of it."
+                className="mx-auto w-full max-w-[320px]"
+              />
+              <p
+                aria-hidden="true"
+                className="num mt-2 text-sm font-semibold text-muted-foreground"
+              >
                 404
               </p>
-              <h1 className="mt-4 text-xl font-semibold text-foreground">Page not found</h1>
+              <h1 className="mt-2 text-xl font-semibold text-foreground">Page not found</h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 The page you're looking for doesn't exist or has been moved.
               </p>

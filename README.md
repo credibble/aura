@@ -6,47 +6,74 @@
 > Aura turns real online attention into a live, AI-scored on-chain index — then
 > lets anyone trade prediction markets on where each name's aura goes next.
 
-Every market is one **handle** (a person, project, coin, or brand) and one time
-window. The handle's index — its **aura** — is scored by an AI from the handle's
-own scoped sources (RSS, public APIs, per-user OAuth connections). Each window
-asks one question: **does this handle's aura close higher or lower?**
+**[▶ Live app](https://app.auramarkets.world)** ·
+**[🎤 Pitch video](https://youtu.be/bWrAWrAhGoA)** ·
+**[🎬 Technical demo](https://youtu.be/E2GSJJVkTLs)** ·
+**[⛓ Contracts on Monad testnet](#on-chain)** ·
+**[🧩 Sponsor deep dives](#built-with)** ·
+**[𝕏 @auramarkets_](https://x.com/auramarkets_)**
+
+![The Aura Atlas: every handle is a villager standing in its category's district, sized by its aura, with its index and move on a tag above its head](docs/media/atlas.png)
+
+Every market is one **handle** — a person, project, coin or brand — and one time
+**window**. The handle's index, its **aura**, is scored by an AI from the
+handle's own scoped sources (news RSS, X, Reddit, YouTube, GitHub, per-user OAuth
+connections) and written on-chain. Each window asks one question: **does this
+handle's aura close higher or lower?**
 
 ---
 
 ## Contents
 
-- [What is Aura](#what-is-aura)
+- [Try it in two minutes](#try-it-in-two-minutes)
+- [Why it's different](#why-its-different)
 - [How it works](#how-it-works)
+- [Built with](#built-with)
+- [On-chain](#on-chain)
+- [Known limitations & what's next](#known-limitations--whats-next)
 - [Repository layout](#repository-layout)
 - [Where the data comes from](#where-the-data-comes-from)
 - [The aura → market decision path](#the-aura--market-decision-path)
-- [Prerequisites](#prerequisites)
-- [Quickstart](#quickstart)
-- [Environment variables](#environment-variables)
-- [Verification & CI](#verification--ci)
-- [Chainlink CRE workflows](#chainlink-cre-workflows)
-- [Redeploy runbook](#redeploy-runbook)
-- [The adapter contract](#the-adapter-contract)
-- [Docs & conventions](#docs--conventions)
+- [Run it locally](#prerequisites) · [Environment variables](#environment-variables) · [Verification & CI](#verification--ci)
+- [Chainlink CRE workflows](#chainlink-cre-workflows) · [Redeploy runbook](#redeploy-runbook) · [The adapter contract](#the-adapter-contract) · [Docs & conventions](#docs--conventions)
 
 ---
 
-## What is Aura
+## Try it in two minutes
 
-Attention is the internet's most valuable asset, but it doesn't trade anywhere.
-Aura makes it tradable:
+Nothing to install — it runs on Monad testnet with test money.
 
-- **Ingest** — per-handle, per-outlet adapters pull real items with real reach
-  (author, likes, replies, views). Every adapter fails closed without
-  credentials and never invents a metric.
-- **Score** — a reasoning model reads the item *text* and returns a direction, a
-  magnitude in a ±5–20% band, and a one-line rationale. **The model advises; code
-  decides size** — the move is scaled by an evidence weight and clamped.
-- **Settle** — a window resolves from the aura series, with a points floor so a
-  tick always moves ≥ 1 unit. Every tick is hashed over the exact items the model
-  saw, so any settlement is **replayable**.
-- **Explain** — the AI's memo is written on-chain and shown as the chart tooltip's
-  "why it moved".
+1. **Open [app.auramarkets.world](https://app.auramarkets.world).** The home page
+   is the **Atlas**: every handle is a villager in its category's district. Bigger
+   villagers have more aura; 🔥 marks the biggest movers. Drag to pan, scroll or
+   pinch to zoom. **How it works** walks the whole loop in six steps.
+2. **Sign in with your email.** Privy creates an embedded wallet for you — no
+   extension, no seed phrase. (Your first transaction needs a little testnet MON
+   for gas: [faucet.monad.xyz](https://faucet.monad.xyz).)
+3. **Click a villager** to open its market: the aura chart (hover a point to read
+   the AI's one-line *why it moved*), the live window, YES/NO prices, the order
+   book and the handle's source feed.
+4. **Tap "Get 1,000 test USDC"** in the trade ticket, then **buy YES or NO**. Each
+   trade is a real, user-signed transaction on Monad testnet.
+5. **Watch the window close.** It freezes at the end, settles on the aura it closed
+   at, and winning shares claim 1 USDC each.
+
+![How it works, step 4 of the in-app guide: a market window drawn as a track with a gate that drops when the window freezes](docs/media/how-it-works.png)
+
+## Why it's different
+
+- **The asset is momentum, not an event.** Prediction markets usually price
+  "will X happen by date Y" — slow to resolve, easy to dispute. Aura prices the
+  continuous trend of attention, in windows from 15 minutes to a day.
+- **The model advises; code decides.** The AI returns a direction, a magnitude in a
+  ±5–20% band and a one-line rationale. Code scales that by an evidence weight
+  (credibility × volume × reach) and clamps it, so a confident take on one weak
+  article moves the index far less than a broad, high-reach story.
+- **Every move is explained and replayable.** The memo is written on-chain with the
+  move. Each tick is hashed over the exact items the model saw, its raw reply and
+  the applied percent: re-fetch the evidence, re-run the prompt, compare the hash.
+- **No observation, no settlement.** A window with no aura observation is left to
+  VOID and refunds traders, instead of resolving on a stale number.
 
 ## How it works
 
@@ -58,19 +85,69 @@ Aura makes it tradable:
         └────────── indexer (Envio) ────────┘  every entity the UI + oracle read
 ```
 
-1. **Sources** feed a handle on a fixed cadence. Each source is configured by a
-   JSON object stored on-chain in `Handle.sources[]` (platform + params +
-   optional `topic`/`context`).
-2. The **aura engine** fetches each source, assembles the signal (normalized
-   volume + engagement + item texts), asks the AI for direction + magnitude +
-   memo, scales it by evidence, writes the new aura **on-chain**, and pushes it
-   over WebSocket.
-3. The **window engine** opens a market window per handle per slot, settles it
-   from the aura series at `windowEnd`, and opens the next slot — so a handle
-   always has a live window.
-4. The **app** reads on-chain state from the indexer, backend data from the
-   oracle API, and exact/fresh values (balances, allowances, shares) from the
-   chain.
+1. **Ingest.** Per-handle adapters pull real items with real reach (author, likes,
+   replies, views). Each source is a JSON config stored on-chain in
+   `Handle.sources[]`. Adapters fail closed without credentials and never invent a
+   metric.
+2. **Score.** The aura engine builds the signal (normalized volume + engagement +
+   item texts), asks the AI for direction + magnitude + memo, scales it by
+   evidence, writes the new aura **on-chain**, and pushes it over WebSocket.
+3. **Trade.** The window engine opens a market window per handle per slot. Prices
+   come from an LMSR market maker plus an order book, backed by the auraLP pool;
+   early believers can stake $AURA on a handle and earn a cut of every window that
+   settles.
+4. **Settle.** At `windowEnd` the window resolves from the aura series and the next
+   slot opens in the same tick, so a handle always has a live window.
+
+The full step-by-step, with what is and isn't deterministic, is
+[the decision path](#the-aura--market-decision-path) below.
+
+## Built with
+
+| | What it does in Aura | Where | Deep dive |
+|---|---|---|---|
+| **Monad** (testnet) | Every contract, every trade, every aura write and settlement. | [`smart-contracts/`](smart-contracts/) | [On-chain](#on-chain) |
+| **Envio HyperIndex** | The only source of on-chain state for the app, the oracle and CRE — GraphQL plus live WebSocket subscriptions. | [`indexer/`](indexer/) | [envio-bounty.md](docs/envio-bounty.md) |
+| **Chainlink CRE** | The protocol's cron jobs — staking rewards and handle graduation — as consensus-verified workflows. | [`cre/`](cre/) | [cre-bounty.md](docs/cre-bounty.md) |
+| **Kimi K2** (Moonshot) | Scores each tick from the items' text: direction, magnitude, rationale. | [`oracle/`](oracle/) | [Article on Medium](https://medium.com/@dev_arogundade/using-kimi-k2-to-turn-internet-attention-into-a-verifiable-tradable-on-chain-index-ee92241a18bb) · [kimi-in-aura.md](docs/kimi-in-aura.md) |
+| **Privy** | Email sign-in with an embedded wallet; every trade still user-signed. | [`app/`](app/) | [privy-bounty.md](docs/privy-bounty.md) |
+
+Also: TanStack Start + Vite + Tailwind 4 · NestJS + Socket.IO · Postgres + Redis ·
+Cloudinary · Hairline line figures.
+
+## On-chain
+
+Monad testnet (chain id `10143`). Addresses from
+[`deployments.json`](smart-contracts/deployments/deployments.json).
+
+| Contract | Address |
+|---|---|
+| HandleFactory | [`0x56cE…8119`](https://testnet.monadexplorer.com/address/0x56cE5569612418A0829f65220dAeCc93b38F8119) |
+| MarketMaker (LMSR) | [`0xa66c…3E02`](https://testnet.monadexplorer.com/address/0xa66c93D8BC2AF554C5E5bdACfFC3210Ad2863E02) |
+| OrderBook | [`0xfE4d…48A`](https://testnet.monadexplorer.com/address/0xfE4d4AAb7B2D2239039623F0a8a5087a15B5248A) |
+| OracleFactory | [`0x3c2f…1326`](https://testnet.monadexplorer.com/address/0x3c2f7c24d86D7F2F2344A4Ea3466F5F2cd4F1326) |
+| Pool (auraLP) | [`0x861C…0cd9`](https://testnet.monadexplorer.com/address/0x861C853853ae2cd05E98A3472074a3f618Ac0cd9) |
+| RevenueSharing | [`0xFaF5…47B6`](https://testnet.monadexplorer.com/address/0xFaF5551Bbe0Be5B990D53A43869Cd293d8C547B6) |
+| AURA token | [`0x69F5…26DB`](https://testnet.monadexplorer.com/address/0x69F5AAe07E7839f67F7fCDA81C3319AB996926DB) |
+| USDC (test) | [`0x2a23…35B2`](https://testnet.monadexplorer.com/address/0x2a2397e18Acb79E18BedA8b9B9365D4e1a1B35B2) |
+| Relayer (aura writes + settlement) | [`0x09fd…E082`](https://testnet.monadexplorer.com/address/0x09fd7bbE0422a864a01BD906A8A8E8F88bcdE082) |
+
+Each handle also has its own `Handle` and `Stake` contract, listed per handle in
+`deployments.json`.
+
+## Known limitations & what's next
+
+- **Single relayer.** One key pushes aura and submits resolutions. The fix is a
+  multisig or a challenge window on `submitResolution` — a deployment decision.
+- **Evidence hash is off-chain.** Each tick's hash is logged and pushed over the
+  WebSocket, not yet committed in the on-chain `ResolutionReceipt`. That needs the
+  next contract revision.
+- **Testnet only.** Collateral is a public mock USDC; there is no mainnet deploy.
+- **One non-deterministic step.** The AI score is advisory and fenced on every side
+  (band, evidence weight, clamp, hash), but re-running a prompt can still differ.
+
+Next: the contract revision that commits the evidence hash into the resolution
+receipt, and a multisig (or challenge window) in place of the single resolver.
 
 ## Repository layout
 

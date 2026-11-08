@@ -390,7 +390,12 @@ function BottomDock() {
   const destinations = [
     { label: "Explore", to: "/", icon: Compass, on: isExplore },
     { label: "Feeds", to: "/feeds", icon: Rss, on: pathname.startsWith("/feeds") },
-    { label: "Leaderboard", to: "/leaderboard", icon: Trophy, on: pathname.startsWith("/leaderboard") },
+    {
+      label: "Leaderboard",
+      to: "/leaderboard",
+      icon: Trophy,
+      on: pathname.startsWith("/leaderboard"),
+    },
     { label: "Portfolio", to: "/portfolio", icon: Wallet, on: pathname.startsWith("/portfolio") },
     { label: "Pool", to: "/pool", icon: Droplets, on: pathname.startsWith("/pool") },
   ] as const;
@@ -398,6 +403,7 @@ function BottomDock() {
   return (
     <nav
       aria-label="Feed"
+      data-world-overlay="true"
       className="fixed bottom-4 left-1/2 z-20 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-border/70 bg-background/90 px-2 py-1.5 shadow-lg backdrop-blur-md lg:flex"
     >
       <TooltipProvider delayDuration={150}>

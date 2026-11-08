@@ -19,11 +19,11 @@ export const COLS = 3;
 export const ROWS = 3;
 /**
  * Empty district grids ringing the real 3×3 — breathing room around the
- * village so the map reads as a place, not a wall of content. Two rings deep
- * (a 7×7 floor, 40 empty cells). The ring is visual only: no category, no
- * label, never a plot or a prop.
+ * village so the map reads as a place, not a wall of content. One ring deep
+ * (a 5×5 floor, 16 cells), planted with scenery (`WORLD_PROPS`) so zooming
+ * into it never lands on a bare tile. No category, no label, never a plot.
  */
-export const PAD_DISTRICTS = 2;
+export const PAD_DISTRICTS = 1;
 export const GRID_COLS = COLS + PAD_DISTRICTS * 2;
 export const GRID_ROWS = ROWS + PAD_DISTRICTS * 2;
 
@@ -36,7 +36,7 @@ export const CONTENT_HEIGHT = ROWS * DISTRICT_SIZE;
 
 /** Keep plots off the tile edges. */
 const TILE_INSET = 30;
-const PLOT_RADIUS = DISTRICT_SIZE / 2 - 150;
+const PLOT_RADIUS = DISTRICT_SIZE / 2 - 120;
 
 export type WorldDistrict = {
   id: CategoryId;
@@ -62,7 +62,17 @@ export type WorldPlotData = {
   y: number;
   /** Marker disc diameter, in world units (also the label's scale). */
   size: number;
+  /** Villager scale from aura: 0.8 (smallest index) → 1.4 (the peak). */
+  scale: number;
+  /** 0 → 1 share of the peak aura (√-eased) — drives glow strength. */
+  weight: number;
   district: CategoryId;
+  /**
+   * The handle's HOME plot (its primary category). A handle in several
+   * categories also stands in each other district, but as a smaller, faded
+   * "visiting" copy, so one handle never reads as several markets.
+   */
+  primary: boolean;
 };
 
 /** Deterministic 32-bit hash of a string (+ salt), normalised to [0, 1). */
@@ -106,7 +116,10 @@ export const PAD_CELLS: WorldPadCell[] = (() => {
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
       const core =
-        c >= PAD_DISTRICTS && c < PAD_DISTRICTS + COLS && r >= PAD_DISTRICTS && r < PAD_DISTRICTS + ROWS;
+        c >= PAD_DISTRICTS &&
+        c < PAD_DISTRICTS + COLS &&
+        r >= PAD_DISTRICTS &&
+        r < PAD_DISTRICTS + ROWS;
       if (core) continue;
       out.push({
         id: `pad-${c}-${r}`,
@@ -129,8 +142,9 @@ const DISTRICT_BY_ID = Object.fromEntries(DISTRICTS.map((d) => [d.id, d])) as Re
 // ARCHETYPE — a coin, a bot, a footballer, a singer, a cat, a car … — one
 // per HANDLE, chosen by its primary category (iconic brands get their object
 // by name) and hashed from the handle id. The ground is the site's background
-// colour and there is deliberately no scenery: only the district grids and
-// the villagers.
+// colour; scenery (trees, bushes, lamps, rocks) is planted only where no
+// villager can stand — the padding ring and the district corners outside the
+// plot disc — so props never hide a market.
 // ----------------------------------------------------------------------------
 /** Marker square edge, in world units. */
 export const CHAR_SIZE = 128;
@@ -157,6 +171,9 @@ export function layoutWorld(assets: LiveAsset[]): WorldPlotData[] {
     const weight = Math.min(1, Math.sqrt(Math.abs(asset.index) / peak));
     // Every category family (fall back to the primary if the array is empty).
     const cats: CategoryId[] = asset.categories.length ? asset.categories : [asset.category];
+    // Home district: the primary category, or the first family when the
+    // primary isn't among them (same rule search uses to fly "home").
+    const home = cats.includes(asset.category) ? asset.category : cats[0]!;
     for (const cat of cats) {
       const d = districtOf(cat);
       const seed = `${asset.id}:${cat}`;
@@ -168,7 +185,10 @@ export function layoutWorld(assets: LiveAsset[]): WorldPlotData[] {
         x: d.cx + Math.cos(angle) * radius,
         y: d.cy + Math.sin(angle) * radius,
         size: 60 + weight * 44,
+        scale: 0.8 + weight * 0.6,
+        weight,
         district: cat,
+        primary: cat === home,
       });
     }
   }
@@ -184,7 +204,7 @@ export function layoutWorld(assets: LiveAsset[]): WorldPlotData[] {
   }
   for (const group of byDistrict.values()) {
     group.sort((a, b) => a.id.localeCompare(b.id));
-    for (let pass = 0; pass < 12; pass++) {
+    for (let pass = 0; pass < 24; pass++) {
       let moved = false;
       for (let i = 0; i < group.length; i++) {
         for (let j = i + 1; j < group.length; j++) {
@@ -229,3 +249,58 @@ export function layoutWorld(assets: LiveAsset[]): WorldPlotData[] {
   plots.sort((a, b) => a.y - b.y || a.size - b.size);
   return plots;
 }
+
+// ----------------------------------------------------------------------------
+// Scenery — deterministic, data-free props so the floor reads as a place.
+// ----------------------------------------------------------------------------
+export type WorldPropKind = "pine" | "tree" | "bush" | "lamp" | "rock";
+export type WorldPropData = {
+  id: string;
+  kind: WorldPropKind;
+  /** World coordinates of the prop's base (where it touches the ground). */
+  x: number;
+  y: number;
+  /** Size multiplier on the base prop size. */
+  scale: number;
+};
+
+const PAD_KINDS: WorldPropKind[] = ["pine", "pine", "tree", "tree", "bush", "bush", "rock"];
+const CORNER_KINDS: WorldPropKind[] = ["lamp", "bush", "tree", "lamp"];
+/** Props per padding cell. */
+const PROPS_PER_PAD = 4;
+
+/**
+ * Every prop on the map. Padding cells get a small hashed grove (a jittered
+ * 2×2 grid, so nothing piles up); each district gets a prop in three of its
+ * corners — never the top-left, where its name pill sits — which is outside
+ * the plot disc, so a prop never stands on a villager.
+ */
+export const WORLD_PROPS: WorldPropData[] = (() => {
+  const out: WorldPropData[] = [];
+  for (const cell of PAD_CELLS) {
+    for (let i = 0; i < PROPS_PER_PAD; i++) {
+      const seed = `${cell.id}:${i}`;
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const span = cell.size - 160;
+      const x = cell.x + 80 + ((col + 0.15 + hashUnit(seed, 3) * 0.7) / 2) * span;
+      const y = cell.y + 80 + ((row + 0.15 + hashUnit(seed, 4) * 0.7) / 2) * span;
+      const kind = PAD_KINDS[Math.floor(hashUnit(seed, 5) * PAD_KINDS.length)]!;
+      out.push({ id: seed, kind, x, y, scale: 0.85 + hashUnit(seed, 6) * 0.45 });
+    }
+  }
+  const inset = 95;
+  for (const d of DISTRICTS) {
+    const corners: [number, number][] = [
+      [d.x + d.size - inset, d.y + inset + 20], // top-right
+      [d.x + inset, d.y + d.size - inset], // bottom-left
+      [d.x + d.size - inset, d.y + d.size - inset], // bottom-right
+    ];
+    corners.forEach(([x, y], i) => {
+      const seed = `${d.id}:corner:${i}`;
+      const kind = CORNER_KINDS[Math.floor(hashUnit(seed, 7) * CORNER_KINDS.length)]!;
+      out.push({ id: seed, kind, x, y, scale: 0.8 + hashUnit(seed, 8) * 0.25 });
+    });
+  }
+  return out;
+})();

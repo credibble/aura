@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDownUp, Check, ChevronDown, List as ListIcon, Map as MapIcon } from "lucide-react";
@@ -10,6 +10,7 @@ import { SparkCardSkeleton } from "@/components/ui/skeletons";
 import { HowItWorks } from "@/components/HowItWorks";
 import { ScrollRow } from "@/components/ScrollRow";
 import { WorldMap, type WorldMapHandle } from "@/components/aura/WorldMap";
+import type { Insets } from "@/hooks/usePanZoom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +71,8 @@ function ExplorePage() {
   const [mode, setMode] = useState<ViewMode>("map");
   const order = ORDER_BY[sort];
   const worldRef = useRef<WorldMapHandle | null>(null);
+  const heroRef = useRef<HTMLDivElement | null>(null);
+  const insets = useOverlayInsets(heroRef, mode === "map");
 
   // List: the paginated, server-sorted grid. Only fetched when the list is shown.
   const query = useInfiniteQuery({
@@ -151,7 +154,7 @@ function ExplorePage() {
               Charting the atlas…
             </div>
           ) : (
-            <WorldMap ref={worldRef} plots={plots} activeCategory={cat} />
+            <WorldMap ref={worldRef} plots={plots} activeCategory={cat} insets={insets} />
           )}
         </div>
       )}
@@ -160,7 +163,10 @@ function ExplorePage() {
           or border, it floats straight on the Atlas (whose ground IS the page
           background). Clicks fall through everywhere except the controls —
           a character standing behind the headline is still clickable. */}
-      <div className="pointer-events-none relative z-10 px-4 pb-6 pt-10 text-center sm:px-6">
+      <div
+        ref={heroRef}
+        className="pointer-events-none relative z-10 px-4 pb-6 pt-10 text-center sm:px-6"
+      >
         <h1 className="text-[28px] font-bold tracking-tight sm:text-4xl">
           Everything has an $AURA
         </h1>
@@ -262,6 +268,7 @@ function ExplorePage() {
           setMode(mode === "map" ? "list" : "map");
         }}
         aria-label={mode === "map" ? "Switch to list mode" : "Switch to map mode"}
+        data-world-overlay="true"
         className="fixed bottom-4 right-4 z-20 flex h-11 items-center gap-2 rounded-full border border-border/70 bg-background/90 px-4 text-sm font-medium text-foreground shadow-lg backdrop-blur-md transition-colors hover:bg-secondary"
       >
         {mode === "map" ? (
@@ -278,6 +285,42 @@ function ExplorePage() {
       </button>
     </FeedLayout>
   );
+}
+
+/**
+ * The screen bands the page chrome covers over the Atlas: `top` down to the
+ * hero's last line (the search row), `bottom` up to the highest bottom-pinned
+ * control marked `data-world-overlay` (the dock, the list toggle). Re-measured
+ * on resize, so the map always frames the village in the free band between.
+ */
+function useOverlayInsets(heroRef: RefObject<HTMLDivElement | null>, enabled: boolean): Insets {
+  const [insets, setInsets] = useState<Insets>({ top: 0, bottom: 0 });
+  useEffect(() => {
+    if (!enabled) return;
+    const hero = heroRef.current;
+    if (!hero) return;
+    const measure = () => {
+      const h = window.innerHeight;
+      // The hero's bottom padding is air, not chrome — the map may use it.
+      const top = Math.max(0, Math.round(hero.getBoundingClientRect().bottom - 16));
+      let bottom = 0;
+      for (const el of document.querySelectorAll<HTMLElement>("[data-world-overlay]")) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue; // hidden at this breakpoint
+        bottom = Math.max(bottom, Math.round(h - r.top));
+      }
+      setInsets((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(hero);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [heroRef, enabled]);
+  return insets;
 }
 
 /** Category tab — underline style, list mode's filter bar. */

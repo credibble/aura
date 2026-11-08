@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownRight, ArrowUpRight, Droplets, Loader2 } from "lucide-react";
+import { Hub, Plot } from "@lucasmarkes/hairline/react";
 import { toast } from "sonner";
 import { FeedLayout } from "@/components/social/FeedLayout";
 import { FeedSearch, SidebarFooter } from "@/components/social/RightSidebar";
@@ -258,14 +259,22 @@ function PoolPage() {
         </>
       }
     >
-      <div className="px-4 pt-8 pb-4 sm:px-6">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Droplets className="h-4 w-4" /> auraLP
+      <div className="flex items-center justify-between gap-6 px-4 pt-8 pb-4 sm:px-6">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Droplets className="h-4 w-4" /> auraLP
+          </div>
+          <h1 className="mt-1 text-[28px] font-bold tracking-tight sm:text-3xl">Liquidity pool</h1>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+            Provide USDC to back every window and earn from the flow. Withdraw pro-rata any time.
+          </p>
         </div>
-        <h1 className="mt-1 text-[28px] font-bold tracking-tight sm:text-3xl">Liquidity pool</h1>
-        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Provide USDC to back every window and earn from the flow. Withdraw pro-rata any time.
-        </p>
+        {/* The pool as a hub, each tile a window it backs. Explainer only:
+            wide screens, beside the heading, never near the numbers below. */}
+        <Hub
+          label="A hub linked to eight tiles: the pool, and the windows it backs."
+          className="hidden w-[200px] shrink-0 lg:block"
+        />
       </div>
 
       {/* Depth */}
@@ -327,8 +336,16 @@ function PoolPage() {
                 strokeWidth={1.75}
               />
             ) : (
-              <div className="flex h-[240px] items-center justify-center text-[13px] text-muted-foreground">
-                {snapshots.isPending ? "Loading pool history…" : "No pool activity yet."}              </div>
+              <div className="flex h-[240px] flex-col items-center justify-center text-[13px] text-muted-foreground">
+                {/* An empty bar chart: the axis is there, the bars aren't yet. */}
+                {!snapshots.isPending && (
+                  <Plot
+                    label="A bar chart with no data: flat tabs where the bars would stand."
+                    className="hairline-on-card w-[180px]"
+                  />
+                )}
+                {snapshots.isPending ? "Loading pool history…" : "No pool activity yet."}
+              </div>
             )}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">

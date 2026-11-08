@@ -1,0 +1,130 @@
+/**
+ * Sides: a two-pan balance on a post. One pan is YES, the other NO, and each
+ * holds coins. The pointer picks a side: coins drop into that pan one after
+ * another, and the beam tips toward it, the pans riding level on its ends (a
+ * Roberval balance). At rest YES holds one coin more, so the beam leans its
+ * way a little. The slider is the beam's tip, in degrees.
+ *
+ * The pattern: one of many (two). Tweens for the choice and the coins, the
+ * coins staggered by their distance from the pan's floor, and a hit test on
+ * the plane at the beam's height, read from the rest pose.
+ */
+const {
+  Cam, circ, clamp, facing, fit, hull, open, poly, prism, proj, rad, ringAt, rings, rrect, run, unproj,
+  tdone, tset, tval, tween, disposer, mk, pointer, put, register, solid,
+} = HL;
+
+const L = 30, PZ = 26, BT = 3, STEM = 5, PR = 12, LIP = 3, CR = 4.6, CK = 1.7, SLOTS = 4;
+const REST_TIP = 3, REST = { yes: 2, no: 1 }, PICK = 2;
+
+function mount({ stage, svg, read }, value) {
+  const bag = disposer();
+  let tipMax = value;
+
+  const C = Cam(45, 0.5, 3);
+  fit(C, [[-18, -L - PR, -4], [18, L + PR, -4], [18, -L - PR, -4], [-18, L + PR, -4], [0, -L, PZ + 30], [0, L, PZ + 30]], 200, 170);
+  const P = proj(C), front = facing(C);
+  const g = mk("g", {}, svg);
+
+  // the base and the post: they never move
+  const [br, bi] = rings(-16, -18, 16, 18, 7, 2);
+  put(solid(g), prism(P, front, br, bi, -4, 0));
+  const [pr, pi] = rings(-3.5, -3.5, 3.5, 3.5, 3.5, 0.8);
+  put(solid(g), prism(P, front, pr, pi, 0, PZ - 1));
+
+  // the beam: a bar along y through the pivot, drawn tilted by hand
+  const beamSil = mk("path", { class: "sil" }, g), beamCr = mk("path", { class: "nf lo" }, g);
+  const bo = rrect(-2.4, -L - 3, 2.4, L + 3, 2.2, 4), bin = rrect(-1.6, -L - 2.2, 1.6, L + 2.2, 1.6, 4);
+
+  // the pans and their coins, far (YES, y < 0) before near (NO): each stands level on a stem
+  const side = (sign) => {
+    const stem = solid(g), pan = solid(g), rim = mk("path", { class: "nf lo" }, g);
+    const coins = [];
+    for (let k = 0; k < SLOTS; k++) coins.push({ el: solid(g), z: tween(12) });
+    return { sign, stem, pan, rim, coins, want: 0 };
+  };
+  const sides = { yes: side(-1), no: side(1) };
+  const panRing = circ(PR, 18), panIn = circ(PR - 1.6, 18), coinRing = circ(CR, 14), coinIn = circ(CR - 0.8, 14);
+  const at = (ring, y) => ring.map((q) => ({ ...q, v: q.v + y }));
+  const [sr, si] = rings(-1.6, -1.6, 1.6, 1.6, 1.6, 0.5);
+
+  const tip = tween(REST_TIP);
+  const drawn = { a: NaN, coins: "" };
+  function draw(now) {
+    const a = tval(tip, now), s = Math.sin(rad(a)), c = Math.cos(rad(a));
+    const coinZ = sides.yes.coins.concat(sides.no.coins).map((k) => tval(k.z, now).toFixed(2)).join();
+    if (a === drawn.a && coinZ === drawn.coins) return;
+    drawn.a = a; drawn.coins = coinZ;
+    // beam: y runs along the bar, which turns about the x axis at the pivot; YES end (y < 0) dips when a > 0
+    const w = (ring, h) => ring.map((q) => P(q.u, q.v * c, PZ + q.v * s + h));
+    beamSil.setAttribute("d", poly(hull(w(bo, 0).concat(w(bo, BT)))));
+    beamCr.setAttribute("d", open(w(run(bin, front), BT)));
+    for (const sd of Object.values(sides)) {
+      const y = sd.sign * L * c, z0 = PZ + BT + sd.sign * L * s;
+      put(sd.stem, prism(P, front, at(sr, y), at(si, y), z0, z0 + STEM));
+      const zp = z0 + STEM;
+      put(sd.pan, prism(P, front, at(panRing, y), at(panIn, y), zp, zp + LIP));
+      sd.rim.setAttribute("d", poly(ringAt(P, at(panIn, y), zp + LIP)));
+      sd.coins.forEach((k, i) => {
+        const lift = tval(k.z, now);
+        if (lift >= 11.9) { k.el.sil.setAttribute("d", ""); k.el.cr.setAttribute("d", ""); return; }
+        const zc = zp + 0.6 + i * CK + lift;
+        put(k.el, prism(P, front, at(coinRing, y), at(coinIn, y), zc, zc + CK - 0.3));
+      });
+    }
+  }
+
+  const B = register(stage, (_dt, now) => {
+    draw(now);
+    let moving = !tdone(tip, now);
+    for (const sd of Object.values(sides)) for (const k of sd.coins) if (!tdone(k.z, now)) moving = true;
+    return moving;
+  });
+  bag.add(B.unregister);
+
+  /** How many coins each pan holds, and which side is picked (null at rest). */
+  let picked;
+  function pick(p) {
+    if (p === picked) return;
+    picked = p;
+    const now = performance.now();
+    for (const [name, sd] of Object.entries(sides)) {
+      const n = REST[name] + (p === name ? PICK : 0);
+      // coins land bottom up and leave top down: the stagger runs from the pan's floor
+      sd.coins.forEach((k, i) => tset(k.z, i < n ? 0 : 12, now, (i < n ? i : SLOTS - i) * 60));
+      const lit = p === name;
+      sd.pan.sil.classList.toggle("hi", lit);
+      sd.coins.forEach((k) => k.el.sil.classList.toggle("hi", lit));
+    }
+    beamSil.classList.toggle("hi", p === null);
+    tset(tip, p === "yes" ? tipMax : p === "no" ? -tipMax : REST_TIP, now, 0);
+    read.textContent = p ?? "rest";
+    B.wake();
+  }
+
+  // the pans stand high, so the pointer is read on the plane at the beam's height
+  bag.add(pointer(stage, {
+    move: (p) => {
+      const [x, y] = unproj(C, p[0], p[1], PZ);
+      if (Math.abs(x) > PR + 10 || Math.abs(y) > L + PR + 8 || Math.abs(y) < 4) return pick(null);
+      pick(y < 0 ? "yes" : "no");
+    },
+    leave: () => pick(null),
+  }));
+  pick(null);
+  bag.add(() => svg.replaceChildren());
+
+  return {
+    set: (v) => { tipMax = clamp(v, 0, 20); if (picked) { tset(tip, picked === "yes" ? tipMax : -tipMax, performance.now(), 0); B.wake(); } },
+    destroy: bag.dispose,
+  };
+}
+
+hairline({
+  name: "sides",
+  means: "A two-pan balance: coins drop into the side the pointer picks, and the beam tips toward it.",
+  rules: [1, 2, 5, 8],
+  range: [6, 10, 14],
+  tour: [[264, 122], [136, 186], null],
+  mount,
+});

@@ -30,6 +30,8 @@ jobs:
         run: node scripts/check-writes.mjs
       - name: App queries vs the indexer schema
         run: node scripts/check-indexer-fields.mjs
+      - name: Hairline figure modules match app/hairline sources
+        run: node scripts/sync-hairline.mjs --check
       # check-routes.mjs needs the dev server plus a live indexer; run it where
       # those services exist (it is a no-op failure otherwise). Enable with:
       #   RUN_ROUTE_SMOKE=1 and an INDEXER_URL secret.

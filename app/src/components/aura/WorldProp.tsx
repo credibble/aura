@@ -10,23 +10,6 @@ export const PROP_SIZE = 150;
  * never out-shout a market.
  */
 const ART: Record<WorldPropKind, ReactNode> = {
-  pine: (
-    <>
-      <rect x="29" y="50" width="6" height="12" rx="1.5" fill="#5B4331" />
-      <path d="M32 6 L49 34 H15 Z" fill="#2F5D45" />
-      <path d="M32 18 L53 50 H11 Z" fill="#285039" />
-      <path d="M32 6 L41 21 H32 Z" fill="#3B7055" opacity="0.8" />
-    </>
-  ),
-  tree: (
-    <>
-      <rect x="29" y="40" width="6" height="22" rx="2" fill="#5B4331" />
-      <circle cx="32" cy="27" r="17" fill="#3A6B4C" />
-      <circle cx="22" cy="33" r="10" fill="#335F43" />
-      <circle cx="42" cy="32" r="11" fill="#335F43" />
-      <circle cx="27" cy="20" r="7" fill="#467D5B" opacity="0.85" />
-    </>
-  ),
   bush: (
     <>
       <ellipse cx="32" cy="55" rx="20" ry="8" fill="#335F43" />

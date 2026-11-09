@@ -142,7 +142,7 @@ const DISTRICT_BY_ID = Object.fromEntries(DISTRICTS.map((d) => [d.id, d])) as Re
 // ARCHETYPE — a coin, a bot, a footballer, a singer, a cat, a car … — one
 // per HANDLE, chosen by its primary category (iconic brands get their object
 // by name) and hashed from the handle id. The ground is the site's background
-// colour; scenery (trees, bushes, lamps, rocks) is planted only where no
+// colour; scenery (bushes, lamps, rocks) is planted only where no
 // villager can stand — the padding ring and the district corners outside the
 // plot disc — so props never hide a market.
 // ----------------------------------------------------------------------------
@@ -253,7 +253,7 @@ export function layoutWorld(assets: LiveAsset[]): WorldPlotData[] {
 // ----------------------------------------------------------------------------
 // Scenery — deterministic, data-free props so the floor reads as a place.
 // ----------------------------------------------------------------------------
-export type WorldPropKind = "pine" | "tree" | "bush" | "lamp" | "rock";
+export type WorldPropKind = "bush" | "lamp" | "rock";
 export type WorldPropData = {
   id: string;
   kind: WorldPropKind;
@@ -264,13 +264,14 @@ export type WorldPropData = {
   scale: number;
 };
 
-const PAD_KINDS: WorldPropKind[] = ["pine", "pine", "tree", "tree", "bush", "bush", "rock"];
-const CORNER_KINDS: WorldPropKind[] = ["lamp", "bush", "tree", "lamp"];
+// No trees: they stood tall enough to read as clutter over the districts.
+const PAD_KINDS: WorldPropKind[] = ["bush", "bush", "rock"];
+const CORNER_KINDS: WorldPropKind[] = ["lamp", "bush", "lamp"];
 /** Props per padding cell. */
 const PROPS_PER_PAD = 4;
 
 /**
- * Every prop on the map. Padding cells get a small hashed grove (a jittered
+ * Every prop on the map. Padding cells get a small hashed cluster (a jittered
  * 2×2 grid, so nothing piles up); each district gets a prop in three of its
  * corners — never the top-left, where its name pill sits — which is outside
  * the plot disc, so a prop never stands on a villager.
